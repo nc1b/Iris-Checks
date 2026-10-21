@@ -1,6 +1,7 @@
 'use client'
 import { Activity, Bot, Check, CheckCircle2, ScanEye, Sun } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import IPhoneMockup from '@/components/ui/iphone-mockup'
 import { cn } from '@/lib/utils'
 
 /**
@@ -17,6 +18,9 @@ const steps = [
 ] as const
 
 const STEP_MS = 3800
+// iPhone 15 Pro mockup (393×852 screen), shown at 70%.
+const PHONE_SCALE = 0.7
+const CONTENT_ZOOM = 393 / 270
 
 export function AppTeaser() {
     const [step, setStep] = useState(0)
@@ -53,27 +57,32 @@ export function AppTeaser() {
                 <div
                     className="relative transition-transform duration-300 ease-out motion-safe:animate-[teaser-float_6s_ease-in-out_infinite]"
                     style={{ transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)` }}>
-                    {/* phone */}
-                    <div className="relative h-[580px] w-[290px] rounded-[3rem] border-[10px] border-neutral-900 bg-neutral-950 shadow-2xl shadow-black/40 ring-1 ring-neutral-700 dark:border-neutral-800">
-                        <div className="absolute left-1/2 top-2 z-30 h-6 w-24 -translate-x-1/2 rounded-full bg-black" />
-                        <div className="relative h-full w-full overflow-hidden rounded-[2.3rem] bg-black text-white">
-                            <StatusBar />
-                            <Screen active={step === 0}>
-                                <AlignScreen />
-                            </Screen>
-                            <Screen active={step === 1}>
-                                <FlashScreen active={step === 1} />
-                            </Screen>
-                            <Screen active={step === 2}>
-                                <CurveScreen active={step === 2} />
-                            </Screen>
-                            <Screen active={step === 3}>
-                                <ResultScreen />
-                            </Screen>
-                            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex justify-center pb-2">
-                                <div className="h-1 w-28 rounded-full bg-white/60" />
+                    {/* phone: the mockup is drawn at real iPhone size and zoomed down (zoom, unlike its
+                        `scale` transform, also shrinks the space it takes up, so nothing overflows) */}
+                    <div className="flex">
+                        <IPhoneMockup
+                            model="15-pro"
+                            color="space-black"
+                            safeArea={false}
+                            shadow="0 40px 80px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.08)"
+                            style={{ zoom: PHONE_SCALE }}>
+                            {/* Screens are laid out at 270px wide and zoomed to fill the 393px screen. */}
+                            <div className="relative overflow-hidden text-white" style={{ width: 270, height: 852 / CONTENT_ZOOM, zoom: CONTENT_ZOOM }}>
+                                <StatusBar />
+                                <Screen active={step === 0}>
+                                    <AlignScreen />
+                                </Screen>
+                                <Screen active={step === 1}>
+                                    <FlashScreen active={step === 1} />
+                                </Screen>
+                                <Screen active={step === 2}>
+                                    <CurveScreen active={step === 2} />
+                                </Screen>
+                                <Screen active={step === 3}>
+                                    <ResultScreen />
+                                </Screen>
                             </div>
-                        </div>
+                        </IPhoneMockup>
                     </div>
 
                     <span className="absolute -right-4 top-10 z-30 rotate-6 rounded-full border bg-background px-3 py-1 text-xs font-semibold text-foreground shadow-lg">

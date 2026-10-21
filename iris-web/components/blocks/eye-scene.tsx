@@ -3,11 +3,13 @@ import { useEffect, useRef } from 'react'
 
 /**
  * Interactive 3D eye built with three.js (no external model files):
- * - a glossy eyeball with a procedurally drawn grayscale iris and a bulging, see-through cornea
- * - dark eyelid shells that give it an almond shape and blink every few seconds
+ * - a full, wet-looking eyeball: veined sclera, a detailed blue-gray iris and a bulging,
+ *   see-through cornea with a glossy highlight
  * - it looks at your cursor (or your finger) and glances around on its own when idle
  * - `flashSignal` changes → the pupil does a real light reflex: a short delay, a fast
  *   squeeze, then a slow relax back
+ *
+ * The rest of the site is black and white. Set EYE_PALETTE to 'mono' for a grayscale eye.
  */
 
 type Props = {
@@ -18,11 +20,36 @@ type Props = {
     onPupilChange?: (size: number) => void
 }
 
+const EYE_PALETTE: 'color' | 'mono' = 'color'
+
 const IRIS_ANGLE = 0.6 // angular radius of the iris on the eyeball (radians)
 const PUPIL_REST = 0.46 // dilated: the scene is dark
 const PUPIL_LIT = 0.2 // constricted after a flash
 const REFLEX_DELAY = 0.25 // seconds before the pupil starts to react
 const REFLEX_HOLD = 0.6 // seconds the light "stays on" for the pupil
+
+const palettes = {
+    color: {
+        // pupil edge → collarette → mid iris → limbal ring
+        iris: ['#14100c', '#4a4136', '#5d7384', '#8fa6b5', '#a9bac4', '#7d93a3', '#5c7183', '#2c3946', '#0b1016'],
+        fibreLight: '214,228,236',
+        fibreDark: '12,22,32',
+        // front (around the iris) → back of the eye
+        sclera: ['#f7ece8', '#f0d8d1', '#e8bfb6', '#dc9f96', '#c47f78'],
+        vein: '168,28,34',
+    },
+    mono: {
+        iris: ['#202020', '#3a3a3a', '#4a4a4a', '#9a9a9a', '#b8b8b8', '#8c8c8c', '#6e6e6e', '#3a3a3a', '#0c0c0c'],
+        fibreLight: '235,235,235',
+        fibreDark: '10,10,10',
+        sclera: ['#f4f4f4', '#ececec', '#dedede', '#cfcfcf', '#bdbdbd'],
+        vein: '90,90,90',
+    },
+}[EYE_PALETTE]
+
+function seeded(seed: number) {
+    return () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
+}
 
 function drawIrisTexture(size = 1024) {
     // Polar layout: x = angle around the pupil, y = distance (top = pupil, bottom = edge of the iris).
@@ -32,29 +59,21 @@ function drawIrisTexture(size = 1024) {
     c.width = w
     c.height = h
     const g = c.getContext('2d')!
-    let seed = 42
-    const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
+    const rand = seeded(42)
 
     const base = g.createLinearGradient(0, 0, 0, h)
-    base.addColorStop(0, '#202020')
-    base.addColorStop(0.18, '#4a4a4a')
-    base.addColorStop(0.33, '#9a9a9a')
-    base.addColorStop(0.38, '#b8b8b8') // collarette
-    base.addColorStop(0.45, '#8c8c8c')
-    base.addColorStop(0.8, '#6e6e6e')
-    base.addColorStop(0.92, '#3a3a3a')
-    base.addColorStop(1, '#0c0c0c') // limbal ring
+    ;[0, 0.14, 0.24, 0.33, 0.38, 0.47, 0.8, 0.92, 1].forEach((stop, i) => base.addColorStop(stop, palettes.iris[i]))
     g.fillStyle = base
     g.fillRect(0, 0, w, h)
 
     // Radial fibres (vertical strokes in polar space).
-    for (let i = 0; i < 2200; i++) {
+    for (let i = 0; i < 2600; i++) {
         const x = rand() * w
-        const y0 = h * (0.12 + rand() * 0.3)
+        const y0 = h * (0.1 + rand() * 0.3)
         const y1 = h * (0.55 + rand() * 0.42)
         const drift = (rand() - 0.5) * 18
-        const light = rand() > 0.55
-        g.strokeStyle = light ? `rgba(235,235,235,${0.05 + rand() * 0.16})` : `rgba(10,10,10,${0.06 + rand() * 0.2})`
+        const light = rand() > 0.5
+        g.strokeStyle = light ? `rgba(${palettes.fibreLight},${0.05 + rand() * 0.18})` : `rgba(${palettes.fibreDark},${0.06 + rand() * 0.22})`
         g.lineWidth = 0.6 + rand() * 1.8
         g.beginPath()
         g.moveTo(x, y0)
@@ -63,21 +82,104 @@ function drawIrisTexture(size = 1024) {
     }
 
     // Crypts: small dark pits around the collarette.
-    for (let i = 0; i < 90; i++) {
+    for (let i = 0; i < 110; i++) {
         const x = rand() * w
-        const y = h * (0.36 + rand() * 0.25)
-        g.fillStyle = `rgba(0,0,0,${0.18 + rand() * 0.25})`
+        const y = h * (0.34 + rand() * 0.28)
+        g.fillStyle = `rgba(${palettes.fibreDark},${0.2 + rand() * 0.3})`
         g.beginPath()
         g.ellipse(x, y, 2 + rand() * 7, 6 + rand() * 16, 0, 0, Math.PI * 2)
         g.fill()
     }
 
-    // Soft ring at the pupil edge.
+    // Wavy collarette ring.
+    g.strokeStyle = `rgba(${palettes.fibreLight},0.35)`
+    g.lineWidth = 3
+    g.beginPath()
+    for (let x = 0; x <= w; x += 4) {
+        const y = h * (0.36 + 0.025 * Math.sin(x * 0.05) + 0.015 * Math.sin(x * 0.013 + 1))
+        if (x === 0) g.moveTo(x, y)
+        else g.lineTo(x, y)
+    }
+    g.stroke()
+
+    // Soft ring at the pupil edge and a dark limbal ring at the outside.
     const ruff = g.createLinearGradient(0, 0, 0, h * 0.2)
     ruff.addColorStop(0, 'rgba(0,0,0,0.9)')
     ruff.addColorStop(1, 'rgba(0,0,0,0)')
     g.fillStyle = ruff
     g.fillRect(0, 0, w, h * 0.2)
+    const limbus = g.createLinearGradient(0, h * 0.86, 0, h)
+    limbus.addColorStop(0, 'rgba(0,0,0,0)')
+    limbus.addColorStop(1, 'rgba(0,0,0,0.75)')
+    g.fillStyle = limbus
+    g.fillRect(0, h * 0.86, w, h * 0.14)
+    return c
+}
+
+function drawScleraTexture(w = 2048, h = 1024) {
+    // Same polar layout over the whole ball: top = front (under the iris), bottom = back of the eye.
+    const c = document.createElement('canvas')
+    c.width = w
+    c.height = h
+    const g = c.getContext('2d')!
+    const rand = seeded(7)
+
+    const base = g.createLinearGradient(0, 0, 0, h)
+    ;[0, 0.28, 0.42, 0.6, 1].forEach((stop, i) => base.addColorStop(stop, palettes.sclera[i]))
+    g.fillStyle = base
+    g.fillRect(0, 0, w, h)
+
+    // Blotchy pink/white variation.
+    for (let i = 0; i < 260; i++) {
+        const x = rand() * w
+        const y = h * (0.2 + rand() * 0.8)
+        const r = 20 + rand() * 90
+        const grad = g.createRadialGradient(x, y, 0, x, y, r)
+        grad.addColorStop(0, rand() > 0.4 ? `rgba(${palettes.vein},0.06)` : 'rgba(255,255,255,0.12)')
+        grad.addColorStop(1, 'rgba(0,0,0,0)')
+        g.fillStyle = grad
+        g.fillRect(x - r, y - r, r * 2, r * 2)
+    }
+
+    // Veins: wandering, branching lines that start at the back and thin out toward the iris.
+    g.lineCap = 'round'
+    const vein = (x: number, y: number, width: number, depth: number) => {
+        let angle = -Math.PI / 2 + (rand() - 0.5) * 0.9
+        const steps = 30 + Math.floor(rand() * 50)
+        for (let s = 0; s < steps && width > 0.35 && y > h * 0.16; s++) {
+            const len = 6 + rand() * 10
+            const nx = x + Math.cos(angle) * len * 1.6
+            const ny = y + Math.sin(angle) * len
+            const fade = Math.min(1, Math.max(0, (ny / h - 0.17) / 0.15)) // fade out near the iris
+            g.strokeStyle = `rgba(${palettes.vein},${(0.5 + 0.45 * Math.min(1, width / 3)) * fade})`
+            g.lineWidth = width
+            g.beginPath()
+            g.moveTo(x, y)
+            g.lineTo(nx, ny)
+            g.stroke()
+            x = nx
+            y = ny
+            angle = Math.max(-Math.PI + 0.3, Math.min(-0.3, angle + (rand() - 0.5) * 0.7)) // keep heading to the front
+            width *= 0.965
+            if (depth < 3 && rand() < 0.09) vein(x, y, width * 0.65, depth + 1)
+        }
+    }
+    for (let i = 0; i < 60; i++) vein(rand() * w, h * (0.42 + rand() * 0.45), 3 + rand() * 3.5, 0)
+    for (let i = 0; i < 110; i++) vein(rand() * w, h * (0.28 + rand() * 0.22), 1.1 + rand() * 1.3, 2) // fine capillaries
+    return c
+}
+
+function drawGlint(size = 128) {
+    const c = document.createElement('canvas')
+    c.width = c.height = size
+    const g = c.getContext('2d')!
+    const grad = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
+    grad.addColorStop(0, 'rgba(255,255,255,1)')
+    grad.addColorStop(0.35, 'rgba(255,255,255,0.85)')
+    grad.addColorStop(0.6, 'rgba(255,255,255,0.18)')
+    grad.addColorStop(1, 'rgba(255,255,255,0)')
+    g.fillStyle = grad
+    g.fillRect(0, 0, size, size)
     return c
 }
 
@@ -130,10 +232,10 @@ export function EyeScene({ className, flashSignal, onPupilChange }: Props) {
             scene.environmentIntensity = 0.7
 
             const key = new THREE.DirectionalLight(0xffffff, 1.6)
-            key.position.set(-2.5, 3, 4)
+            key.position.set(2.6, 3, 4) // top right, like the highlight
             scene.add(key)
             const rim = new THREE.DirectionalLight(0xffffff, 0.8)
-            rim.position.set(3, -1, -2)
+            rim.position.set(-3, -1, -2)
             scene.add(rim)
             scene.add(new THREE.AmbientLight(0xffffff, 0.15))
 
@@ -141,8 +243,14 @@ export function EyeScene({ className, flashSignal, onPupilChange }: Props) {
             const eye = new THREE.Group()
             scene.add(eye)
 
-            const scleraGeo = new THREE.SphereGeometry(1, 96, 64)
-            const scleraMat = new THREE.MeshPhysicalMaterial({ color: 0xf2f2f2, roughness: 0.42, clearcoat: 0.4, clearcoatRoughness: 0.3, sheen: 0.4 })
+            const scleraTex = new THREE.CanvasTexture(drawScleraTexture())
+            scleraTex.colorSpace = THREE.SRGBColorSpace
+            scleraTex.wrapS = THREE.RepeatWrapping
+            scleraTex.anisotropy = renderer.capabilities.getMaxAnisotropy()
+            const scleraGeo = new THREE.SphereGeometry(1, 128, 96)
+            scleraGeo.rotateX(Math.PI / 2) // the texture's top (the pole) faces the camera, under the iris
+            // Wet surface: a glossy clear coat over a soft pinkish white.
+            const scleraMat = new THREE.MeshPhysicalMaterial({ map: scleraTex, roughness: 0.5, clearcoat: 1, clearcoatRoughness: 0.12, sheen: 0.3, sheenColor: 0xffe4e0 })
             eye.add(new THREE.Mesh(scleraGeo, scleraMat))
 
             const irisTex = new THREE.CanvasTexture(drawIrisTexture())
@@ -184,50 +292,28 @@ export function EyeScene({ className, flashSignal, onPupilChange }: Props) {
                 roughness: 0.02,
                 specularIntensity: 1,
                 transparent: true,
-                envMapIntensity: 0.12, // keep the pupil black: just a crisp highlight, not a milky reflection
+                // Its own env map so the intensity applies (scene.environment ignores it): almost no room
+                // reflection over the pupil; the glint below is the highlight.
+                envMap: envTex,
+                envMapIntensity: 0.03,
             })
             eye.add(new THREE.Mesh(corneaGeo, corneaMat))
 
-            // ----- eyelids: an almond-shaped opening drawn in front of the eye -----
-            // A card-coloured plane with a soft almond hole (and a shadow under the upper lid).
-            // It fades out away from the eye so the background grid still shows.
-            const LID_Z = 1.26
-            const lid = {
-                uOpen: { value: 1 },
-                uOffset: { value: 0 },
-                uK: { value: 1 },
+            // Glossy window reflection, top right. Reflections stay put relative to the light, so the
+            // glint doesn't rotate with the eye; it fades when the cornea turns away from under it.
+            const glintTex = new THREE.CanvasTexture(drawGlint())
+            const glintMat = new THREE.SpriteMaterial({ map: glintTex, transparent: true, depthTest: false, blending: THREE.AdditiveBlending })
+            const glint = new THREE.Sprite(glintMat)
+            const glintDir = new THREE.Vector3(0.3, 0.36, 1).normalize()
+            glint.position.copy(glintDir).multiplyScalar(1.12)
+            glint.scale.set(0.3, 0.22, 1)
+            glint.renderOrder = 5
+            scene.add(glint)
+            const gaze = new THREE.Vector3()
+            const placeGlint = () => {
+                gaze.set(0, 0, 1).applyEuler(eye.rotation)
+                glintMat.opacity = 0.9 * THREE.MathUtils.smoothstep(gaze.dot(glintDir), 0.8, 0.93)
             }
-            const updateLidScale = () => {
-                lid.uK.value = camera.position.z / (camera.position.z - LID_Z)
-            }
-            updateLidScale()
-            const lidMat = new THREE.ShaderMaterial({
-                transparent: true,
-                depthWrite: false,
-                uniforms: { ...lid, uColor: { value: new THREE.Color(10 / 255, 10 / 255, 10 / 255) } },
-                vertexShader: `varying vec2 vPos; void main(){ vPos = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-                fragmentShader: `
-                    varying vec2 vPos;
-                    uniform float uOpen; uniform float uOffset; uniform float uK; uniform vec3 uColor;
-                    void main() {
-                        // Work in "eyeball units": the plane sits in front of the eye, so scale by perspective.
-                        vec2 p = vPos * uK;
-                        float w = 0.98, h = 0.6;
-                        float x = p.x / w;
-                        float y = p.y - uOffset;
-                        float opening = h * uOpen * pow(max(0.0, 1.0 - x * x), 0.8);
-                        float d = abs(y) - opening;
-                        float lidA = smoothstep(-0.015, 0.015, d);
-                        float shade = y > 0.0 ? smoothstep(-0.26, 0.0, d) * 0.6 : smoothstep(-0.1, 0.0, d) * 0.35;
-                        float a = max(lidA, shade);
-                        a *= 1.0 - smoothstep(1.08, 1.45, length(p));
-                        gl_FragColor = vec4(uColor, a);
-                    }`,
-            })
-            const lidMesh = new THREE.Mesh(new THREE.PlaneGeometry(4, 4), lidMat)
-            lidMesh.position.z = LID_Z
-            lidMesh.renderOrder = 10
-            scene.add(lidMesh)
 
             // ----- interaction -----
             const target = { x: 0, y: 0 }
@@ -251,8 +337,6 @@ export function EyeScene({ className, flashSignal, onPupilChange }: Props) {
             // ----- animation loop (only while on screen) -----
             const clock = new THREE.Clock()
             let nextGlance = 0
-            let nextBlink = 2 + Math.random() * 3
-            let blinkStart = -1
             let lastReport = 0
             let visible = true
             let frame = 0
@@ -283,20 +367,7 @@ export function EyeScene({ className, flashSignal, onPupilChange }: Props) {
                 const tau = goal < pupil.value ? 0.12 : 1.1
                 pupil.value += (goal - pupil.value) * (1 - Math.exp(-dt / tau))
 
-                // Blink (lids also follow the gaze a little).
-                if (!reduceMotion && t > nextBlink && blinkStart < 0) blinkStart = t
-                let closed = 0
-                if (blinkStart >= 0) {
-                    const p = (t - blinkStart) / 0.22
-                    closed = p < 0.5 ? p * 2 : Math.max(0, 2 - p * 2)
-                    if (p >= 1) {
-                        blinkStart = -1
-                        nextBlink = t + 2.5 + Math.random() * 4
-                    }
-                }
-                lid.uOpen.value = 1 - closed
-                lid.uOffset.value = -look.y * 0.12
-
+                placeGlint()
                 renderer.render(scene, camera)
 
                 if (onPupilRef.current && now - lastReport > 100) {
@@ -323,7 +394,6 @@ export function EyeScene({ className, flashSignal, onPupilChange }: Props) {
                 // Pull back on narrow, tall containers so the eye always fits.
                 camera.position.z = camera.aspect < 1 ? 5.4 / camera.aspect : 5.4
                 camera.updateProjectionMatrix()
-                updateLidScale()
             })
             ro.observe(mount)
 
@@ -338,8 +408,8 @@ export function EyeScene({ className, flashSignal, onPupilChange }: Props) {
                     const m = o as import('three').Mesh
                     if (m.geometry) m.geometry.dispose()
                 })
-                ;[scleraMat, irisMat, corneaMat, lidMat].forEach((m) => m.dispose())
-                irisTex.dispose()
+                ;[scleraMat, irisMat, corneaMat, glintMat].forEach((m) => m.dispose())
+                ;[irisTex, scleraTex, glintTex].forEach((t) => t.dispose())
                 envTex.dispose()
                 pmrem.dispose()
                 renderer.dispose()
