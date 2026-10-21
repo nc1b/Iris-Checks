@@ -1,6 +1,9 @@
-import { BookOpen, Clock, ExternalLink, Lock, ScanEye, Smartphone, Sun } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, BookOpen, Building2, Clock, GraduationCap, HeartHandshake, Lock, ScanEye, Smartphone, Stethoscope, Sun } from "lucide-react";
 import { HeroSection } from "@/components/blocks/hero-section-6";
-import { STUDIES } from "@/lib/reference";
+import { SiteFooter } from "@/components/blocks/site-footer";
+import { Reveal } from "@/components/motion/reveal";
+import { Button } from "@/components/ui/button";
 
 const steps = [
   {
@@ -20,40 +23,50 @@ const steps = [
   },
 ];
 
+const supporterTypes = [
+  { icon: Stethoscope, title: "Clinics and eye doctors", body: "Advice on safe testing and checking our results against clinic devices." },
+  { icon: GraduationCap, title: "Schools and mentors", body: "Guidance from teachers, engineers and researchers as we build and test." },
+  { icon: Building2, title: "Local organizations", body: "Help reaching people who could benefit from a free eye check." },
+];
+
 export default function Home() {
   return (
     <HeroSection>
-      <section id="how-it-works" className="scroll-mt-20 border-t">
-        <div className="mx-auto max-w-5xl px-6 py-20">
-          <p className="text-sm font-medium uppercase tracking-widest text-muted-foreground">How it will work</p>
-          <h2 className="mt-3 max-w-xl text-balance text-3xl font-bold md:text-4xl">A 10-second check, planned for any phone</h2>
-          <div className="mt-10 grid gap-4 md:grid-cols-3">
+      <section id="how-it-works" className="scroll-mt-24 border-t">
+        <div className="mx-auto max-w-5xl px-6 py-24">
+          <Reveal>
+            <p className="text-sm font-medium uppercase tracking-widest text-muted-foreground">How it will work</p>
+            <h2 className="mt-3 max-w-xl text-balance text-3xl font-bold md:text-4xl">A 10-second check, planned for any phone</h2>
+          </Reveal>
+          <div className="relative mt-12 grid gap-4 md:grid-cols-3">
+            <div aria-hidden className="absolute left-0 right-0 top-[2.6rem] hidden h-px bg-border md:block" />
             {steps.map(({ icon: Icon, title, body }, i) => (
-              <div key={title} className="rounded-2xl border bg-card p-6">
-                <div className="flex items-center gap-3">
-                  <span className="flex size-9 items-center justify-center rounded-full border">
-                    <Icon className="size-4" />
-                  </span>
-                  <span className="text-sm text-muted-foreground">Step {i + 1}</span>
+              <Reveal key={title} delay={i * 150}>
+                <div className="group relative h-full rounded-2xl border bg-card p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-black/5 dark:hover:shadow-white/5">
+                  <div className="flex items-center gap-3">
+                    <span className="flex size-9 items-center justify-center rounded-full border bg-background transition-colors duration-300 group-hover:bg-foreground group-hover:text-background">
+                      <Icon className="size-4" />
+                    </span>
+                    <span className="text-sm text-muted-foreground">Step {i + 1}</span>
+                  </div>
+                  <h3 className="mt-4 font-semibold">{title}</h3>
+                  <p className="mt-2 text-sm text-muted-foreground">{body}</p>
                 </div>
-                <h3 className="mt-4 font-semibold">{title}</h3>
-                <p className="mt-2 text-sm text-muted-foreground">{body}</p>
-              </div>
+              </Reveal>
             ))}
           </div>
         </div>
       </section>
 
-      <section id="coming-soon" className="scroll-mt-20 border-t bg-muted/40">
-        <div className="mx-auto grid max-w-5xl items-center gap-10 px-6 py-20 md:grid-cols-2">
-          <div>
+      <section id="coming-soon" className="scroll-mt-24 border-t bg-muted/40">
+        <div className="mx-auto grid max-w-5xl items-center gap-10 px-6 py-24 md:grid-cols-2">
+          <Reveal effect="left">
             <span className="inline-flex items-center gap-2 rounded-full border bg-background px-3 py-1 text-xs font-medium">
               <Clock className="size-3.5" /> Coming soon
             </span>
             <h2 className="mt-5 text-balance text-3xl font-bold md:text-4xl">Eye scanning is coming soon</h2>
             <p className="mt-4 text-muted-foreground">
               We&apos;re testing the scan on real phones and checking our measurements against published studies before anyone can use it.
-              Accounts and sign-up will open when it&apos;s ready.
             </p>
             <ul className="mt-6 space-y-3 text-sm">
               <li className="flex items-start gap-3">
@@ -69,51 +82,69 @@ export default function Home() {
                 Testing in progress, not available yet
               </li>
             </ul>
-          </div>
-          <figure className="overflow-hidden rounded-3xl border">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="https://images.unsplash.com/photo-1643325904565-065f1bf68448?w=1200&q=80&auto=format&fit=crop"
-              alt="A woman in a scarf looking closely at her phone screen"
-              width={1200}
-              height={1500}
-              className="aspect-[4/5] w-full object-cover grayscale"
-            />
-          </figure>
+            <Button asChild variant="outline" className="mt-8">
+              <Link href="/research">
+                Read the research <ArrowRight className="ml-2 size-4" />
+              </Link>
+            </Button>
+          </Reveal>
+          <Reveal effect="zoom" delay={150}>
+            <figure className="group overflow-hidden rounded-3xl border">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="https://images.unsplash.com/photo-1643325904565-065f1bf68448?w=1200&q=80&auto=format&fit=crop"
+                alt="A woman in a scarf looking closely at her phone screen"
+                width={1200}
+                height={1500}
+                className="aspect-[4/5] w-full object-cover grayscale transition-transform duration-700 group-hover:scale-105"
+              />
+            </figure>
+          </Reveal>
         </div>
       </section>
 
-      <section id="research" className="scroll-mt-20 border-t">
-        <div className="mx-auto max-w-5xl px-6 py-20">
-          <p className="text-sm font-medium uppercase tracking-widest text-muted-foreground">Research</p>
-          <h2 className="mt-3 max-w-xl text-balance text-3xl font-bold md:text-4xl">Built on published eye research</h2>
-          <ul className="mt-10 grid gap-4 md:grid-cols-2">
-            {STUDIES.map((s) => (
-              <li key={s.id} className="rounded-2xl border bg-card p-6">
-                <a href={s.url} target="_blank" rel="noreferrer" className="inline-flex items-start gap-2 font-semibold hover:underline">
-                  {s.title}
-                  <ExternalLink className="mt-1 size-3.5 shrink-0" />
-                </a>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {s.journal}
-                  {s.year ? ` · ${s.year}` : ""}
-                </p>
-                <p className="mt-3 text-sm text-muted-foreground">{s.finding}</p>
-              </li>
+      <section id="supporters" className="scroll-mt-24 border-t">
+        <div className="mx-auto max-w-5xl px-6 py-24">
+          <Reveal className="max-w-2xl">
+            <p className="text-sm font-medium uppercase tracking-widest text-muted-foreground">Sponsors and supporters</p>
+            <h2 className="mt-3 text-balance text-3xl font-bold md:text-4xl">Help us bring eye checks to every phone</h2>
+            <p className="mt-4 text-muted-foreground">
+              Iris is a student project and we&apos;re looking for our first sponsors and supporters. Your name or logo could be here.
+            </p>
+          </Reveal>
+
+          <div className="mt-12 grid grid-cols-2 gap-4 md:grid-cols-4">
+            {[0, 1, 2, 3].map((i) => (
+              <Reveal key={i} effect="zoom" delay={i * 100}>
+                <div className="flex aspect-[3/2] items-center justify-center rounded-2xl border border-dashed border-foreground/25 text-center text-sm text-muted-foreground transition-colors duration-300 hover:border-foreground hover:text-foreground">
+                  <span className="flex flex-col items-center gap-2">
+                    <HeartHandshake className="size-5" />
+                    Your logo here
+                  </span>
+                </div>
+              </Reveal>
             ))}
-          </ul>
+          </div>
+
+          <div className="mt-12 grid gap-4 md:grid-cols-3">
+            {supporterTypes.map(({ icon: Icon, title, body }, i) => (
+              <Reveal key={title} delay={i * 120}>
+                <div className="h-full rounded-2xl border bg-card p-6">
+                  <Icon className="size-5" />
+                  <h3 className="mt-4 font-semibold">{title}</h3>
+                  <p className="mt-2 text-sm text-muted-foreground">{body}</p>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+
+          <Reveal className="mt-10">
+            <p className="text-sm text-muted-foreground">Interested in supporting Iris? Contact details for the team are coming soon.</p>
+          </Reveal>
         </div>
       </section>
 
-      <footer id="about" className="scroll-mt-20 border-t">
-        <div className="mx-auto max-w-5xl px-6 py-12 text-sm text-muted-foreground">
-          <p className="font-semibold text-foreground">About Iris</p>
-          <p className="mt-2 max-w-2xl">
-            Iris is a student project for Samsung Solve for Tomorrow 2026–27. It is not a medical device and does not diagnose any condition.
-            If you&apos;re worried about your eyes or your health, talk to a doctor.
-          </p>
-        </div>
-      </footer>
+      <SiteFooter />
     </HeroSection>
   );
 }

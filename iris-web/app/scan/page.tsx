@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SiteNav } from "@/components/blocks/site-nav";
 
 export const metadata: Metadata = {
   title: "Eye scan · Coming soon · Iris",
@@ -10,7 +11,9 @@ export const metadata: Metadata = {
 // The scanner (components/scanner) is kept in the codebase but switched off until it has been tested on real phones.
 export default function ScanPage() {
   return (
-    <main className="flex flex-1 items-center justify-center px-6 py-24">
+    <>
+    <SiteNav />
+    <main className="flex flex-1 items-center justify-center px-6 pb-24 pt-36">
       <div className="max-w-md text-center">
         <span className="mx-auto flex size-12 items-center justify-center rounded-full border">
           <Clock className="size-5" />
@@ -26,5 +29,6 @@ export default function ScanPage() {
         </Button>
       </div>
     </main>
+    </>
   );
 }
