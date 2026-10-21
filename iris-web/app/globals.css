@@ -142,7 +142,8 @@
 
   body {
     background: var(--color-background);
-    color: var(--color-foreground);  }
+    color: var(--color-foreground);
+  }
 
   a {
     text-underline-offset: 4px;
