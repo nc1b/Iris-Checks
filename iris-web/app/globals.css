@@ -87,6 +87,46 @@
   }
 }
 
+/* Spinner used by the Spline scene's loading fallback (components/ui/splite.tsx). */
+.loader {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  border: 2px solid color-mix(in oklab, currentColor 20%, transparent);
+  border-top-color: currentColor;
+  animation: loader-spin 0.8s linear infinite;
+}
+
+@keyframes loader-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* App teaser (components/blocks/app-teaser.tsx) */
+@keyframes teaser-float {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -10px; }
+}
+@keyframes teaser-progress {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+@keyframes teaser-scan {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 1; }
+}
+@keyframes teaser-sweep {
+  0%, 100% { transform: translateY(-70px); opacity: 0; }
+  20%, 80% { opacity: 0.8; }
+  50% { transform: translateY(70px); }
+}
+@keyframes teaser-flash {
+  0%, 28% { background-color: #000; }
+  32%, 52% { background-color: #fff; }
+  70%, 100% { background-color: #000; }
+}
+
 @layer base {
   * {
     border-color: var(--color-border);

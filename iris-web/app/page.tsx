@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { ArrowRight, BookOpen, Building2, Clock, GraduationCap, HeartHandshake, Lock, ScanEye, ShieldCheck, Smartphone, Stethoscope, Sun } from "lucide-react";
 import { TestimonialsMinimal } from "@/components/ui/minimal-testimonial";
+import { AppTeaser } from "@/components/blocks/app-teaser";
+import { EyeShowcase } from "@/components/blocks/eye-showcase";
 import { HeroSection } from "@/components/blocks/hero-section-6";
 import { SiteFooter } from "@/components/blocks/site-footer";
 import { Reveal } from "@/components/motion/reveal";
@@ -33,6 +35,14 @@ const supporterTypes = [
 export default function Home() {
   return (
     <HeroSection>
+      <section aria-label="Interactive eye" className="border-t">
+        <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+          <Reveal effect="zoom">
+            <EyeShowcase />
+          </Reveal>
+        </div>
+      </section>
+
       <section id="how-it-works" className="scroll-mt-24 border-t">
         <div className="mx-auto max-w-5xl px-6 py-24">
           <Reveal>
@@ -65,9 +75,11 @@ export default function Home() {
             <span className="inline-flex items-center gap-2 rounded-full border bg-background px-3 py-1 text-xs font-medium">
               <Clock className="size-3.5" /> Coming soon
             </span>
-            <h2 className="mt-5 text-balance text-3xl font-bold md:text-4xl">Eye scanning is coming soon</h2>
+            <h2 className="mt-5 text-balance text-3xl font-bold md:text-4xl">A sneak peek at the app</h2>
             <p className="mt-4 text-muted-foreground">
-              We&apos;re testing the scan on real phones and checking our measurements against published studies before anyone can use it.
+              Here&apos;s how a scan is planned to feel: line up your eyes, one flash of light, your pupil&apos;s reaction drawn as a curve, and a
+              plain-language explanation. We&apos;re still testing it on real phones and checking it against published studies, so it isn&apos;t
+              available yet.
             </p>
             <ul className="mt-6 space-y-3 text-sm">
               <li className="flex items-start gap-3">
@@ -90,16 +102,7 @@ export default function Home() {
             </Button>
           </Reveal>
           <Reveal effect="zoom" delay={150}>
-            <figure className="group overflow-hidden rounded-3xl border">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="https://images.unsplash.com/photo-1643325904565-065f1bf68448?w=1200&q=80&auto=format&fit=crop"
-                alt="A woman in a scarf looking closely at her phone screen"
-                width={1200}
-                height={1500}
-                className="aspect-[4/5] w-full object-cover grayscale transition-transform duration-700 group-hover:scale-105"
-              />
-            </figure>
+            <AppTeaser />
           </Reveal>
         </div>
       </section>
