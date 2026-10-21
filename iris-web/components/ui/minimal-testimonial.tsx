@@ -1,33 +1,35 @@
 "use client"
 
+import Image from "next/image"
 import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
 
 /**
  * Famous quotes about what Iris is building: catching problems early, the eye,
  * and technology that feels like magic. Adapted from the minimal-testimonial block.
- * Portraits are replaced with monogram avatars so we don't put stock photos next
- * to real people's names.
+ * Portraits are public-domain images from Wikimedia Commons, cropped to headshots:
+ * Franklin by Joseph Siffred Duplessis (c. 1785), Leonardo's red-chalk self-portrait
+ * (c. 1512), and a photo of Arthur C. Clarke released into the public domain.
  */
 const quotes = [
   {
     quote: "An ounce of prevention is worth a pound of cure.",
     name: "Benjamin Franklin",
     role: "Inventor and Founding Father, 1735",
-    initials: "BF",
+    image: "/quotes/franklin.jpg",
   },
   {
     quote:
       "The eye, which is termed the window of the soul, is the chief organ whereby the understanding can have the most complete and magnificent view of the infinite works of nature.",
     name: "Leonardo da Vinci",
     role: "Artist and scientist, from his notebooks (translated)",
-    initials: "LV",
+    image: "/quotes/leonardo.jpg",
   },
   {
     quote: "Any sufficiently advanced technology is indistinguishable from magic.",
     name: "Arthur C. Clarke",
     role: "Science-fiction writer and futurist, Profiles of the Future",
-    initials: "AC",
+    image: "/quotes/clarke.jpg",
   },
 ]
 
@@ -76,12 +78,19 @@ export function TestimonialsMinimal() {
               aria-label={`Show quote by ${t.name}`}
               aria-pressed={active === i}
               className={cn(
-                "relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full text-xs font-semibold ring-2 ring-background transition-all duration-300 ease-out",
-                active === i
-                  ? "z-10 scale-110 bg-foreground text-background"
-                  : "bg-muted text-muted-foreground hover:scale-105 hover:text-foreground",
+                "relative h-10 w-10 overflow-hidden rounded-full bg-muted ring-2 ring-background transition-all duration-300 ease-out",
+                active === i ? "z-10 scale-110" : "hover:z-10 hover:scale-105",
               )}>
-              {t.initials}
+              <Image
+                src={t.image}
+                alt=""
+                width={80}
+                height={80}
+                className={cn(
+                  "h-full w-full object-cover transition-[filter] duration-300",
+                  active === i ? "grayscale-0" : "grayscale hover:grayscale-0",
+                )}
+              />
             </button>
           ))}
         </div>
