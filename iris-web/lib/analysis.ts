@@ -1,4 +1,13 @@
-import { IRIS_DIAMETER_MM, THRESHOLDS, rateMetric, type MetricKey, type MetricStatus } from "./reference";
+import {
+  IRIS_DIAMETER_MM,
+  THRESHOLDS,
+  rateMetric,
+  rateReflexBalance,
+  rateSizeDifference,
+  type EyeDifferenceStatus,
+  type MetricKey,
+  type MetricStatus,
+} from "./reference";
 
 export type StimulusColor = "white" | "red" | "blue";
 
@@ -60,6 +69,8 @@ export type Analysis = {
   netPipr: number | null;
   quality: { validFraction: number; meanContrast: number; ok: boolean; reasons: string[] };
   verdict: "typical" | "check" | "weaker" | "retake";
+  /** Second result: resting pupil size of each eye before the first flash. */
+  eyes: { leftMm: number | null; rightMm: number | null; sizeDiffMm: number | null; sizeStatus: EyeDifferenceStatus };
 };
 
 const FPS = 30;
@@ -200,6 +211,16 @@ export function analyse(samples: Sample[], protocol: Protocol): Analysis {
   else if (atypical >= 2 || (atypical === 1 && borderline >= 2)) verdict = "weaker";
   else if (atypical === 1 || borderline >= 2) verdict = "check";
 
+  // Left vs right resting size, from the second before the first flash.
+  const firstOnset = protocol.stimuli[0]?.onset ?? 0;
+  const restingMm = (ratios: number[]) => {
+    const r = median(samples.map((s, i) => (s.t >= firstOnset - 1.0 && s.t < firstOnset ? ratios[i] : NaN)));
+    return Number.isFinite(r) ? r * IRIS_DIAMETER_MM : null;
+  };
+  const leftMm = restingMm(left);
+  const rightMm = restingMm(right);
+  const sizeDiffMm = leftMm !== null && rightMm !== null ? Math.abs(leftMm - rightMm) : null;
+
   return {
     series,
     perStimulus,
@@ -209,7 +230,21 @@ export function analyse(samples: Sample[], protocol: Protocol): Analysis {
     netPipr,
     quality: { validFraction, meanContrast, ok, reasons },
     verdict,
+    eyes: { leftMm, rightMm, sizeDiffMm, sizeStatus: ok ? rateSizeDifference(sizeDiffMm) : "unknown" },
   };
+}
+
+/**
+ * Reflex balance from the eye-by-eye step: one flash with only the left eye uncovered and one
+ * with only the right eye uncovered. Each amplitude is the % the pupils shrank for that flash.
+ * Returns the weaker eye's response as a fraction of the stronger one (1 = perfectly even).
+ */
+export function reflexBalance(leftLitAmplitude: number | null, rightLitAmplitude: number | null) {
+  if (leftLitAmplitude === null || rightLitAmplitude === null) return { balance: null, weakerEye: null, status: rateReflexBalance(null) };
+  const strong = Math.max(leftLitAmplitude, rightLitAmplitude);
+  const balance = strong > 0 ? Math.min(leftLitAmplitude, rightLitAmplitude) / strong : null;
+  const weakerEye: "left" | "right" | null = leftLitAmplitude === rightLitAmplitude ? null : leftLitAmplitude < rightLitAmplitude ? "left" : "right";
+  return { balance, weakerEye, status: rateReflexBalance(balance) };
 }
 
 /** Idealised pupil response curve (used for the demo and the reference shapes on the chart). */

@@ -288,7 +288,26 @@ function ResultScreen() {
                 <div className="flex items-center gap-2 text-sm font-semibold">
                     <CheckCircle2 className="size-4" /> Response looks typical
                 </div>
-                <p className="mt-1.5 text-[11px] leading-relaxed text-black/70">Your pupil reacted in the range we expect. This isn&apos;t a diagnosis.</p>
+                <p className="mt-1.5 text-[11px] leading-relaxed text-black/70">Your pupil reacted in the range we expect. This isn&apos;t a diagnosis and doesn&apos;t rule out diabetes.</p>
+            </div>
+            <div className="mt-2.5 rounded-2xl bg-white/[0.06] p-3 ring-1 ring-white/10">
+                <div className="flex items-center justify-between text-xs font-semibold">
+                    <span className="flex items-center gap-1.5 text-white/80">
+                        <Eye pupil={0.4} className="w-6" /> Left vs right
+                    </span>
+                    <span className="rounded-full bg-white px-2 py-0.5 text-[10px] text-black">Even</span>
+                </div>
+                {[
+                    { eye: 'Left eye lit', v: 92 },
+                    { eye: 'Right eye lit', v: 88 },
+                ].map((r) => (
+                    <div key={r.eye} className="mt-2 flex items-center gap-2 text-[10px] text-white/60">
+                        <span className="w-[4.5rem]">{r.eye}</span>
+                        <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
+                            <span className="block h-full rounded-full bg-white/80" style={{ width: `${r.v}%` }} />
+                        </span>
+                    </div>
+                ))}
             </div>
             <div className="mt-3 rounded-2xl bg-white/[0.06] p-4 ring-1 ring-white/10">
                 <div className="flex items-center gap-2 text-xs font-semibold text-white/80">

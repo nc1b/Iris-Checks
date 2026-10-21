@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ExternalLink, FlaskConical, Gauge, Smartphone } from "lucide-react";
+import { ExternalLink, Eye, FlaskConical, Gauge, Smartphone } from "lucide-react";
 import { SiteNav } from "@/components/blocks/site-nav";
 import { SiteFooter } from "@/components/blocks/site-footer";
 import { Reveal } from "@/components/motion/reveal";
@@ -34,6 +34,11 @@ const plan = [
     body: "Resting pupil size, how much the pupil shrinks, how fast, and the delay before it reacts.",
   },
   {
+    icon: Eye,
+    title: "Left vs right check",
+    body: "A second result compares your eyes: pupil size, and how each eye reacts when it's lit on its own (cover the other eye). An uneven reaction can point to optic-nerve problems such as glaucoma, so Iris suggests seeing an eye doctor.",
+  },
+  {
     icon: FlaskConical,
     title: "Tested before launch",
     body: "We'll compare readings from volunteers with and without diabetes before anyone relies on a result.",
@@ -50,8 +55,14 @@ export default function ResearchPage() {
             <p className="text-sm font-medium uppercase tracking-widest text-muted-foreground">Research</p>
             <h1 className="mt-3 max-w-3xl text-balance text-4xl font-bold md:text-5xl">The science behind checking your eyes by phone</h1>
             <p className="mt-6 max-w-2xl text-muted-foreground">
-              Your pupil is controlled by the same nerves that diabetes slowly damages. Researchers have shown that the pupil&apos;s reaction to
-              light changes with diabetes, sometimes before any eye damage is visible. Here&apos;s what they found.
+              Your pupil is controlled by the same nerves that diabetes slowly damages. Researchers using special clinic devices found that,
+              on average, the pupil&apos;s reaction to light is different in people with diabetes, sometimes before any eye damage is visible.
+              Here&apos;s what they found.
+            </p>
+            <p className="mt-4 max-w-2xl rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
+              <strong className="text-foreground">What isn&apos;t known yet:</strong> these are differences between groups, and the groups
+              overlap, so a pupil test can&apos;t give a definite yes or no for one person. No one has shown yet how well a phone version
+              works. That&apos;s the question Iris is testing. Only a blood test (such as A1C or blood glucose) can diagnose diabetes.
             </p>
           </Reveal>
 
@@ -123,7 +134,7 @@ export default function ResearchPage() {
             <Reveal>
               <h2 className="text-2xl font-bold md:text-3xl">How Iris will use this</h2>
             </Reveal>
-            <div className="mt-10 grid gap-4 md:grid-cols-3">
+            <div className="mt-10 grid gap-4 md:grid-cols-2">
               {plan.map(({ icon: Icon, title, body }, i) => (
                 <Reveal key={title} delay={i * 120}>
                   <div className="h-full rounded-2xl border bg-card p-6">

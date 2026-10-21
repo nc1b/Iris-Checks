@@ -17,12 +17,12 @@ const steps = [
   {
     icon: Sun,
     title: "One flash of light",
-    body: "The screen flashes for a second while the camera records how your pupils react.",
+    body: "The screen flashes for a second while the camera records how your pupils react. Then one quick flash per eye while you cover the other.",
   },
   {
     icon: BookOpen,
-    title: "Compare with research",
-    body: "Your result is compared with published pupil studies and explained in plain language.",
+    title: "Two results, explained",
+    body: "Your reflex is compared with published diabetes studies, and your left and right eyes are compared with each other. Both are explained in plain language.",
   },
 ];
 
@@ -47,7 +47,7 @@ export default function Home() {
         <div className="mx-auto max-w-5xl px-6 py-24">
           <Reveal>
             <p className="text-sm font-medium uppercase tracking-widest text-muted-foreground">How it will work</p>
-            <h2 className="mt-3 max-w-xl text-balance text-3xl font-bold md:text-4xl">A 10-second check, planned for any phone</h2>
+            <h2 className="mt-3 max-w-xl text-balance text-3xl font-bold md:text-4xl">A quick check, planned for any phone</h2>
           </Reveal>
           <div className="relative mt-12 grid gap-4 md:grid-cols-3">
             <div aria-hidden className="absolute left-0 right-0 top-[2.6rem] hidden h-px bg-border md:block" />

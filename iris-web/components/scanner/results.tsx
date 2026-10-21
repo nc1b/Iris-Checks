@@ -14,7 +14,7 @@ import {
   Trash2,
 } from "lucide-react";
 import type { Analysis, Protocol } from "@/lib/analysis";
-import { PUBLISHED_PUPIL_IRIS_RATIO, STUDIES, THRESHOLDS, type MetricStatus } from "@/lib/reference";
+import { EYE_DIFFERENCE, PUBLISHED_PUPIL_IRIS_RATIO, STUDIES, THRESHOLDS, type MetricStatus } from "@/lib/reference";
 import { addToLog, clearLog, logToCsv, readLog, type LogEntry, type Participant } from "@/lib/log";
 import { cn } from "@/lib/utils";
 import { ResponseChart } from "./response-chart";
@@ -235,6 +235,23 @@ export function Results({
         <p className="mt-10 text-xs text-iris-100/60">
           You: <strong className="text-iris-100">{fmt(ratio)}</strong> (about {fmt(analysis.restingPupilMm, 1)} mm). {PUBLISHED_PUPIL_IRIS_RATIO.note}
         </p>
+
+        {analysis.eyes.sizeStatus !== "unknown" && (
+          <div className="mt-5 rounded-2xl bg-white/5 p-4 text-sm">
+            <p className="font-medium text-iris-100">
+              Left vs right:{" "}
+              {analysis.eyes.sizeStatus === "even"
+                ? "pupils look even"
+                : analysis.eyes.sizeStatus === "borderline"
+                  ? "small size difference"
+                  : "clear size difference"}
+            </p>
+            <p className="mt-1 text-iris-100/75">
+              Left about {fmt(analysis.eyes.leftMm, 1)} mm, right about {fmt(analysis.eyes.rightMm, 1)} mm (difference{" "}
+              {fmt(analysis.eyes.sizeDiffMm, 1)} mm). {EYE_DIFFERENCE.explain}
+            </p>
+          </div>
+        )}
 
         <ul className="mt-5 space-y-3">
           {STUDIES.map((s) => (

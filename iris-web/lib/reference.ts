@@ -91,6 +91,38 @@ export type Threshold = {
   explain: string;
 };
 
+/**
+ * Second result: left vs right eye (team-set, provisional).
+ *
+ * - Size difference: from the normal scan. Up to about 0.4 mm is common in healthy people;
+ *   1 mm or more is worth showing an eye doctor (it can come from nerve or muscle problems).
+ * - Reflex balance: needs one flash per eye with the other eye covered. When one optic nerve
+ *   carries less light signal (as in glaucoma), the pupils react less when that eye is lit
+ *   (a relative afferent pupillary defect). A single flash on both eyes can't show this,
+ *   because each pupil responds to the light from both eyes together.
+ */
+export const EYE_DIFFERENCE = {
+  sizeMm: { even: 0.4, check: 1.0 },
+  /** Weaker eye's constriction as a fraction of the stronger eye's. */
+  reflexBalance: { even: 0.8, check: 0.65 },
+  explain:
+    "Compares your two eyes. A clear difference in pupil size, or a weaker reaction when one eye is lit, can be a sign of optic-nerve problems such as glaucoma. It's a reason to see an eye doctor, not a diagnosis.",
+};
+
+export type EyeDifferenceStatus = "even" | "borderline" | "check" | "unknown";
+
+export function rateSizeDifference(mm: number | null): EyeDifferenceStatus {
+  if (mm === null || !Number.isFinite(mm)) return "unknown";
+  if (mm < EYE_DIFFERENCE.sizeMm.even) return "even";
+  return mm < EYE_DIFFERENCE.sizeMm.check ? "borderline" : "check";
+}
+
+export function rateReflexBalance(balance: number | null): EyeDifferenceStatus {
+  if (balance === null || !Number.isFinite(balance)) return "unknown";
+  if (balance >= EYE_DIFFERENCE.reflexBalance.even) return "even";
+  return balance >= EYE_DIFFERENCE.reflexBalance.check ? "borderline" : "check";
+}
+
 /** Starter thresholds (team-set, provisional). */
 export const THRESHOLDS: Threshold[] = [
   {
