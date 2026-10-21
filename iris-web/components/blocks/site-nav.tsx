@@ -127,8 +127,8 @@ export function SiteNav() {
                         )}>
                         {/* Logo tile */}
                         <SectionLink section="home" aria-label="Iris home" className="flex shrink-0 items-center gap-2.5 rounded-xl py-1 pl-1 pr-2 transition-colors hover:bg-accent">
-                            <span className="flex size-10 items-center justify-center rounded-xl bg-foreground">
-                                <Image src="/iris-logo.png" alt="" width={663} height={259} priority className="h-auto w-7 dark:invert" />
+                            <span className="flex h-10 items-center">
+                                <Image src="/iris-logo.png" alt="" width={663} height={259} priority className="h-auto w-10 invert dark:invert-0" />
                             </span>
                             <span className="leading-tight">
                                 <span className="block text-[15px] font-semibold tracking-tight">Iris</span>
