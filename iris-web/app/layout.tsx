@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Instrument_Serif } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({
@@ -7,26 +7,22 @@ const inter = Inter({
   subsets: ["latin"],
 });
 
-const instrumentSerif = Instrument_Serif({
-  variable: "--font-instrument-serif-family",
-  subsets: ["latin"],
-  weight: "400",
-  style: ["normal", "italic"],
-});
-
 export const metadata: Metadata = {
-  title: "Iris: phone pupil scan",
+  title: "Iris: eye checks by phone",
   description:
-    "Iris measures how your pupil reacts to light with your phone camera and compares it with published diabetes research. A student prototype for Samsung Solve for Tomorrow.",
+    "Iris is building a 10-second eye check that uses your phone's camera and screen light. Coming soon. A student project for Samsung Solve for Tomorrow.",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#04130a",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#000000" },
+  ],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${inter.variable} ${instrumentSerif.variable} h-full antialiased`}>
+    <html lang="en" className={`${inter.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col font-sans">{children}</body>
     </html>
   );

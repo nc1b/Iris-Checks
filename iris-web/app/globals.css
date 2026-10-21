@@ -1,56 +1,106 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/*
+ * Iris theme: strictly black and white, with neutral grays for borders,
+ * muted text and hover states. Dark mode follows the system setting, which
+ * matches Tailwind's default `dark:` variant.
+ */
+
 @theme inline {
-  --font-serif: var(--font-instrument-serif-family), "Instrument Serif", Georgia, serif;
-  --font-instrument-serif: var(--font-instrument-serif-family), "Instrument Serif", Georgia, serif;
   --font-sans: var(--font-inter-family), "Inter", system-ui, sans-serif;
-  --color-background: var(--bg-0);
-  --color-foreground: var(--text-100);
 
-  /* Iris greens */
-  --color-iris-50: #f0fdf4;
-  --color-iris-100: #dcfce7;
-  --color-iris-200: #bbf7d0;
-  --color-iris-300: #86efac;
-  --color-iris-400: #4ade80;
-  --color-iris-500: #22c55e;
-  --color-iris-600: #16a34a;
-  --color-iris-700: #15803d;
-  --color-iris-800: #166534;
-  --color-iris-900: #14532d;
-  --color-iris-950: #052e16;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
 
-  --animate-fade-slide-in-1: fadeSlideIn 0.8s ease-out 0.1s both;
-  --animate-fade-slide-in-2: fadeSlideIn 0.8s ease-out 0.25s both;
-  --animate-fade-slide-in-3: fadeSlideIn 0.8s ease-out 0.4s both;
-  --animate-fade-slide-in-4: fadeSlideIn 0.8s ease-out 0.55s both;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
 :root {
-  --bg-0: #04130a;
-  --bg-100: #0a1f12;
-  --bg-200: #12301c;
-  --bg-300: #1d4529;
-  --text-100: #f3fdf6;
-  --text-200: #d9f5e2;
-  --text-300: #9cc9aa;
-  --text-400: #6b9a7a;
-  --radius: 0.5rem;
+  --radius: 0.625rem;
+
+  --background: #ffffff;
+  --foreground: #000000;
+  --card: #ffffff;
+  --card-foreground: #000000;
+  --popover: #ffffff;
+  --popover-foreground: #000000;
+  --primary: #000000;
+  --primary-foreground: #ffffff;
+  --secondary: #f4f4f4;
+  --secondary-foreground: #000000;
+  --muted: #f4f4f4;
+  --muted-foreground: #5c5c5c;
+  --accent: #ededed;
+  --accent-foreground: #000000;
+  /* No colour accents, even for destructive actions. */
+  --destructive: #262626;
+  --destructive-foreground: #ffffff;
+  --border: #e3e3e3;
+  --input: #d4d4d4;
+  --ring: #737373;
 }
 
-@keyframes fadeSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #000000;
+    --foreground: #ffffff;
+    --card: #0a0a0a;
+    --card-foreground: #ffffff;
+    --popover: #0a0a0a;
+    --popover-foreground: #ffffff;
+    --primary: #ffffff;
+    --primary-foreground: #000000;
+    --secondary: #171717;
+    --secondary-foreground: #ffffff;
+    --muted: #171717;
+    --muted-foreground: #a3a3a3;
+    --accent: #262626;
+    --accent-foreground: #ffffff;
+    --destructive: #d4d4d4;
+    --destructive-foreground: #000000;
+    --border: #262626;
+    --input: #333333;
+    --ring: #a3a3a3;
   }
 }
 
-body {
-  background: var(--color-background);
-  color: var(--color-foreground);
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    scroll-behavior: smooth;
+    color-scheme: light dark;
+  }
+
+  body {
+    background: var(--color-background);
+    color: var(--color-foreground);
+  }
+
+  a {
+    text-underline-offset: 4px;
+  }
 }
