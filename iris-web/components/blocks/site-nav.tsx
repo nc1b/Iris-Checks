@@ -1,27 +1,36 @@
 'use client'
-import { Menu, X } from 'lucide-react'
+import { BookOpen, HeartHandshake, Home, Info, ListChecks } from 'lucide-react'
 import Image from 'next/image'
-import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { SectionLink } from '@/components/blocks/section-link'
+import { ThemeToggle } from '@/components/blocks/theme-toggle'
+import { NavBar, type NavItem } from '@/components/ui/tubelight-navbar'
 import { cn } from '@/lib/utils'
 
-const menuItems = [
-    { name: 'How it works', href: '/#how-it-works' },
-    { name: 'Research', href: '/research' },
-    { name: 'Supporters', href: '/#supporters' },
-    { name: 'About', href: '/#about' },
+const navItems: NavItem[] = [
+    { name: 'Home', section: 'home', icon: Home },
+    { name: 'How it works', section: 'how-it-works', icon: ListChecks },
+    { name: 'Research', url: '/research', icon: BookOpen },
+    { name: 'Supporters', section: 'supporters', icon: HeartHandshake },
+    { name: 'About', section: 'about', icon: Info },
 ]
 
+const spySections = ['how-it-works', 'supporters', 'about'] as const
+const sectionToName: Record<string, string> = { home: 'Home', 'how-it-works': 'How it works', supporters: 'Supporters', about: 'About' }
+
 /**
- * Top bar that slides down on load, turns into a floating pill once you scroll,
- * hides while scrolling down and comes back down as soon as you scroll up.
- * A thin line along its bottom edge shows how far down the page you are.
+ * Top bar: slides down on load and is always visible at the top of the page.
+ * It tucks away while you scroll down and drops back as soon as you scroll up.
+ * The tubelight pill lights up the section you're reading; a thin line across the
+ * very top shows scroll progress.
  */
 export function SiteNav() {
-    const [menuOpen, setMenuOpen] = useState(false)
+    const pathname = usePathname()
     const [scrolled, setScrolled] = useState(false)
     const [hidden, setHidden] = useState(false)
     const [progress, setProgress] = useState(0)
+    const [section, setSection] = useState<string>('home')
 
     useEffect(() => {
         let lastY = window.scrollY
@@ -32,10 +41,18 @@ export function SiteNav() {
             const max = document.documentElement.scrollHeight - window.innerHeight
             setScrolled(y > 24)
             setProgress(max > 0 ? Math.min(1, y / max) : 0)
-            if (Math.abs(y - lastY) > 6) {
-                setHidden(y > lastY && y > 320)
-                lastY = y
+            if (y < 80) setHidden(false)
+            else if (Math.abs(y - lastY) > 8) setHidden(y > lastY)
+            if (Math.abs(y - lastY) > 8 || y < 80) lastY = y
+
+            // Scroll-spy: the last section whose top has passed 40% of the screen.
+            let current = 'home'
+            for (const id of spySections) {
+                const el = document.getElementById(id)
+                if (el && el.getBoundingClientRect().top < window.innerHeight * 0.4) current = id
             }
+            if (max > 0 && y >= max - 4) current = 'about'
+            setSection(current)
         }
         const onScroll = () => {
             if (!frame) frame = requestAnimationFrame(update)
@@ -48,92 +65,56 @@ export function SiteNav() {
             window.removeEventListener('scroll', onScroll)
             window.removeEventListener('resize', onScroll)
         }
-    }, [])
+    }, [pathname])
+
+    const activeName = pathname === '/research' ? 'Research' : pathname === '/' ? sectionToName[section] : null
 
     return (
-        <header
-            className={cn(
-                'fixed inset-x-0 top-0 z-30 px-3 transition-transform duration-500 ease-out motion-reduce:transition-none',
-                hidden && !menuOpen && '-translate-y-[130%]',
-            )}>
-            <nav
-                data-state={menuOpen ? 'active' : undefined}
+        <>
+            <div
+                aria-hidden
+                className="fixed inset-x-0 top-0 z-40 h-0.5 origin-left bg-foreground transition-opacity duration-300"
+                style={{ transform: `scaleX(${progress})`, opacity: scrolled ? 1 : 0 }}
+            />
+            <header
                 className={cn(
-                    'group relative mx-auto overflow-hidden border transition-all duration-500 ease-out animate-in fade-in slide-in-from-top-full [animation-duration:800ms] motion-reduce:animate-none',
-                    scrolled || menuOpen
-                        ? cn(
-                              'mt-3 max-w-3xl rounded-2xl border-border shadow-lg shadow-black/5 backdrop-blur-xl dark:shadow-black/40',
-                              menuOpen ? 'bg-background/95' : 'bg-background/80',
-                          )
-                        : 'mt-0 max-w-5xl rounded-none border-transparent bg-transparent',
+                    'fixed inset-x-0 top-0 z-30 transition-transform duration-500 ease-out motion-reduce:transition-none',
+                    hidden && '-translate-y-[140%]',
                 )}>
-                <div className={cn('transition-all duration-500', scrolled ? 'px-4' : 'px-6')}>
-                    <div className={cn('flex items-center justify-between transition-all duration-500', scrolled ? 'py-2' : 'py-4')}>
-                        <Link
-                            href="/"
-                            aria-label="Iris home"
-                            onClick={() => setMenuOpen(false)}
-                            className="flex items-center gap-2">
-                            <Logo className={cn('transition-all duration-500', scrolled ? 'h-7 w-[4.5rem]' : 'h-8 w-[5.25rem]')} />
-                            <span className="text-lg font-semibold tracking-tight">iris</span>
-                        </Link>
-
-                        <ul className="hidden items-center gap-1 text-sm lg:flex">
-                            {menuItems.map((item) => (
-                                <li key={item.name}>
-                                    <Link
-                                        href={item.href}
-                                        className="text-muted-foreground hover:text-foreground hover:bg-accent relative rounded-full px-3 py-1.5 transition-colors duration-200">
-                                        {item.name}
-                                    </Link>
-                                </li>
-                            ))}
-                        </ul>
-
-                        <button
-                            onClick={() => setMenuOpen(!menuOpen)}
-                            aria-label={menuOpen ? 'Close Menu' : 'Open Menu'}
-                            aria-expanded={menuOpen}
-                            className="relative -mr-2 block cursor-pointer p-2.5 lg:hidden">
-                            <Menu className="group-data-[state=active]:rotate-180 group-data-[state=active]:scale-0 group-data-[state=active]:opacity-0 m-auto size-6 duration-200" />
-                            <X className="group-data-[state=active]:rotate-0 group-data-[state=active]:scale-100 group-data-[state=active]:opacity-100 absolute inset-0 m-auto size-6 -rotate-180 scale-0 opacity-0 duration-200" />
-                        </button>
-                    </div>
-
-                    <div
-                        className={cn(
-                            'grid transition-all duration-300 ease-out lg:hidden',
-                            menuOpen ? 'grid-rows-[1fr] pb-4 opacity-100' : 'grid-rows-[0fr] opacity-0',
-                        )}>
-                        <ul className="space-y-1 overflow-hidden text-base">
-                            {menuItems.map((item) => (
-                                <li key={item.name}>
-                                    <Link
-                                        href={item.href}
-                                        onClick={() => setMenuOpen(false)}
-                                        className="text-muted-foreground hover:text-foreground hover:bg-accent block rounded-xl px-3 py-2.5 duration-150">
-                                        {item.name}
-                                    </Link>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                </div>
-
                 <div
-                    aria-hidden
-                    className={cn('bg-foreground absolute bottom-0 left-0 h-px origin-left transition-opacity duration-300', scrolled ? 'opacity-100' : 'opacity-0')}
-                    style={{ width: '100%', transform: `scaleX(${progress})` }}
-                />
-            </nav>
-        </header>
+                    className={cn(
+                        'mx-auto flex max-w-5xl items-center justify-between gap-2 px-3 transition-all duration-500 ease-out animate-in fade-in slide-in-from-top-full [animation-duration:800ms] motion-reduce:animate-none sm:px-6',
+                        scrolled ? 'pt-2' : 'pt-4',
+                    )}>
+                    <SectionLink
+                        section="home"
+                        aria-label="Iris home"
+                        className="flex h-10 shrink-0 items-center gap-2 rounded-full border bg-background/70 px-2 sm:h-11 shadow-lg shadow-black/5 backdrop-blur-lg dark:shadow-black/40 sm:pl-3 sm:pr-4">
+                        <Logo className="h-6 w-12 sm:h-7 sm:w-[4.5rem]" />
+                        <span className="hidden text-base font-semibold tracking-tight sm:inline">iris</span>
+                    </SectionLink>
+
+                    <NavBar
+                        items={navItems}
+                        activeName={activeName}
+                        onSelect={(name) => {
+                            const entry = Object.entries(sectionToName).find(([, n]) => n === name)
+                            if (entry) setSection(entry[0])
+                        }}
+                    />
+
+                    <ThemeToggle className="size-10 shrink-0 sm:size-11 shadow-lg shadow-black/5 backdrop-blur-lg dark:shadow-black/40" />
+                </div>
+            </header>
+        </>
     )
 }
 
 /**
  * The uploaded logo file (white mark on black) used as-is. The mark sits in the
  * middle of a wide canvas, so the image is scaled up inside a small frame to crop
- * the empty space. In light mode it is inverted to a black mark on white.
+ * the empty space. In light mode it is inverted to a black mark on white, and the
+ * blend mode hides the image's background on any surface.
  */
 export const Logo = ({ className }: { className?: string }) => {
     return (

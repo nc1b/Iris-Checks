@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ArrowRight, BookOpen, Building2, Clock, GraduationCap, HeartHandshake, Lock, ScanEye, Smartphone, Stethoscope, Sun } from "lucide-react";
+import { ArrowRight, BookOpen, Building2, Clock, GraduationCap, HeartHandshake, Lock, ScanEye, ShieldCheck, Smartphone, Stethoscope, Sun } from "lucide-react";
+import { TestimonialsMinimal } from "@/components/ui/minimal-testimonial";
 import { HeroSection } from "@/components/blocks/hero-section-6";
 import { SiteFooter } from "@/components/blocks/site-footer";
 import { Reveal } from "@/components/motion/reveal";
@@ -103,6 +104,14 @@ export default function Home() {
         </div>
       </section>
 
+      <section aria-label="Quotes" className="relative overflow-hidden border-t">
+        <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,var(--color-muted),transparent_70%)] opacity-70" />
+        <Reveal className="relative">
+          <p className="pt-20 text-center text-sm font-medium uppercase tracking-widest text-muted-foreground">Why it matters</p>
+          <TestimonialsMinimal />
+        </Reveal>
+      </section>
+
       <section id="supporters" className="scroll-mt-24 border-t">
         <div className="mx-auto max-w-5xl px-6 py-24">
           <Reveal className="max-w-2xl">
@@ -141,6 +150,42 @@ export default function Home() {
           <Reveal className="mt-10">
             <p className="text-sm text-muted-foreground">Interested in supporting Iris? Contact details for the team are coming soon.</p>
           </Reveal>
+        </div>
+      </section>
+
+      <section id="about" className="scroll-mt-24 border-t bg-muted/40">
+        <div className="mx-auto grid max-w-5xl gap-10 px-6 py-24 md:grid-cols-[1.1fr_1fr]">
+          <Reveal effect="left">
+            <p className="text-sm font-medium uppercase tracking-widest text-muted-foreground">About</p>
+            <h2 className="mt-3 text-balance text-3xl font-bold md:text-4xl">A student project with a simple goal</h2>
+            <p className="mt-4 text-muted-foreground">
+              Millions of people live with health problems they don&apos;t know about yet. Iris is a team of students exploring whether the phone
+              already in your pocket could flag early warning signs through your eyes, and point you toward a doctor sooner.
+            </p>
+            <p className="mt-4 text-muted-foreground">
+              Iris is a research prototype, not a medical device. It will never diagnose anything; it&apos;s meant to help people decide when to get
+              checked.
+            </p>
+          </Reveal>
+          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-1">
+            {[
+              { icon: ShieldCheck, title: "Privacy first", body: "Camera images are planned to stay on your phone." },
+              { icon: BookOpen, title: "Research led", body: "Built on published, peer-reviewed eye studies." },
+              { icon: Smartphone, title: "No extra hardware", body: "Just the phone you already have." },
+            ].map(({ icon: Icon, title, body }, i) => (
+              <Reveal key={title} delay={i * 120} effect="right">
+                <div className="flex items-start gap-4 rounded-2xl border bg-background p-5">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-full border">
+                    <Icon className="size-4" />
+                  </span>
+                  <div>
+                    <h3 className="font-semibold">{title}</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">{body}</p>
+                  </div>
+                </div>
+              </Reveal>
+            ))}
+          </div>
         </div>
       </section>
 

@@ -97,7 +97,7 @@ export async function POST(request: Request) {
     (t) => `- ${t.label} (${t.key}): typical ${t.better === "higher" ? ">=" : "<="} ${t.typical}${t.unit}, borderline ${t.borderline}${t.unit}`,
   ).join("\n");
 
-  const system = `You are the explanation assistant inside Iris, a student research prototype for the Samsung Solve for Tomorrow competition.
+  const system = `You are the explanation assistant inside Iris, a student research prototype.
 Iris uses a phone camera and screen flash to measure the pupillary light reflex and compares it with published research linking weaker/slower pupil reactions to diabetes and diabetic nerve damage.
 
 Rules:

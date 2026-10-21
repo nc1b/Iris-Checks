@@ -318,7 +318,7 @@ export function Results({
       </div>
 
       <p className="text-xs text-iris-100/50">
-        Iris is a student research prototype for Samsung Solve for Tomorrow. It is not a medical device and does not diagnose diabetes or any other condition.
+        Iris is a student research prototype. It is not a medical device and does not diagnose diabetes or any other condition.
         Thresholds are provisional starter values. If you are worried about your health, talk to a doctor.
       </p>
     </div>

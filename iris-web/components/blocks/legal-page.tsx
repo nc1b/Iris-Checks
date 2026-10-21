@@ -1,3 +1,4 @@
+import { InPageLink } from '@/components/blocks/section-link'
 import { SiteFooter } from '@/components/blocks/site-footer'
 import { SiteNav } from '@/components/blocks/site-nav'
 
@@ -29,9 +30,9 @@ export function LegalPage({
                         <ol className="mt-3 grid gap-1.5 text-sm sm:grid-cols-2">
                             {sections.map((s, i) => (
                                 <li key={s.heading}>
-                                    <a href={`#section-${i + 1}`} className="text-muted-foreground hover:text-foreground">
+                                    <InPageLink target={`section-${i + 1}`} className="text-muted-foreground hover:text-foreground">
                                         {i + 1}. {s.heading}
-                                    </a>
+                                    </InPageLink>
                                 </li>
                             ))}
                         </ol>

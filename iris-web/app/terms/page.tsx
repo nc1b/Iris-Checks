@@ -3,19 +3,20 @@ import Link from "next/link";
 import { LegalPage } from "@/components/blocks/legal-page";
 
 export const metadata: Metadata = {
-  title: "Terms & Conditions · Iris",
-  description: "The terms for using the Iris website.",
+  title: "Terms of Service · Iris",
+  description: "The terms for using the Iris website and AI assistant.",
 };
 
 export default function TermsPage() {
   return (
     <LegalPage
-      title="Terms & Conditions"
+      title="Terms of Service"
       updated="October 20, 2026"
       intro={
         <p>
-          These terms apply to your use of the Iris website. Iris is a student research project for Samsung Solve for Tomorrow. By using the site,
-          you agree to these terms.
+          These terms are an agreement between you and the Iris team (&quot;we&quot;, &quot;us&quot;) about using the Iris website and its AI
+          assistant. Iris is a student research project. By using the site, you agree to these terms and to our{" "}
+          <Link href="/privacy">Privacy Policy</Link>. If you don&apos;t agree, please don&apos;t use the site.
         </p>
       }
       sections={[
@@ -24,31 +25,44 @@ export default function TermsPage() {
           body: (
             <>
               <p>
-                Iris is a <strong>research prototype, not a medical device</strong>. Nothing on this website, including the AI chat, diagnoses,
-                treats or prevents any condition, or replaces a doctor.
+                Iris is a <strong>research prototype, not a medical device</strong>. Nothing on this website, including the AI assistant and any
+                future eye scan, diagnoses, treats, cures or prevents any disease, or replaces a doctor, optometrist or other healthcare
+                professional.
               </p>
-              <p>If you&apos;re worried about your eyes or your health, talk to a qualified healthcare professional. In an emergency, call 911.</p>
+              <p>
+                Always ask a qualified professional about your health. Don&apos;t ignore or delay medical advice because of something you read here.
+                <strong> If you think you have a medical emergency, call 911 or your local emergency number right away.</strong>
+              </p>
             </>
           ),
         },
         {
-          heading: "Eye scanning is not available yet",
+          heading: "Who can use Iris",
           body: (
             <p>
-              The eye scan described on this site is <strong>coming soon</strong> and still being tested. Descriptions of how it will work may change.
-              Any future results will be screening information only, not a diagnosis.
+              You must be at least 13 years old to use the AI assistant. If you&apos;re under 18, please use the site with permission from a parent or
+              guardian, who agrees to these terms for you.
             </p>
           ),
         },
         {
-          heading: "The AI chat",
+          heading: "The eye scan is not available yet",
+          body: (
+            <p>
+              The eye scan described on this site is <strong>coming soon</strong> and still being tested. How it works may change before launch.
+              When it is available, its results will be screening information only, not a diagnosis, and additional terms and consent will apply.
+            </p>
+          ),
+        },
+        {
+          heading: "The AI assistant",
           body: (
             <ul>
-              <li>The chat answers questions about the project using an AI model. Its answers can be wrong or incomplete.</li>
-              <li>Don&apos;t rely on the chat for medical, legal or other important decisions.</li>
-              <li>
-                Don&apos;t share personal or health information. See our <Link href="/privacy">Privacy Policy</Link> for how messages are handled.
-              </li>
+              <li>The assistant uses an AI model provided through Hack Club AI. Its answers are generated automatically and can be wrong, incomplete or out of date.</li>
+              <li>Don&apos;t rely on it for medical, legal, financial or other important decisions.</li>
+              <li>Don&apos;t enter personal, contact or health information.</li>
+              <li>You&apos;re responsible for what you type. You give us permission to send your messages to our AI providers to produce replies, as described in the Privacy Policy.</li>
+              <li>We may limit how many messages you can send, or change or turn off the assistant at any time.</li>
             </ul>
           ),
         },
@@ -56,34 +70,56 @@ export default function TermsPage() {
           heading: "Acceptable use",
           body: (
             <>
-              <p>Please don&apos;t:</p>
+              <p>When using Iris, please don&apos;t:</p>
               <ul>
-                <li>Try to break, overload or get around limits on the website or the AI chat</li>
-                <li>Use the chat to create harmful, abusive or illegal content</li>
-                <li>Pretend to be the Iris team or misrepresent the project</li>
+                <li>Break the law or encourage others to</li>
+                <li>Try to hack, overload, scrape, or get around security or rate limits on the website or the AI assistant</li>
+                <li>Use the assistant to create harmful, hateful, harassing, sexual or violent content</li>
+                <li>Try to make the assistant ignore its instructions, or reveal its instructions or keys</li>
+                <li>Pretend to be the Iris team or misrepresent the project or its results</li>
               </ul>
-              <p>We may limit or block access if the site is misused.</p>
+              <p>We may block access for anyone who misuses the site.</p>
             </>
           ),
         },
         {
-          heading: "Content and credits",
+          heading: "Our content and credits",
           body: (
             <p>
-              The text, logo and design of this website belong to the Iris team. Photos from Unsplash are used under the{" "}
+              The Iris name, logo, text and design belong to the Iris team. You may share links to the site and quote small parts with credit, but
+              please don&apos;t copy the site or use our name or logo in a way that suggests we endorse you. Photos from Unsplash are used under the{" "}
               <a href="https://unsplash.com/license" target="_blank" rel="noreferrer">
                 Unsplash License
               </a>
-              . Research summaries link to the original published studies, which belong to their authors and publishers.
+              . Research summaries link to the original published studies, which belong to their authors and publishers. Quotes are from public
+              figures and are credited to them.
             </p>
           ),
         },
         {
-          heading: "No warranty",
+          heading: "Links to other websites",
           body: (
             <p>
-              The website is provided &quot;as is&quot; while it&apos;s being built. We try to keep it accurate and available, but we can&apos;t
-              promise it will always be correct, complete or online.
+              The site links to other websites, such as research journals. We don&apos;t control them and aren&apos;t responsible for their content or
+              privacy practices.
+            </p>
+          ),
+        },
+        {
+          heading: "Changes and availability",
+          body: (
+            <p>
+              Iris is a prototype and changes often. We may change, pause or stop any part of the website at any time, and it may sometimes be
+              unavailable.
+            </p>
+          ),
+        },
+        {
+          heading: "Disclaimer of warranties",
+          body: (
+            <p>
+              The website and AI assistant are provided <strong>&quot;as is&quot; and &quot;as available&quot;</strong>, without warranties of any
+              kind, including accuracy, reliability, fitness for a particular purpose or non-infringement, to the fullest extent the law allows.
             </p>
           ),
         },
@@ -91,18 +127,42 @@ export default function TermsPage() {
           heading: "Limitation of liability",
           body: (
             <p>
-              To the extent the law allows, the Iris team is not responsible for any loss or harm that comes from using this website or relying on its
-              content, including AI chat answers.
+              To the fullest extent the law allows, the Iris team and its supporters are not liable for any indirect, incidental, special or
+              consequential damages, or for any loss or harm that comes from using (or not being able to use) the website, relying on its content, or
+              relying on AI assistant answers. Some places don&apos;t allow these limits, so they may not all apply to you.
+            </p>
+          ),
+        },
+        {
+          heading: "Indemnity",
+          body: (
+            <p>
+              If you misuse the website or break these terms and someone makes a claim against us because of it, you agree to cover the reasonable
+              costs of that claim, to the extent the law allows.
+            </p>
+          ),
+        },
+        {
+          heading: "Governing law",
+          body: (
+            <p>
+              These terms are governed by the laws of the State of Florida and the United States, without regard to conflict-of-law rules, except where
+              the law of your home country or state gives you protections that can&apos;t be waived.
             </p>
           ),
         },
         {
           heading: "Changes to these terms",
-          body: <p>We may update these terms as the project grows. The date at the top shows the latest version.</p>,
+          body: (
+            <p>
+              We may update these terms as the project grows. The &quot;Last updated&quot; date shows the current version. If you keep using the site
+              after changes, you accept the new terms.
+            </p>
+          ),
         },
         {
-          heading: "Contact",
-          body: <p>Contact details for the team are coming soon.</p>,
+          heading: "Contact us",
+          body: <p>Team contact details are coming soon and will be added here.</p>,
         },
       ]}
     />

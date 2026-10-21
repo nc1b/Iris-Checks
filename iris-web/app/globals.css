@@ -3,9 +3,11 @@
 
 /*
  * Iris theme: strictly black and white, with neutral grays for borders,
- * muted text and hover states. Dark mode follows the system setting, which
- * matches Tailwind's default `dark:` variant.
+ * muted text and hover states. Dark mode is the `.dark` class on <html>,
+ * set from the saved choice or the device setting (see lib/theme.ts).
  */
+
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme inline {
   --font-sans: var(--font-inter-family), "Inter", system-ui, sans-serif;
@@ -61,8 +63,8 @@
   --ring: #737373;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
+.dark {
+  & {
     --background: #000000;
     --foreground: #ffffff;
     --card: #0a0a0a;
@@ -92,7 +94,10 @@
 
   html {
     scroll-behavior: smooth;
-    color-scheme: light dark;
+  }
+
+  body {
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
 
   body {

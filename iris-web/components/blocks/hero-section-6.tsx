@@ -1,8 +1,8 @@
 'use client'
 import { Button } from '@/components/ui/button'
+import { PendingSectionScroll, SectionLink } from '@/components/blocks/section-link'
 import { SiteNav } from '@/components/blocks/site-nav'
 import { ArrowDown, ArrowRight, Clock, ScanEye } from 'lucide-react'
-import Link from 'next/link'
 import { useEffect, useRef } from 'react'
 
 // Example photos of people using their phones close to their eyes (Unsplash, free licence).
@@ -51,6 +51,7 @@ export function HeroSection({ children }: { children?: React.ReactNode }) {
     return (
         <>
             <SiteNav />
+            <PendingSectionScroll />
 
             <main>
                 <section className="overflow-hidden">
@@ -59,15 +60,15 @@ export function HeroSection({ children }: { children?: React.ReactNode }) {
                             <div
                                 ref={textRef}
                                 className="relative z-10 mx-auto max-w-xl text-center will-change-transform lg:ml-0 lg:w-1/2 lg:text-left">
-                                <Link
-                                    href="#coming-soon"
+                                <SectionLink
+                                    section="coming-soon"
                                     className={`${enter} group rounded-lg mx-auto flex w-fit items-center gap-2 border bg-background p-1 pr-3 transition-colors hover:bg-accent lg:ml-0`}>
                                     <span className="bg-muted rounded-[calc(var(--radius)-0.25rem)] px-2 py-1 text-xs">Coming soon</span>
                                     <span className="text-sm">Eye checks by phone</span>
                                     <span className="bg-(--color-border) block h-4 w-px"></span>
 
                                     <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
-                                </Link>
+                                </SectionLink>
 
                                 <h1
                                     className={`${enter} mt-10 text-balance text-4xl font-bold md:text-5xl xl:text-5xl`}
@@ -140,12 +141,12 @@ export function HeroSection({ children }: { children?: React.ReactNode }) {
                             </div>
                         </div>
 
-                        <a
-                            href="#how-it-works"
+                        <SectionLink
+                            section="how-it-works"
                             aria-label="Scroll down"
                             className="absolute bottom-6 left-1/2 z-10 hidden -translate-x-1/2 rounded-full border bg-background/70 p-2 backdrop-blur transition-colors hover:bg-accent lg:block">
                             <ArrowDown className="size-4 animate-bounce motion-reduce:animate-none" />
-                        </a>
+                        </SectionLink>
                     </div>
                 </section>
                 {children}

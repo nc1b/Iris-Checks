@@ -1,6 +1,6 @@
 # Iris
 
-A phone pupil-reflex scan that compares your pupil's reaction to light with published diabetes research. Student prototype for Samsung Solve for Tomorrow 2026–27. **Not a medical device.**
+A phone pupil-reflex scan that compares your pupil's reaction to light with published diabetes research. Student research prototype. **Not a medical device.**
 
 Live: https://iris-pupil-scan.vercel.app
 
