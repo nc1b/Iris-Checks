@@ -1,0 +1,56 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@theme inline {
+  --font-serif: var(--font-instrument-serif-family), "Instrument Serif", Georgia, serif;
+  --font-instrument-serif: var(--font-instrument-serif-family), "Instrument Serif", Georgia, serif;
+  --font-sans: var(--font-inter-family), "Inter", system-ui, sans-serif;
+  --color-background: var(--bg-0);
+  --color-foreground: var(--text-100);
+
+  /* Iris greens */
+  --color-iris-50: #f0fdf4;
+  --color-iris-100: #dcfce7;
+  --color-iris-200: #bbf7d0;
+  --color-iris-300: #86efac;
+  --color-iris-400: #4ade80;
+  --color-iris-500: #22c55e;
+  --color-iris-600: #16a34a;
+  --color-iris-700: #15803d;
+  --color-iris-800: #166534;
+  --color-iris-900: #14532d;
+  --color-iris-950: #052e16;
+
+  --animate-fade-slide-in-1: fadeSlideIn 0.8s ease-out 0.1s both;
+  --animate-fade-slide-in-2: fadeSlideIn 0.8s ease-out 0.25s both;
+  --animate-fade-slide-in-3: fadeSlideIn 0.8s ease-out 0.4s both;
+  --animate-fade-slide-in-4: fadeSlideIn 0.8s ease-out 0.55s both;
+}
+
+:root {
+  --bg-0: #04130a;
+  --bg-100: #0a1f12;
+  --bg-200: #12301c;
+  --bg-300: #1d4529;
+  --text-100: #f3fdf6;
+  --text-200: #d9f5e2;
+  --text-300: #9cc9aa;
+  --text-400: #6b9a7a;
+  --radius: 0.5rem;
+}
+
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+}
