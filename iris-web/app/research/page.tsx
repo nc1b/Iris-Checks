@@ -1,13 +1,16 @@
 import type { Metadata } from "next";
-import { ExternalLink, Eye, FlaskConical, Gauge, Smartphone } from "lucide-react";
+import { BookOpen, ExternalLink, Eye, FlaskConical, Gauge, Smartphone } from "lucide-react";
 import { SiteNav } from "@/components/blocks/site-nav";
 import { SiteFooter } from "@/components/blocks/site-footer";
 import { Reveal } from "@/components/motion/reveal";
 import { PUBLISHED_PUPIL_IRIS_RATIO, STUDIES } from "@/lib/reference";
+import { ResearchLibrary } from "@/components/blocks/research-library";
+import { ResearchMarkdown } from "@/components/blocks/research-markdown";
+import notebook from "@/data/research-notebook.json";
 
 export const metadata: Metadata = {
   title: "Research · Iris",
-  description: "The research and limits behind Iris's three planned checks: diabetes-related pupil responses, glaucoma-related eye differences, and cataract-related cloudiness.",
+  description: "Explore the Iris research notebook: diabetes, glaucoma, cataracts, AI eye studies, the research timeline, datasets, prior art, methods, limitations, and collected source links.",
 };
 
 const checks = [
@@ -35,10 +38,20 @@ const checks = [
 ];
 
 const stats = [
-  { value: "40M", label: "Americans have diabetes", source: "CDC, 2023 data" },
-  { value: "11M", label: "of them don't know it yet", source: "CDC, 2023 data" },
-  { value: "0.89", label: "AUC separating diabetes from healthy eyes with a handheld pupil device", source: "Singapore National Eye Centre, 2022" },
+  { value: String(notebook.documents.length), label: "Research notes", source: "Studies, methods, datasets, and prior art" },
+  { value: String(notebook.sources.length), label: "Collected source links", source: "Papers, projects, datasets, and background" },
+  { value: "3", label: "Planned checks", source: "Diabetes, glaucoma, and cataracts" },
 ];
+
+const noteSummaries = notebook.documents.map(note => ({
+  id: note.id,
+  title: note.title,
+  category: note.category,
+  description: note.description,
+  archived: note.archived,
+  updated: note.updated,
+  searchText: note.searchText,
+}));
 
 const ratios = [
   { label: "Healthy", value: PUBLISHED_PUPIL_IRIS_RATIO.healthy },
@@ -80,8 +93,12 @@ export default function ResearchPage() {
             <h1 className="mt-3 max-w-3xl text-balance text-4xl font-bold md:text-5xl">The science behind checking your eyes by phone</h1>
             <p className="mt-6 max-w-2xl text-muted-foreground">
               Iris is exploring three areas: diabetes-related pupil responses, glaucoma-related differences between eyes, and cataract-related
-              lens cloudiness. They use different signals, have different evidence, and each needs its own testing.
+              lens cloudiness. Our full notebook also covers the wider field of eye AI, its history, datasets, existing tools, and the open
+              questions that shape what we build.
             </p>
+            <a href="#library" className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-full border bg-foreground px-5 py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-80">
+              <BookOpen aria-hidden="true" className="size-4" /> Browse all research
+            </a>
             <p className="mt-4 max-w-2xl rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
               <strong className="text-foreground">Still research:</strong> Iris hasn&apos;t established clinical accuracy for any of the three
               checks. Published findings don&apos;t establish how our phone version will perform. A typical measurement cannot rule out disease;
@@ -106,8 +123,8 @@ export default function ResearchPage() {
           </div>
 
           <Reveal className="mt-16">
-            <h2 className="text-2xl font-bold md:text-3xl">Diabetes: the pupil research</h2>
-            <p className="mt-3 max-w-2xl text-sm text-muted-foreground">The figures below describe published studies and population data. They are not accuracy results for Iris.</p>
+            <h2 className="text-2xl font-bold md:text-3xl">The full research collection</h2>
+            <p className="mt-3 max-w-2xl text-sm text-muted-foreground">From the first retina models to phone-only measurements. Working notes and source leads, collected October 19–21, 2026.</p>
           </Reveal>
           <div className="mt-8 grid gap-4 md:grid-cols-3">
             {stats.map((s, i) => (
@@ -122,23 +139,35 @@ export default function ResearchPage() {
           </div>
         </section>
 
+        <section id="library" aria-labelledby="library-heading" className="scroll-mt-24 border-t bg-muted/30">
+          <div className="mx-auto max-w-5xl px-6 py-20">
+            <div className="mb-9 max-w-2xl">
+              <p className="text-sm font-medium uppercase tracking-widest text-muted-foreground">Research notebook</p>
+              <h2 id="library-heading" className="mt-3 text-3xl font-bold tracking-tight md:text-4xl">Follow the evidence</h2>
+              <p className="mt-4 leading-relaxed text-muted-foreground">Search the complete notes, browse by topic, or go straight to a source. Open a note to read the study tables, methods, limitations, and references.</p>
+              <p className="mt-3 text-xs leading-relaxed text-muted-foreground">Earlier directions are labelled. Unverified leads, preprints, conference abstracts, and patents should be read in that context. None of the published numbers are accuracy claims for Iris.</p>
+            </div>
+            <ResearchLibrary notes={noteSummaries} sources={notebook.sources} content={notebook.documents.map(note => <ResearchMarkdown key={note.id} content={note.markdown} />)} />
+          </div>
+        </section>
+
         <section className="border-t bg-muted/40">
           <div className="mx-auto max-w-5xl px-6 py-20">
             <Reveal>
               <h2 className="text-2xl font-bold md:text-3xl">Resting pupil size in darkness</h2>
               <p className="mt-3 max-w-2xl text-sm text-muted-foreground">
-                Pupil size compared with iris size, from a 2010 pilot study. A smaller number means a smaller pupil. {PUBLISHED_PUPIL_IRIS_RATIO.note}
+                Pupil size compared with iris size, from a 2010 pilot study. These are group averages measured in full darkness with infrared equipment. They do not define cutoffs for Iris.
               </p>
             </Reveal>
             <div className="mt-10 space-y-5">
               {ratios.map((r, i) => (
                 <Reveal key={r.label} delay={i * 150} effect="left">
-                  <div className="flex items-center gap-4">
-                    <span className="w-44 shrink-0 text-sm">{r.label}</span>
-                    <div className="h-3 flex-1 overflow-hidden rounded-full bg-background ring-1 ring-border">
+                  <div className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 sm:grid-cols-[11rem_1fr_3rem]">
+                    <span className="text-sm">{r.label}</span>
+                    <div className="col-span-2 row-start-2 h-3 overflow-hidden rounded-full bg-background ring-1 ring-border sm:col-span-1 sm:row-start-auto">
                       <div className="h-full rounded-full bg-foreground" style={{ width: `${(r.value / 0.6) * 100}%` }} />
                     </div>
-                    <span className="w-12 text-right font-mono text-sm">{r.value.toFixed(2)}</span>
+                    <span className="col-start-2 row-start-1 text-right font-mono text-sm sm:col-start-3">{r.value.toFixed(2)}</span>
                   </div>
                 </Reveal>
               ))}
@@ -149,7 +178,7 @@ export default function ResearchPage() {
         <section className="border-t">
           <div className="mx-auto max-w-5xl px-6 py-20">
             <Reveal>
-              <h2 className="text-2xl font-bold md:text-3xl">Published studies</h2>
+              <h2 className="text-2xl font-bold md:text-3xl">Core pupil references</h2>
             </Reveal>
             <ul className="mt-10 grid gap-4 md:grid-cols-2">
               {STUDIES.map((s, i) => (

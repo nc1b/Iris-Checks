@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, BookOpen, Building2, Clock, GraduationCap, HeartHandshake, Lock, ScanEye, ShieldCheck, Smartphone, Stethoscope, Sun } from "lucide-react";
-import { TestimonialsMinimal } from "@/components/ui/minimal-testimonial";
+import TestimonialsBlock from "@/components/ui/testimonials-2";
 import { AppTeaser } from "@/components/blocks/app-teaser";
 import { EyeShowcase } from "@/components/blocks/eye-showcase";
 import { HeroSection } from "@/components/blocks/hero-section-6";
@@ -107,13 +107,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section aria-label="Quotes" className="relative overflow-hidden border-t">
-        <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,var(--color-muted),transparent_70%)] opacity-70" />
-        <Reveal className="relative">
-          <p className="pt-20 text-center text-sm font-medium uppercase tracking-widest text-muted-foreground">Why it matters</p>
-          <TestimonialsMinimal />
-        </Reveal>
-      </section>
+      <TestimonialsBlock />
 
       <section id="supporters" className="scroll-mt-24 border-t">
         <div className="mx-auto max-w-5xl px-6 py-24">
