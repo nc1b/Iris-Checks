@@ -64,7 +64,7 @@ function clean(markdown, id, headings) {
     .replace(/These are our own starter numbers and need pilot data\./g, 'These are team-set experimental placeholders, not clinical cutoffs.')
     .replace(/- \*\*Regulation\.\*\*[^\n]+/g, '- **Clinical evaluation.** A research prototype needs appropriate validation before it can support care decisions.')
     .replace(/- \*\*Pupil reflex:\*\* personal baseline/g, '- **Pupil reflex:** a personal baseline can support repeatability research, but disease-related claims still need clinically labelled comparison data.')
-    .replace(/\n{3,}/g, '\n\n').trim();
+    .replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').trim();
 
   const notes = {
     'three-checks': '> Current research scope: diabetes, glaucoma, and cataracts. All three are in development. Study results below describe other systems; they are not clinical accuracy results for Iris. A typical result cannot rule out disease.\n\n',

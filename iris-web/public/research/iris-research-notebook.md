@@ -605,14 +605,14 @@ School vision follow-up, digital eye strain, myopia, missed eye exams, and eye-g
 
 > Background needs assessment. Several figures are older estimates or secondary-source leads and should be checked against their original population and date before reuse. These figures are not measurements of Jacksonville residents.
 
-## 1. Kids failing school vision screenings never get glasses 
+## 1. Kids failing school vision screenings never get glasses
 - About **1 in 4 school-age children** has an undetected or untreated vision problem (Prevent Blindness, a widely repeated estimate from older studies).
 - At some California schools, **up to ~35% of students fail vision screening, yet only ~7% go on to get an exam and glasses** (secondary source citing a CA report). Only **16% of school-age Medi-Cal kids** got vision care in 2022–24, down from 19%.
 - Screening quality **varies by school**, so kids get unequal care.
 - **Amblyopia ("lazy eye")** causes permanent vision loss if it isn't caught young.
 -  The gap is **follow-through** (screening → exam → glasses → actually wearing them), not only detection.
 
-## 2. Digital eye strain and dry eye in teens 
+## 2. Digital eye strain and dry eye in teens
 - About **half of teens and students** report digital eye strain symptoms. Online-class students showed 50.6% vs. 33.2% in the general population.
 - Blinking drops from **~15/min to ~5–7/min** during screen use.
 - In one high school survey, **39.7%** reported dry-eye symptoms, and **>6 h/day of device use** carried an odds ratio of **7.3** for dry eye.
