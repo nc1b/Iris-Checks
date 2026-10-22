@@ -249,6 +249,11 @@ export function SiteNav() {
                         {/* Right side */}
                         <div className="ml-auto flex items-center gap-1.5 lg:ml-0">
                             <ThemeToggle className="size-10 rounded-xl" />
+                            <Link
+                                href="/sign-in"
+                                className="hidden h-10 items-center whitespace-nowrap rounded-xl border px-4 text-sm font-medium transition-colors hover:bg-accent sm:flex">
+                                Sign in
+                            </Link>
                             <button
                                 type="button"
                                 onClick={askIris}
@@ -298,13 +303,21 @@ export function SiteNav() {
                                 <MoreLink key={m.name} item={m} pathname={pathname} onNavigate={goTo} onClose={() => setMenuOpen(false)} compact />
                             ))}
                         </div>
-                        <button
-                            type="button"
-                            onClick={askIris}
-                            className="mt-2 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-foreground text-sm font-medium text-background sm:hidden">
-                            <MessageCircle className="size-4" />
-                            Ask Iris
-                        </button>
+                        <div className="mt-2 grid grid-cols-2 gap-2 sm:hidden">
+                            <Link
+                                href="/sign-in"
+                                onClick={() => setMenuOpen(false)}
+                                className="flex h-11 items-center justify-center rounded-xl border text-sm font-medium">
+                                Sign in
+                            </Link>
+                            <button
+                                type="button"
+                                onClick={askIris}
+                                className="flex h-11 items-center justify-center gap-2 rounded-xl bg-foreground text-sm font-medium text-background">
+                                <MessageCircle className="size-4" />
+                                Ask Iris
+                            </button>
+                        </div>
                     </div>
                 </div>
             </header>
