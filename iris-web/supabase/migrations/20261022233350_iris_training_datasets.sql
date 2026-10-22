@@ -1,0 +1,134 @@
+-- Labeled eye-image datasets for training and testing the three checks.
+-- Private schema (not reachable through the public API). Every image row says which
+-- condition it shows AND what kind of image it is, so a model never mixes retina photos
+-- with phone photos or pupil videos.
+
+create table iris.datasets (
+  id text primary key,                         -- short slug, e.g. 'mendeley-bmrd'
+  name text not null,
+  source_url text not null,
+  doi text,
+  license text not null,                       -- e.g. 'CC BY 4.0', 'unknown'
+  attribution text not null,                   -- citation to credit when used
+  image_type text not null check (image_type in ('fundus', 'external_photo', 'slit_lamp', 'pupil_ir', 'mixed')),
+  conditions text[] not null,                  -- subset of the condition labels below
+  image_count integer,
+  download_size_mb integer,
+  access text not null check (access in ('open_download', 'login_required', 'request_from_authors')),
+  relevance text not null,                     -- how it relates to the Iris checks
+  status text not null default 'cataloged' check (status in ('cataloged', 'downloaded', 'imported', 'rejected')),
+  notes text,
+  created_at timestamptz not null default now()
+);
+
+create table iris.dataset_images (
+  id uuid primary key default gen_random_uuid(),
+  dataset_id text not null references iris.datasets (id) on delete cascade,
+  source_path text not null,                   -- path inside the original download
+  storage_path text,                           -- where our copy lives, if stored
+  condition text not null check (condition in ('normal', 'diabetes', 'glaucoma', 'cataract', 'other')),
+  condition_detail text,                       -- e.g. 'diabetic retinopathy: moderate', 'glaucoma level 2'
+  severity smallint check (severity between 0 and 5),
+  image_type text not null check (image_type in ('fundus', 'external_photo', 'slit_lamp', 'pupil_ir')),
+  eye text not null default 'unknown' check (eye in ('left', 'right', 'unknown')),
+  subject_ref text,                            -- dataset's own (anonymous) patient id, to keep a person's images in one split
+  is_augmented boolean not null default false, -- flipped/rotated copies made by the dataset authors
+  width integer,
+  height integer,
+  split text check (split in ('train', 'val', 'test')),
+  sha256 text not null unique,                 -- catches the same image appearing in two datasets
+  created_at timestamptz not null default now(),
+  unique (dataset_id, source_path)
+);
+
+create index dataset_images_label_idx on iris.dataset_images (condition, image_type, split);
+
+alter table iris.datasets enable row level security;
+alter table iris.dataset_images enable row level security;
+
+-- Counts per dataset, condition and image type.
+create view iris.dataset_summary with (security_invoker = true) as
+select d.id as dataset_id, d.name, d.license, i.image_type, i.condition,
+       count(*) as images,
+       count(*) filter (where i.split = 'train') as train,
+       count(*) filter (where i.split = 'val') as val,
+       count(*) filter (where i.split = 'test') as test
+from iris.datasets d
+join iris.dataset_images i on i.dataset_id = d.id
+group by d.id, d.name, d.license, i.image_type, i.condition;
+
+-- The catalog: what exists, how it's licensed, and how to get it.
+insert into iris.datasets (id, name, source_url, doi, license, attribution, image_type, conditions, image_count, download_size_mb, access, relevance, notes) values
+('ieee-t1d-pupil',
+ 'Dynamic Pupillary Dataset for Autonomic Neuropathy in Type 1 Diabetes',
+ 'https://ieee-dataport.org/documents/dynamic-pupillary-dataset-autonomic-neuropathy-type-1-diabetes',
+ '10.21227/gknz-g927', 'IEEE DataPort standard dataset terms',
+ 'Bonafini BL, Ferrari de Oliveira L, Ronque GLF. Federal University of Paraná. IEEE DataPort, 2026.',
+ 'pupil_ir', array['diabetes'], 13500, null, 'login_required',
+ 'Closest match to the diabetes check: 90 pupil light-reflex videos (5 s, 30 fps, 10 ms white flash) from 49 people with type 1 diabetes; 4,264 frames have pupil and iris boxes (YOLO).',
+ 'All participants have diabetes (no healthy controls in this set). Infrared, monocular VR-headset pupillometer, not a phone. Needs a signed-in IEEE DataPort account to download.'),
+('camilo-2025-pupil',
+ 'Pupillary image dataset: glaucoma, type 2 diabetes and alcohol subsets',
+ 'https://doi.org/10.1016/j.compbiomed.2024.109594',
+ '10.1016/j.compbiomed.2024.109594', 'unknown (check the paper''s data availability statement)',
+ 'Camilo ENR, Paranhos Junior A, Pinheiro HM, da Costa RM. Computers in Biology and Medicine 186:109594, 2025.',
+ 'pupil_ir', array['glaucoma', 'diabetes', 'other'], 268790, null, 'request_from_authors',
+ 'Pupil images for glaucoma (early, moderate, severe) and type 2 diabetes: matches the glaucoma and diabetes checks. 10,000 images are hand-annotated.',
+ 'Download location not found publicly (the journal page is behind a bot check). Ask the authors (Federal University of Goiás).'),
+('mendeley-bajwa',
+ 'Bajwa Hospital Multi Eye Disease Dataset',
+ 'https://data.mendeley.com/datasets/rgwpd4m785/3',
+ '10.17632/rgwpd4m785', 'CC BY 4.0',
+ 'Bajwa Hospital, Dina Nagar, Gurdaspur, India; IK Gujral Punjab Technical University. Mendeley Data, 2022. DOI 10.17632/rgwpd4m785.',
+ 'mixed', array['normal', 'cataract', 'glaucoma', 'other'], 600, 1710, 'open_download',
+ 'Small set with cataract and glaucoma from three image types; may include outside-of-the-eye photos useful for the cataract check.',
+ '300 normal, 100 cataract, 100 glaucoma, 100 retinal disease. One 1.67 GB .rar file. Image type has to be sorted per image on import.'),
+('mendeley-bmrd',
+ 'Bangladesh Multi-Disease Retinal Dataset (BMRD)',
+ 'https://data.mendeley.com/datasets/959whsbc6v/1',
+ '10.17632/959whsbc6v.1', 'CC BY 4.0',
+ 'Khulna Eye Hospital & Laser Center, BNSB Eye Hospital Shiromoni, Anwer Khan Modern Medical College Hospital. Mendeley Data. DOI 10.17632/959whsbc6v.1.',
+ 'fundus', array['diabetes', 'glaucoma', 'other'], 1786, 683, 'open_download',
+ 'Retina photos graded by three ophthalmologists: diabetic retinopathy and glaucoma in four severity levels each. Background and severity labels, not phone images.',
+ 'Also includes AMD (labeled other).'),
+('mendeley-dr-retinal',
+ 'Diabetic Retinopathy and Retinal Diseases Fundus Image Dataset',
+ 'https://data.mendeley.com/datasets/6ry9n79gb4/1',
+ '10.17632/6ry9n79gb4.1', 'CC BY 4.0',
+ 'Mendeley Data. DOI 10.17632/6ry9n79gb4.1 (merged from three public sources).',
+ 'fundus', array['diabetes', 'glaucoma', 'cataract', 'normal', 'other'], 22454, 2724, 'open_download',
+ 'Large set with all three conditions in retina photos, 13 classes including six diabetic retinopathy stages.',
+ 'Merged from other public datasets, so it may duplicate images from other sources (the sha256 column catches that).'),
+('mendeley-eye-disease',
+ 'Eye Disease Image Dataset (Faridpur, Bangladesh)',
+ 'https://data.mendeley.com/datasets/s9bfhswzjb/1',
+ '10.17632/s9bfhswzjb.1', 'CC BY 4.0',
+ 'Daffodil International University and Jahangirnagar University. Mendeley Data, 2024. DOI 10.17632/s9bfhswzjb.1.',
+ 'fundus', array['diabetes', 'glaucoma', 'normal', 'other'], 21577, 3758, 'open_download',
+ '5,335 original images from two eye hospitals plus 16,242 augmented copies; diabetic retinopathy and glaucoma among 10 classes.',
+ 'No cataract class. Mark augmented copies with is_augmented = true and keep them out of the test split.'),
+('odir-5k',
+ 'ODIR-5K (Ocular Disease Intelligent Recognition)',
+ 'https://odir2019.grand-challenge.org/dataset/',
+ null, 'unknown (no license published)',
+ 'Shanggong Medical Technology / Peking University, ODIR-2019 challenge.',
+ 'fundus', array['normal', 'diabetes', 'glaucoma', 'cataract', 'other'], 10000, null, 'login_required',
+ 'Left and right retina photos of 5,000 patients with age and doctor keywords; one of the few sets labeling diabetes, glaucoma and cataract together.',
+ 'License unclear: contact the organizers before using. Download needs an account (grand-challenge or Kaggle).'),
+('refuge',
+ 'REFUGE glaucoma challenge',
+ 'https://refuge.grand-challenge.org/',
+ null, 'challenge terms (registration)',
+ 'Orlando JI et al. REFUGE Challenge, Medical Image Analysis 59:101570, 2020.',
+ 'fundus', array['glaucoma', 'normal'], 1200, null, 'login_required',
+ 'Retina photos with clinical glaucoma labels and optic disc/cup outlines.',
+ 'Registration required.'),
+('iiitd-cmp',
+ 'IIITD Cataract Mobile Periocular (CMP) dataset',
+ 'https://iab-rubric.org/',
+ null, 'unknown (request from IIIT Delhi)',
+ 'IIIT Delhi Image Analysis and Biometrics Lab.',
+ 'external_photo', array['cataract', 'normal'], null, null, 'request_from_authors',
+ 'Smartphone photos of the eye area with and without cataract, in uncontrolled lighting: the closest match to the phone cataract check.',
+ 'Access terms not published; ask the lab.');
+
