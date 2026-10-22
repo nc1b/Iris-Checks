@@ -22,6 +22,7 @@ const quickLinks = [
   { label: "Research", href: "/research" },
   { label: "Supporters", section: "supporters" },
   { label: "About", section: "about" },
+  { label: "FAQ", section: "faq" },
 ]
 
 /** Everything Iris keeps in this browser. Listed in the Privacy Policy. */

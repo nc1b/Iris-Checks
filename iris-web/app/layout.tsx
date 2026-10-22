@@ -12,7 +12,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Iris: eye checks by phone",
   description:
-    "Iris is building a 10-second eye check that uses your phone's camera and screen light, compared with published research. Coming soon.",
+    "Iris is developing three phone-based research checks for diabetes-related pupil responses, glaucoma-related eye differences, and cataract-related cloudiness. Coming soon.",
 };
 
 export const viewport: Viewport = {

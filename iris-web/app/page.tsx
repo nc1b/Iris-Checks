@@ -7,6 +7,7 @@ import { HeroSection } from "@/components/blocks/hero-section-6";
 import { SiteFooter } from "@/components/blocks/site-footer";
 import { Reveal } from "@/components/motion/reveal";
 import { Button } from "@/components/ui/button";
+import FrequentlyAskedQuestions from "@/components/ui/frequently-asked-questions-with-accordion";
 
 const steps = [
   {
@@ -16,13 +17,13 @@ const steps = [
   },
   {
     icon: Sun,
-    title: "One flash of light",
-    body: "The screen flashes for a second while the camera records how your pupils react. Then one quick flash per eye while you cover the other.",
+    title: "Capture the light response",
+    body: "The plan uses screen light with both eyes in view, then a short flash per eye while you cover the other. Images captured along the way would also be checked for lens cloudiness.",
   },
   {
     icon: BookOpen,
-    title: "Two results, explained",
-    body: "Your reflex is compared with published diabetes studies, and your left and right eyes are compared with each other. Both are explained in plain language.",
+    title: "Three checks, explained",
+    body: "Diabetes-related pupil responses, glaucoma-related differences between eyes, and cataract-related cloudiness. Each planned check would explain the finding and when to seek professional care.",
   },
 ];
 
@@ -77,14 +78,13 @@ export default function Home() {
             </span>
             <h2 className="mt-5 text-balance text-3xl font-bold md:text-4xl">A sneak peek at the app</h2>
             <p className="mt-4 text-muted-foreground">
-              Here&apos;s how a scan is planned to feel: line up your eyes, one flash of light, your pupil&apos;s reaction drawn as a curve, and a
-              plain-language explanation. We&apos;re still testing it on real phones and checking it against published studies, so it isn&apos;t
-              available yet.
+              Here&apos;s the plan: line up your eyes, capture their light responses and images, then see three checks explained in plain
+              language: diabetes, glaucoma, and cataracts. All three are in development and need testing on real phones before launch.
             </p>
             <ul className="mt-6 space-y-3 text-sm">
               <li className="flex items-start gap-3">
                 <ScanEye className="mt-0.5 size-4 shrink-0" />
-                Eye tracking and pupil measurement on your phone
+                Three planned checks using your phone&apos;s camera and screen
               </li>
               <li className="flex items-start gap-3">
                 <Lock className="mt-0.5 size-4 shrink-0" />
@@ -156,7 +156,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="about" className="scroll-mt-24 border-t bg-muted/40">
+      <section id="about" className="scroll-mt-24 overflow-hidden border-t bg-muted/40">
         <div className="mx-auto grid max-w-5xl gap-10 px-6 py-24 md:grid-cols-[1.1fr_1fr]">
           <Reveal effect="left">
             <p className="text-sm font-medium uppercase tracking-widest text-muted-foreground">About</p>
@@ -191,6 +191,8 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <FrequentlyAskedQuestions />
 
       <SiteFooter />
     </HeroSection>

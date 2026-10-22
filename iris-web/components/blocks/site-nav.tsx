@@ -1,6 +1,6 @@
 'use client'
 import { motion } from 'framer-motion'
-import { BookOpen, ChevronDown, FileText, HeartHandshake, Home, Info, ListChecks, Menu, MessageCircle, Shield, X, type LucideIcon } from 'lucide-react'
+import { BookOpen, ChevronDown, CircleHelp, FileText, HeartHandshake, Home, Info, ListChecks, Menu, MessageCircle, Shield, X, type LucideIcon } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -17,6 +17,7 @@ const sectionItems: Item[] = [
     { name: 'How it works', section: 'how-it-works', icon: ListChecks },
     { name: 'Supporters', section: 'supporters', icon: HeartHandshake },
     { name: 'About', section: 'about', icon: Info },
+    { name: 'FAQ', section: 'faq', icon: CircleHelp },
 ]
 
 const resources = [
@@ -25,7 +26,7 @@ const resources = [
     { name: 'Terms of Service', href: '/terms', icon: FileText, description: 'Rules for using the site' },
 ]
 
-const spySections = ['how-it-works', 'supporters', 'about'] as const
+const spySections = ['how-it-works', 'supporters', 'about', 'faq'] as const
 
 /**
  * Top bar: a logo tile, icon + label pills for the home page sections, a Resources
@@ -63,7 +64,7 @@ export function SiteNav() {
                 const el = document.getElementById(id)
                 if (el && el.getBoundingClientRect().top < window.innerHeight * 0.4) current = id
             }
-            if (max > 0 && y >= max - 4 && document.getElementById('about')) current = 'about'
+            if (max > 0 && y >= max - 4 && document.getElementById('faq')) current = 'faq'
             setSection(current)
         }
         const onScroll = () => {
@@ -132,7 +133,7 @@ export function SiteNav() {
                             </span>
                             <span className="leading-tight">
                                 <span className="block text-[15px] font-semibold tracking-tight">Iris</span>
-                                <span className="block text-[11px] text-muted-foreground">Pupil check</span>
+                                <span className="block text-[11px] text-muted-foreground">Eye checks</span>
                             </span>
                         </SectionLink>
 

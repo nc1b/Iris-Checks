@@ -1,5 +1,5 @@
 'use client'
-import { Activity, Bot, Check, CheckCircle2, ScanEye, Sun } from 'lucide-react'
+import { Activity, Bot, Check, ScanEye, Sun } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import IPhoneMockup from '@/components/ui/iphone-mockup'
 import { cn } from '@/lib/utils'
@@ -18,8 +18,7 @@ const steps = [
 ] as const
 
 const STEP_MS = 3800
-// iPhone 15 Pro mockup (393×852 screen), shown at 70%.
-const PHONE_SCALE = 0.7
+// iPhone 15 Pro mockup (393×852 screen), smaller on narrow phones.
 const CONTENT_ZOOM = 393 / 270
 
 export function AppTeaser() {
@@ -41,7 +40,7 @@ export function AppTeaser() {
     }
 
     return (
-        <div className="flex flex-col items-center">
+        <div className="flex w-full min-w-0 flex-col items-center [--preview-scale:0.6] min-[375px]:[--preview-scale:0.7]">
             <div
                 ref={wrapRef}
                 onPointerMove={onMove}
@@ -65,7 +64,7 @@ export function AppTeaser() {
                             color="space-black"
                             safeArea={false}
                             shadow="0 40px 80px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.08)"
-                            style={{ zoom: PHONE_SCALE }}>
+                            style={{ zoom: 'var(--preview-scale)' }}>
                             {/* Screens are laid out at 270px wide and zoomed to fill the 393px screen. */}
                             <div className="relative overflow-hidden text-white" style={{ width: 270, height: 852 / CONTENT_ZOOM, zoom: CONTENT_ZOOM }}>
                                 <StatusBar />
@@ -92,7 +91,7 @@ export function AppTeaser() {
             </div>
 
             {/* step picker */}
-            <div className="mt-8 flex items-center gap-1 rounded-full border bg-background/70 p-1 backdrop-blur" role="tablist" aria-label="Preview steps">
+            <div className="mt-8 flex max-w-full flex-wrap items-center justify-center gap-1 rounded-2xl border bg-background/70 p-1 backdrop-blur sm:rounded-full" role="tablist" aria-label="Preview steps">
                 {steps.map((s, i) => {
                     const Icon = s.icon
                     return (
@@ -121,7 +120,7 @@ export function AppTeaser() {
                     )
                 })}
             </div>
-            <p className="mt-3 text-xs text-muted-foreground">Concept preview with example data. The final app may look different.</p>
+            <p className="mt-3 text-center text-xs text-muted-foreground">Concept preview with example data. The final app may look different.</p>
         </div>
     )
 }
@@ -206,7 +205,7 @@ function FlashScreen({ active }: { active: boolean }) {
                 <span className="size-3 rounded-full bg-white" />
             </div>
             <p className="mt-10 text-sm font-medium text-white/80 mix-blend-difference">Keep your eyes on the dot</p>
-            <p className="mt-1 text-xs text-white/50 mix-blend-difference">The screen flashes once</p>
+            <p className="mt-1 px-5 text-center text-xs text-white/50 mix-blend-difference">Both eyes, then each eye separately</p>
         </div>
     )
 }
@@ -283,17 +282,16 @@ function ResultScreen() {
     return (
         <div className="flex h-full flex-col px-5 pb-8 pt-12">
             <p className="text-center text-[11px] uppercase tracking-widest text-white/60">Step 4</p>
-            <p className="mt-1 text-center text-lg font-semibold">What it means</p>
-            <div className="mt-5 rounded-2xl bg-white p-4 text-black">
-                <div className="flex items-center gap-2 text-sm font-semibold">
-                    <CheckCircle2 className="size-4" /> Response looks typical
-                </div>
-                <p className="mt-1.5 text-[11px] leading-relaxed text-black/70">Your pupil reacted in the range we expect. This isn&apos;t a diagnosis and doesn&apos;t rule out diabetes.</p>
+            <p className="mt-1 text-center text-lg font-semibold">Three research checks</p>
+            <p className="mt-1 text-center text-[10px] text-white/50">Example findings, not a health assessment</p>
+            <div className="mt-4 rounded-2xl bg-white p-3 text-black">
+                <p className="text-xs font-semibold">Diabetes · pupil response</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-black/70">Example: a typical light reflex. A blood test is needed to check for diabetes.</p>
             </div>
             <div className="mt-2.5 rounded-2xl bg-white/[0.06] p-3 ring-1 ring-white/10">
                 <div className="flex items-center justify-between text-xs font-semibold">
                     <span className="flex items-center gap-1.5 text-white/80">
-                        <Eye pupil={0.4} className="w-6" /> Left vs right
+                        <Eye pupil={0.4} className="w-6" /> Glaucoma · eye balance
                     </span>
                     <span className="rounded-full bg-white px-2 py-0.5 text-[10px] text-black">Even</span>
                 </div>
@@ -308,14 +306,18 @@ function ResultScreen() {
                         </span>
                     </div>
                 ))}
+                <p className="mt-2 text-[10px] text-white/50">An even response cannot rule out glaucoma.</p>
             </div>
-            <div className="mt-3 rounded-2xl bg-white/[0.06] p-4 ring-1 ring-white/10">
+            <div className="mt-2.5 rounded-2xl bg-white/[0.06] p-3 ring-1 ring-white/10">
+                <p className="text-xs font-semibold text-white/80">Cataracts · lens cloudiness</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-white/60">Example: no obvious haze in the image. Early cataracts may be missed.</p>
+            </div>
+            <div className="mt-2.5 rounded-2xl bg-white/[0.06] p-3 ring-1 ring-white/10">
                 <div className="flex items-center gap-2 text-xs font-semibold text-white/80">
                     <Bot className="size-3.5" /> AI explanation
                 </div>
                 <p className="mt-2 text-[11px] leading-relaxed text-white/70">
-                    Your pupil shrank quickly after the flash and relaxed normally. Lighting, tiredness and caffeine can all change pupils, so
-                    try again another day to compare
+                    Each check needs clinical testing. These examples don&apos;t rule out disease or replace an eye exam or blood test.
                     <span className="ml-0.5 inline-block h-3 w-1 translate-y-0.5 bg-white/70 motion-safe:animate-pulse" />
                 </p>
             </div>

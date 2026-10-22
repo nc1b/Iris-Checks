@@ -7,8 +7,32 @@ import { PUBLISHED_PUPIL_IRIS_RATIO, STUDIES } from "@/lib/reference";
 
 export const metadata: Metadata = {
   title: "Research · Iris",
-  description: "The published studies behind Iris: how the pupil's reaction to light changes with diabetes, and why a phone could measure it.",
+  description: "The research and limits behind Iris's three planned checks: diabetes-related pupil responses, glaucoma-related eye differences, and cataract-related cloudiness.",
 };
+
+const checks = [
+  {
+    title: "Diabetes",
+    measurement: "Pupil response to light",
+    body: "Specialized pupil devices have found average differences between people with and without diabetes. Iris is investigating whether an ordinary phone can capture useful measurements; the groups overlap and blood tests are still needed for diagnosis.",
+    href: "https://pubmed.ncbi.nlm.nih.gov/35616273/",
+    link: "Read the pupil study",
+  },
+  {
+    title: "Glaucoma",
+    measurement: "Comparing the two eyes",
+    body: "Small studies have explored phone pupillometry in glaucoma. Iris plans to compare responses when each eye is lit separately. Uneven responses can have several causes, while early disease or similar damage in both eyes may be missed. An eye exam is needed.",
+    href: "https://www.frontiersin.org/journals/neurology/articles/10.3389/fneur.2024.1426205/full",
+    link: "Read the phone pupil study",
+  },
+  {
+    title: "Cataracts",
+    measurement: "Looking for lens cloudiness",
+    body: "A cataract is a cloudy area in the eye's lens. Iris plans to explore visible haze in images captured during the scan. Lighting and glare can mimic cloudiness, and early cataracts may be missed. The phone method needs its own testing against eye exams.",
+    href: "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/cataracts",
+    link: "Learn about cataracts at NEI",
+  },
+];
 
 const stats = [
   { value: "40M", label: "Americans have diabetes", source: "CDC, 2023 data" },
@@ -26,22 +50,22 @@ const plan = [
   {
     icon: Smartphone,
     title: "Phone only",
-    body: "The studies used special pupillometers. Iris tests whether an ordinary phone camera and screen can measure the same reflex.",
+    body: "Iris is exploring all three checks using an ordinary phone camera and screen, without a separate lens or clinic device.",
   },
   {
     icon: Gauge,
-    title: "Same measurements",
-    body: "Resting pupil size, how much the pupil shrinks, how fast, and the delay before it reacts.",
+    title: "Three kinds of measurements",
+    body: "Pupil response for diabetes research, separate-eye response balance for glaucoma research, and captured images for cataract-related cloudiness.",
   },
   {
     icon: Eye,
     title: "Left vs right check",
-    body: "A second result compares your eyes: pupil size, and how each eye reacts when it's lit on its own (cover the other eye). An uneven reaction can point to optic-nerve problems such as glaucoma, so Iris suggests seeing an eye doctor.",
+    body: "Each eye needs to be lit on its own while the other is covered. A single flash on both eyes cannot isolate a difference in the signal from each eye. This part of the capture flow still needs development.",
   },
   {
     icon: FlaskConical,
     title: "Tested before launch",
-    body: "We'll compare readings from volunteers with and without diabetes before anyone relies on a result.",
+    body: "Each check needs independent evaluation: blood-test-confirmed diabetes status, clinical pupil assessments for the eye comparison, and eye exams for lens cloudiness. Prototype results can't rule out disease.",
   },
 ];
 
@@ -55,18 +79,37 @@ export default function ResearchPage() {
             <p className="text-sm font-medium uppercase tracking-widest text-muted-foreground">Research</p>
             <h1 className="mt-3 max-w-3xl text-balance text-4xl font-bold md:text-5xl">The science behind checking your eyes by phone</h1>
             <p className="mt-6 max-w-2xl text-muted-foreground">
-              Your pupil is controlled by the same nerves that diabetes slowly damages. Researchers using special clinic devices found that,
-              on average, the pupil&apos;s reaction to light is different in people with diabetes, sometimes before any eye damage is visible.
-              Here&apos;s what they found.
+              Iris is exploring three areas: diabetes-related pupil responses, glaucoma-related differences between eyes, and cataract-related
+              lens cloudiness. They use different signals, have different evidence, and each needs its own testing.
             </p>
             <p className="mt-4 max-w-2xl rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
-              <strong className="text-foreground">What isn&apos;t known yet:</strong> these are differences between groups, and the groups
-              overlap, so a pupil test can&apos;t give a definite yes or no for one person. No one has shown yet how well a phone version
-              works. That&apos;s the question Iris is testing. Only a blood test (such as A1C or blood glucose) can diagnose diabetes.
+              <strong className="text-foreground">Still research:</strong> Iris hasn&apos;t established clinical accuracy for any of the three
+              checks. Published findings don&apos;t establish how our phone version will perform. A typical measurement cannot rule out disease;
+              diabetes needs blood testing, and glaucoma or cataracts need an eye exam.
             </p>
           </Reveal>
 
-          <div className="mt-14 grid gap-4 md:grid-cols-3">
+          <div className="mt-10 grid gap-4 md:grid-cols-3">
+            {checks.map((check, i) => (
+              <Reveal key={check.title} delay={i * 120}>
+                <div className="flex h-full flex-col rounded-2xl border bg-card p-6">
+                  <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Planned check {i + 1}</p>
+                  <h2 className="mt-3 text-xl font-semibold">{check.title}</h2>
+                  <p className="mt-1 text-sm font-medium">{check.measurement}</p>
+                  <p className="mb-5 mt-3 text-sm leading-relaxed text-muted-foreground">{check.body}</p>
+                  <a href={check.href} target="_blank" rel="noreferrer" className="mt-auto inline-flex items-center gap-2 text-sm font-medium underline underline-offset-4">
+                    {check.link} <ExternalLink aria-hidden="true" className="size-3.5 shrink-0" />
+                  </a>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+
+          <Reveal className="mt-16">
+            <h2 className="text-2xl font-bold md:text-3xl">Diabetes: the pupil research</h2>
+            <p className="mt-3 max-w-2xl text-sm text-muted-foreground">The figures below describe published studies and population data. They are not accuracy results for Iris.</p>
+          </Reveal>
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
             {stats.map((s, i) => (
               <Reveal key={s.label} delay={i * 120} effect="zoom">
                 <div className="h-full rounded-2xl border bg-card p-6">

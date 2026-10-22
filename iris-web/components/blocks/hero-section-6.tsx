@@ -78,8 +78,8 @@ export function HeroSection({ children }: { children?: React.ReactNode }) {
                                 <p
                                     className={`${enter} mt-8 text-muted-foreground`}
                                     style={{ animationDelay: '240ms' }}>
-                                    Iris is building a 10-second eye check that uses your phone&apos;s camera and screen light to measure how your
-                                    pupils respond, then compares the result with published research. No extra hardware needed.
+                                    Iris is exploring three checks in one phone scan: diabetes-related pupil responses, glaucoma-related differences
+                                    between eyes, and cataract-related cloudiness. Just your camera and screen light. All three are coming soon.
                                 </p>
 
                                 <div
