@@ -103,6 +103,16 @@
   }
 }
 
+/* FAQ roller (components/ui/faq-roller.tsx) */
+@keyframes faq-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes faq-scroll-reverse {
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0); }
+}
+
 /* App teaser (components/blocks/app-teaser.tsx) */
 @keyframes teaser-float {
   0%, 100% { translate: 0 0; }
@@ -136,8 +146,10 @@
     scroll-behavior: smooth;
   }
 
-  body {
-    transition: background-color 0.3s ease, color 0.3s ease;
+  /* Theme switches crossfade via the View Transitions API (lib/theme.ts). */
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 0.3s;
   }
 
   body {

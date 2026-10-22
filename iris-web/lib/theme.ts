@@ -36,8 +36,15 @@ export function setTheme(theme: 'light' | 'dark') {
     } catch {
         // Storage blocked: still switch for this visit.
     }
-    applyTheme(theme === 'dark')
-    window.dispatchEvent(new Event(EVENT))
+    const apply = () => {
+        applyTheme(theme === 'dark')
+        window.dispatchEvent(new Event(EVENT))
+    }
+    // Crossfade the whole page at once. (Fading only some colors left white text on a
+    // white page for a moment.) Browsers without view transitions switch instantly.
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (!reduce && typeof document.startViewTransition === 'function') document.startViewTransition(apply)
+    else apply()
 }
 
 function subscribe(onChange: () => void) {

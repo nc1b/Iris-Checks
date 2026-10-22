@@ -57,7 +57,8 @@ export function EyeShowcase() {
                     </h2>
                     <p className="mt-4 max-w-md text-neutral-300">
                         Move your cursor and the eye follows you. Press flash and watch the pupil shrink a quarter of a second later, then slowly
-                        relax. Iris will time exactly this, using your phone.
+                        relax. This reflex drives two of the three checks: how it reacts (diabetes) and whether both eyes react evenly (glaucoma).
+                        The flash photo is used for the third (cataracts).
                     </p>
 
                     <div className="mt-8 flex flex-wrap items-center gap-4">

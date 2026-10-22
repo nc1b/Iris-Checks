@@ -1,5 +1,6 @@
 import { PUBLISHED_PUPIL_IRIS_RATIO, STUDIES } from "./reference";
 import { IRIS_FAQS } from "./faq";
+import { ROADMAP } from "./roadmap";
 
 /**
  * Facts the Iris assistant answers from. The chat route embeds these with the
@@ -20,7 +21,9 @@ export const KNOWLEDGE: string[] = [
   "Privacy: camera images are planned to be processed on the phone and never uploaded. Chat messages are sent to Hack Club AI and an AI model provider to write replies; the site doesn't store chat content on its server. Chat history, the chat's position and the light/dark choice are saved only in the visitor's browser and can be removed with 'New chat' or 'Clear saved data' in the footer. Full details are on the Privacy Policy page (/privacy).",
   "What isn't known yet: pupil studies found differences between groups of people with and without diabetes, on average, using special clinic devices; the groups overlap, so a pupil test can't say yes or no for one person, and it misses some people who have diabetes. Whether a phone can measure this well enough to help find undiagnosed diabetes is a research question the team is testing, not something proven. A normal result does not rule out diabetes. Doctors diagnose diabetes with blood tests such as A1C or blood glucose.",
   "Iris is not a medical device and does not diagnose anything. It is meant to help people decide when to get checked by a doctor. The Terms of Service are at /terms.",
-  "Website: the home page has an interactive 3D eye (press 'Flash the light' to watch a pupil react), How it works, a Coming soon app preview with three example checks, quotes, Supporters, About, and a FAQ covering diabetes, glaucoma and cataracts. The Research page (/research) explains all three areas. The team is looking for its first sponsors and supporters (clinics, schools and mentors, local organizations). Contact details are coming soon.",
+  "Website: the home page has the three checks (each with why it matters, evidence, limits and the next step), an interactive 3D eye (press 'Flash the light' to watch a pupil react), How it works (about 30 seconds: line up, one flash for both eyes, one flash per eye, three results), a Coming soon app preview with example data, quotes, a Roadmap, Supporters, About, and a scrolling FAQ. The Research page (/research) lists the studies. The Team page (/team) is coming soon. The team is looking for its first sponsors and supporters. Contact details are coming soon.",
+  `Roadmap (goals, dates may change): ${ROADMAP.map((r) => `${r.title} (${r.status}): ${r.heading} - ${r.items.join("; ")}.`).join(" ")}`,
+  "Team: Iris is built by a team of students with help from mentors. Names and photos will be added to the Team page (/team) soon. Don't name or invent team members.",
   ...IRIS_FAQS.map(({ question, answer }) => `FAQ: ${question} ${answer}`),
   "The AI assistant can be dragged anywhere on the screen. It can make mistakes and is not medical advice.",
 ];

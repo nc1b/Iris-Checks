@@ -1,5 +1,6 @@
 'use client'
-import { ArrowUp, GripHorizontal, MessageCircle, RotateCcw, Sparkles, X } from 'lucide-react'
+import { ArrowUp, GripHorizontal, RotateCcw, Sparkles, X } from 'lucide-react'
+import { EyeTracker } from '@/components/ui/interactive-eye-tracker'
 import Link from 'next/link'
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
@@ -15,12 +16,19 @@ const MAX_SAVED = 40
 const BUTTON = 56
 const MARGIN = 12
 
-const suggestions = ['What is Iris?', 'How will the eye check work?', 'Why diabetes?', 'Is my data private?']
+const suggestions = ['What are the three checks?', 'How will one scan work?', 'Can it tell if I have diabetes?', 'Is my data private?']
 
 const greeting: Message = {
     role: 'assistant',
-    content: "Hi! I'm the Iris assistant. Ask me anything about the project, how the eye check will work, or the research behind it.",
+    content:
+        "Hi! I'm the Iris assistant. Ask me about the three planned checks (diabetes, glaucoma and cataracts), how the scan will work, or the research behind it.",
 }
+
+/**
+ * Where the button sits, saved relative to the nearest corner (e.g. "20px from the
+ * right, 20px from the bottom") so it stays docked there when the window size changes.
+ */
+type Anchor = { right: boolean; bottom: boolean; dx: number; dy: number }
 
 function load<T>(key: string, fallback: T): T {
     try {
@@ -39,15 +47,43 @@ function save(key: string, value: unknown) {
     }
 }
 
+// The visible page size, not counting scrollbars (window.innerWidth includes them,
+// which left the button half under the scrollbar on desktop).
+const vw = () => document.documentElement.clientWidth || window.innerWidth
+const vh = () => document.documentElement.clientHeight || window.innerHeight
+
 function clamp(p: Pos): Pos {
     return {
-        x: Math.min(Math.max(MARGIN, p.x), window.innerWidth - BUTTON - MARGIN),
-        y: Math.min(Math.max(MARGIN, p.y), window.innerHeight - BUTTON - MARGIN),
+        x: Math.min(Math.max(MARGIN, p.x), vw() - BUTTON - MARGIN),
+        y: Math.min(Math.max(MARGIN, p.y), vh() - BUTTON - MARGIN),
     }
 }
 
-function defaultPos(): Pos {
-    return { x: window.innerWidth - BUTTON - 20, y: window.innerHeight - BUTTON - 20 }
+const DEFAULT_ANCHOR: Anchor = { right: true, bottom: true, dx: 20, dy: 20 }
+
+function toAnchor(p: Pos): Anchor {
+    const right = p.x + BUTTON / 2 > vw() / 2
+    const bottom = p.y + BUTTON / 2 > vh() / 2
+    return {
+        right,
+        bottom,
+        dx: right ? vw() - p.x - BUTTON : p.x,
+        dy: bottom ? vh() - p.y - BUTTON : p.y,
+    }
+}
+
+function fromAnchor(a: Anchor): Pos {
+    return clamp({
+        x: a.right ? vw() - BUTTON - a.dx : a.dx,
+        y: a.bottom ? vh() - BUTTON - a.dy : a.dy,
+    })
+}
+
+function loadAnchor(): Anchor {
+    const saved = load<Partial<Anchor> | null>(POS_KEY, null)
+    // Older versions saved plain {x, y} pixels, which got stranded mid-screen after resizing: start over.
+    if (!saved || typeof saved.right !== 'boolean' || !Number.isFinite(saved.dx) || !Number.isFinite(saved.dy)) return DEFAULT_ANCHOR
+    return saved as Anchor
 }
 
 /** **bold**, *italic* and site links like /privacy. Everything else stays plain text (no HTML). */
@@ -111,11 +147,11 @@ export default function ChatWidget() {
         const saved = load<Message[]>(MESSAGES_KEY, [])
         return Array.isArray(saved) && saved.length ? saved.filter((m) => m && typeof m.content === 'string') : [greeting]
     })
-    const [pos, setPos] = useState<Pos>(() => {
-        const saved = load<Pos | null>(POS_KEY, null)
-        return clamp(saved && Number.isFinite(saved.x) && Number.isFinite(saved.y) ? saved : defaultPos())
-    })
-    const [viewport, setViewport] = useState(() => ({ w: window.innerWidth, h: window.innerHeight }))
+    const [initialAnchor] = useState(loadAnchor)
+    const anchor = useRef(initialAnchor)
+    const [pos, setPos] = useState<Pos>(() => fromAnchor(initialAnchor))
+    const posRef = useRef(pos)
+    const [viewport, setViewport] = useState(() => ({ w: vw(), h: vh() }))
     const [dragging, setDragging] = useState(false)
     const [input, setInput] = useState('')
     const [loading, setLoading] = useState(false)
@@ -132,16 +168,15 @@ export default function ChatWidget() {
         save(MESSAGES_KEY, messages.slice(-MAX_SAVED))
     }, [messages])
 
-    // Remember where the widget was dropped.
     useEffect(() => {
-        if (!dragging) save(POS_KEY, pos)
-    }, [pos, dragging])
+        posRef.current = pos
+    }, [pos])
 
-    // Keep the widget on screen when the window size changes.
+    // Keep the button docked to its corner when the window size changes.
     useEffect(() => {
         const onResize = () => {
-            setViewport({ w: window.innerWidth, h: window.innerHeight })
-            setPos((p) => clamp(p))
+            setViewport({ w: vw(), h: vh() })
+            setPos(fromAnchor(anchor.current))
         }
         window.addEventListener('resize', onResize)
         return () => window.removeEventListener('resize', onResize)
@@ -229,12 +264,16 @@ export default function ChatWidget() {
         d.moved = true
         setPos(clamp({ x: d.origin.x + dx, y: d.origin.y + dy }))
     }
-    const endDrag = (toggle: boolean) => () => {
+    const endDrag = (toggle: boolean) => {
         const d = drag.current
         drag.current = null
         setDragging(false)
         if (!d) return
-        if (!d.moved && toggle) setOpen((o) => !o)
+        if (d.moved) {
+            // Remember where it was dropped, relative to the nearest corner.
+            anchor.current = toAnchor(posRef.current)
+            save(POS_KEY, anchor.current)
+        } else if (toggle) setOpen((o) => !o)
     }
 
     const resetChat = () => {
@@ -281,12 +320,21 @@ export default function ChatWidget() {
                 <div
                     onPointerDown={onPointerDown}
                     onPointerMove={onPointerMove}
-                    onPointerUp={endDrag(false)}
-                    onPointerCancel={endDrag(false)}
+                    onPointerUp={() => endDrag(false)}
+                    onPointerCancel={() => endDrag(false)}
                     className={cn('relative flex touch-none select-none items-center gap-3 px-4 pb-3 pt-4', dragging ? 'cursor-grabbing' : 'cursor-grab')}>
                     <GripHorizontal aria-hidden className="absolute left-1/2 top-1 size-4 -translate-x-1/2 text-muted-foreground/50" />
-                    <span className="relative flex size-10 shrink-0 items-center justify-center rounded-2xl bg-foreground text-background">
-                        <Sparkles className="size-[18px]" />
+                    <span className="relative flex size-10 shrink-0 items-center justify-center">
+                        <EyeTracker
+                            aria-hidden
+                            shape="Cube"
+                            size={40}
+                            track="window"
+                            follow={50}
+                            style={{ width: 40, height: 40 }}
+                            bodyClassName="fill-foreground stroke-foreground"
+                            eyeClassName="fill-background"
+                        />
                         <span className="absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-background bg-foreground">
                             <span className="absolute inset-0 animate-ping rounded-full bg-foreground/60 motion-reduce:animate-none" />
                         </span>
@@ -418,8 +466,8 @@ export default function ChatWidget() {
             <button
                 onPointerDown={onPointerDown}
                 onPointerMove={onPointerMove}
-                onPointerUp={endDrag(true)}
-                onPointerCancel={endDrag(false)}
+                onPointerUp={() => endDrag(true)}
+                onPointerCancel={() => endDrag(false)}
                 onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault()
@@ -431,12 +479,28 @@ export default function ChatWidget() {
                 aria-expanded={open}
                 title="Ask about Iris · drag to move"
                 className={cn(
-                    'fixed z-40 flex touch-none select-none items-center justify-center rounded-full bg-foreground text-background shadow-xl shadow-black/25 ring-4 ring-background/60',
+                    'fixed z-40 flex touch-none select-none items-center justify-center rounded-[1.1rem] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
                     'animate-in fade-in zoom-in-50 [animation-delay:600ms] [animation-duration:500ms] [animation-fill-mode:both] motion-reduce:animate-none',
                     dragging ? 'cursor-grabbing scale-110' : 'cursor-grab transition-transform duration-200 hover:scale-105 active:scale-95',
                 )}>
-                <MessageCircle className={cn('absolute size-6 transition-all duration-200', open ? 'rotate-90 scale-0 opacity-0' : 'rotate-0 scale-100 opacity-100')} />
-                <X className={cn('absolute size-6 transition-all duration-200', open ? 'rotate-0 scale-100 opacity-100' : '-rotate-90 scale-0 opacity-0')} />
+                {/* The Iris character: a dark tile whose eyes follow your cursor. */}
+                <EyeTracker
+                    aria-hidden
+                    shape="Cube"
+                    size={BUTTON}
+                    track="window"
+                    // Inline so it beats the component's own `relative` and fixed 200px size.
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+                    className="pointer-events-none drop-shadow-[0_10px_18px_rgba(0,0,0,0.25)]"
+                    bodyClassName="fill-foreground stroke-background/40"
+                    eyeClassName={cn('fill-background transition-opacity duration-200', open && 'opacity-0')}
+                />
+                <X
+                    className={cn(
+                        'relative size-6 text-background transition-all duration-200',
+                        open ? 'rotate-0 scale-100 opacity-100' : '-rotate-90 scale-0 opacity-0',
+                    )}
+                />
             </button>
         </>
     )

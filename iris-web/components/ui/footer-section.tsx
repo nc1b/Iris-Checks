@@ -14,14 +14,15 @@ import { openChat } from "@/lib/chat-events"
 import { setTheme, useIsDark } from "@/lib/theme"
 import { THEME_KEY } from "@/lib/theme-script"
 
-export const SITE_VERSION = "v0.4.0"
+export const SITE_VERSION = "v0.5.0"
 
 const quickLinks = [
-  { label: "Home", section: "home" },
+  { label: "The three checks", section: "checks" },
   { label: "How it works", section: "how-it-works" },
+  { label: "Roadmap", section: "roadmap" },
   { label: "Research", href: "/research" },
+  { label: "Team (coming soon)", href: "/team" },
   { label: "Supporters", section: "supporters" },
-  { label: "About", section: "about" },
   { label: "FAQ", section: "faq" },
 ]
 

@@ -1,6 +1,24 @@
 'use client'
 import { motion } from 'framer-motion'
-import { BookOpen, ChevronDown, CircleHelp, FileText, HeartHandshake, Home, Info, ListChecks, Menu, MessageCircle, Shield, X, type LucideIcon } from 'lucide-react'
+import {
+    BookOpen,
+    ChevronDown,
+    CircleHelp,
+    FileText,
+    HeartHandshake,
+    Home,
+    Info,
+    LayoutGrid,
+    ListChecks,
+    Map as MapIcon,
+    Menu,
+    MessageCircle,
+    ScanEye,
+    Shield,
+    Users,
+    X,
+    type LucideIcon,
+} from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -14,26 +32,40 @@ type Item = { name: string; icon: LucideIcon; section: string }
 
 const sectionItems: Item[] = [
     { name: 'Home', section: 'home', icon: Home },
+    { name: 'Checks', section: 'checks', icon: ScanEye },
     { name: 'How it works', section: 'how-it-works', icon: ListChecks },
-    { name: 'Supporters', section: 'supporters', icon: HeartHandshake },
-    { name: 'About', section: 'about', icon: Info },
+    { name: 'Roadmap', section: 'roadmap', icon: MapIcon },
     { name: 'FAQ', section: 'faq', icon: CircleHelp },
 ]
 
-const resources = [
-    { name: 'Research', href: '/research', icon: BookOpen, description: 'The studies behind Iris' },
+type MoreItem = { name: string; icon: LucideIcon; description: string; badge?: string } & ({ href: string } | { section: string })
+
+const moreItems: MoreItem[] = [
+    { name: 'Research', href: '/research', icon: BookOpen, description: 'The studies behind each check' },
+    { name: 'Team', href: '/team', icon: Users, description: 'The students building Iris', badge: 'Soon' },
+    { name: 'Supporters', section: 'supporters', icon: HeartHandshake, description: 'Help bring eye checks to every phone' },
+    { name: 'About', section: 'about', icon: Info, description: 'Why we started Iris' },
     { name: 'Privacy Policy', href: '/privacy', icon: Shield, description: 'What we collect (very little)' },
     { name: 'Terms of Service', href: '/terms', icon: FileText, description: 'Rules for using the site' },
 ]
 
-const spySections = ['how-it-works', 'supporters', 'about', 'faq'] as const
+// Home page sections, top to bottom, and which top-bar entry each one lights up.
+const spySections: [id: string, nav: string][] = [
+    ['checks', 'checks'],
+    ['how-it-works', 'how-it-works'],
+    ['coming-soon', 'how-it-works'],
+    ['roadmap', 'roadmap'],
+    ['supporters', 'more'],
+    ['about', 'more'],
+    ['faq', 'faq'],
+]
 
 /**
- * Top bar: a logo tile, icon + label pills for the home page sections, a Resources
- * menu, and an "Ask Iris" button that opens the chat. Always visible at the top of
- * the page; it tucks away while you scroll down and returns when you scroll up.
- * The active section is highlighted and a thin line across the top shows progress.
- * On small screens the links move into a menu.
+ * Top bar: logo, icon + label links to the home page sections, a "More" menu, the
+ * theme toggle and an "Ask Iris" button. Always visible near the top of the page;
+ * it tucks away while you scroll down and returns when you scroll up (but never while
+ * a menu is open or while it's scrolling you to a section). On small screens the
+ * links move into a menu.
  */
 export function SiteNav() {
     const pathname = usePathname()
@@ -42,8 +74,11 @@ export function SiteNav() {
     const [progress, setProgress] = useState(0)
     const [section, setSection] = useState<string>('home')
     const [menuOpen, setMenuOpen] = useState(false)
-    const [resourcesOpen, setResourcesOpen] = useState(false)
-    const resourcesRef = useRef<HTMLDivElement>(null)
+    const [moreOpen, setMoreOpen] = useState(false)
+    const moreRef = useRef<HTMLDivElement>(null)
+    const headerRef = useRef<HTMLElement>(null)
+    // While the page smooth-scrolls to a section we clicked, keep the bar in place.
+    const holdUntil = useRef(0)
 
     useEffect(() => {
         let lastY = window.scrollY
@@ -54,15 +89,15 @@ export function SiteNav() {
             const max = document.documentElement.scrollHeight - window.innerHeight
             setScrolled(y > 24)
             setProgress(max > 0 ? Math.min(1, y / max) : 0)
-            if (y < 80) setHidden(false)
+            if (y < 80 || performance.now() < holdUntil.current) setHidden(false)
             else if (Math.abs(y - lastY) > 8) setHidden(y > lastY)
             if (Math.abs(y - lastY) > 8 || y < 80) lastY = y
 
             // Scroll-spy: the last section whose top has passed 40% of the screen.
             let current = 'home'
-            for (const id of spySections) {
+            for (const [id, nav] of spySections) {
                 const el = document.getElementById(id)
-                if (el && el.getBoundingClientRect().top < window.innerHeight * 0.4) current = id
+                if (el && el.getBoundingClientRect().top < window.innerHeight * 0.4) current = nav
             }
             if (max > 0 && y >= max - 4 && document.getElementById('faq')) current = 'faq'
             setSection(current)
@@ -82,13 +117,15 @@ export function SiteNav() {
 
     // Close menus on outside clicks and Escape (links close them when clicked).
     useEffect(() => {
-        if (!resourcesOpen && !menuOpen) return
+        if (!moreOpen && !menuOpen) return
         const onDown = (e: PointerEvent) => {
-            if (resourcesRef.current && !resourcesRef.current.contains(e.target as Node)) setResourcesOpen(false)
+            const target = e.target as Node
+            if (moreRef.current && !moreRef.current.contains(target)) setMoreOpen(false)
+            if (headerRef.current && !headerRef.current.contains(target)) setMenuOpen(false)
         }
         const onKey = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
-                setResourcesOpen(false)
+                setMoreOpen(false)
                 setMenuOpen(false)
             }
         }
@@ -98,10 +135,20 @@ export function SiteNav() {
             document.removeEventListener('pointerdown', onDown)
             document.removeEventListener('keydown', onKey)
         }
-    }, [resourcesOpen, menuOpen])
+    }, [moreOpen, menuOpen])
 
-    const active = pathname === '/' ? section : null
-    const resourceActive = resources.some((r) => r.href === pathname)
+    const goTo = (id: string) => {
+        holdUntil.current = performance.now() + 1600
+        setHidden(false)
+        setMenuOpen(false)
+        setMoreOpen(false)
+        const spy = spySections.find(([s]) => s === id)
+        setSection(id === 'home' ? 'home' : (spy?.[1] ?? id))
+    }
+
+    const onHome = pathname === '/'
+    const active = onHome ? section : null
+    const moreActive = moreItems.some((m) => 'href' in m && m.href === pathname) || active === 'more'
     const askIris = () => {
         setMenuOpen(false)
         openChat()
@@ -111,13 +158,16 @@ export function SiteNav() {
         <>
             <div
                 aria-hidden
-                className="fixed inset-x-0 top-0 z-40 h-0.5 origin-left bg-foreground transition-opacity duration-300"
+                className="fixed inset-x-0 top-0 z-[60] h-0.5 origin-left bg-foreground transition-opacity duration-300"
                 style={{ transform: `scaleX(${progress})`, opacity: scrolled ? 1 : 0 }}
             />
             <header
+                ref={headerRef}
                 className={cn(
-                    'fixed inset-x-0 top-0 z-30 transition-transform duration-500 ease-out motion-reduce:transition-none',
-                    hidden && !menuOpen && '-translate-y-[140%]',
+                    'fixed inset-x-0 top-0 transition-transform duration-500 ease-out motion-reduce:transition-none',
+                    // Above the chat (z-40) while the phone menu is open.
+                    menuOpen ? 'z-50' : 'z-30',
+                    hidden && !menuOpen && !moreOpen && '-translate-y-[140%]',
                 )}>
                 <div className={cn('mx-auto max-w-6xl px-3 transition-[padding] duration-500 sm:px-6', scrolled ? 'pt-2' : 'pt-4')}>
                     <nav
@@ -126,8 +176,12 @@ export function SiteNav() {
                             'flex h-14 items-center gap-2 rounded-2xl border bg-background/80 pl-2 pr-2 backdrop-blur-xl transition-shadow duration-500 animate-in fade-in slide-in-from-top-4 [animation-duration:700ms] motion-reduce:animate-none',
                             scrolled ? 'shadow-lg shadow-black/5 dark:shadow-black/40' : 'shadow-sm',
                         )}>
-                        {/* Logo tile */}
-                        <SectionLink section="home" aria-label="Iris home" className="flex shrink-0 items-center gap-2.5 rounded-xl py-1 pl-1 pr-2 transition-colors hover:bg-accent">
+                        {/* Logo */}
+                        <SectionLink
+                            section="home"
+                            onNavigate={() => goTo('home')}
+                            aria-label="Iris home"
+                            className="flex shrink-0 items-center gap-2.5 rounded-xl py-1 pl-1 pr-2 transition-colors hover:bg-accent">
                             <span className="flex h-10 items-center">
                                 <Image src="/iris-logo.png" alt="" width={663} height={259} priority className="h-auto w-10 invert dark:invert-0" />
                             </span>
@@ -139,64 +193,54 @@ export function SiteNav() {
 
                         {/* Center links (desktop) */}
                         <div className="mx-auto hidden items-center gap-1 rounded-xl border bg-muted/50 p-1 lg:flex">
-                            {sectionItems.map((item) => (
-                                <SectionLink
-                                    key={item.section}
-                                    section={item.section}
-                                    onNavigate={() => setSection(item.section)}
-                                    aria-current={active === item.section ? 'location' : undefined}
-                                    className={cn(
-                                        'relative flex h-9 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors',
-                                        active === item.section ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
-                                    )}>
-                                    {active === item.section && (
-                                        <motion.span
-                                            layoutId="nav-active"
-                                            className="absolute inset-0 rounded-lg border bg-background shadow-sm"
-                                            transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-                                        />
-                                    )}
-                                    <item.icon className="relative size-4" />
-                                    <span className="relative">{item.name}</span>
-                                </SectionLink>
-                            ))}
+                            {sectionItems.map((item) => {
+                                const isActive = active === item.section
+                                return (
+                                    <SectionLink
+                                        key={item.section}
+                                        section={item.section}
+                                        onNavigate={() => goTo(item.section)}
+                                        aria-current={isActive ? 'location' : undefined}
+                                        className={cn(
+                                            'relative flex h-9 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors',
+                                            isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
+                                        )}>
+                                        {isActive && (
+                                            <motion.span
+                                                layoutId="nav-active"
+                                                className="absolute inset-0 rounded-lg border bg-background shadow-sm"
+                                                transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                                            />
+                                        )}
+                                        <item.icon className="relative hidden size-4 xl:block" />
+                                        <span className="relative whitespace-nowrap">{item.name}</span>
+                                    </SectionLink>
+                                )
+                            })}
 
-                            <div ref={resourcesRef} className="relative">
+                            <div ref={moreRef} className="relative">
                                 <button
                                     type="button"
-                                    aria-expanded={resourcesOpen}
+                                    aria-expanded={moreOpen}
                                     aria-haspopup="menu"
-                                    onClick={() => setResourcesOpen((o) => !o)}
+                                    onClick={() => setMoreOpen((o) => !o)}
                                     className={cn(
                                         'relative flex h-9 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors',
-                                        resourceActive || resourcesOpen ? 'bg-background text-foreground shadow-sm ring-1 ring-border' : 'text-muted-foreground hover:text-foreground',
+                                        moreActive || moreOpen ? 'bg-background text-foreground shadow-sm ring-1 ring-border' : 'text-muted-foreground hover:text-foreground',
                                     )}>
-                                    <BookOpen className="size-4" />
-                                    Resources
-                                    <ChevronDown className={cn('size-3.5 transition-transform duration-200', resourcesOpen && 'rotate-180')} />
+                                    <LayoutGrid className="hidden size-4 xl:block" />
+                                    More
+                                    <ChevronDown className={cn('size-3.5 transition-transform duration-200', moreOpen && 'rotate-180')} />
                                 </button>
                                 <div
                                     role="menu"
-                                    inert={!resourcesOpen}
+                                    inert={!moreOpen}
                                     className={cn(
-                                        'absolute right-0 top-full mt-3 w-72 origin-top-right rounded-2xl border bg-popover p-1.5 text-popover-foreground shadow-xl shadow-black/10 transition-all duration-200 dark:shadow-black/50',
-                                        resourcesOpen ? 'scale-100 opacity-100' : 'pointer-events-none scale-95 opacity-0',
+                                        'absolute right-0 top-full mt-3 grid w-[34rem] origin-top-right grid-cols-2 gap-1 rounded-2xl border bg-popover p-1.5 text-popover-foreground shadow-xl shadow-black/10 transition-all duration-200 dark:shadow-black/50',
+                                        moreOpen ? 'scale-100 opacity-100' : 'pointer-events-none scale-95 opacity-0',
                                     )}>
-                                    {resources.map((r) => (
-                                        <Link
-                                            key={r.href}
-                                            href={r.href}
-                                            role="menuitem"
-                                            onClick={() => setResourcesOpen(false)}
-                                            className={cn('flex items-start gap-3 rounded-xl p-2.5 transition-colors hover:bg-accent', pathname === r.href && 'bg-accent')}>
-                                            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border bg-background">
-                                                <r.icon className="size-4" />
-                                            </span>
-                                            <span>
-                                                <span className="block text-sm font-medium">{r.name}</span>
-                                                <span className="block text-xs text-muted-foreground">{r.description}</span>
-                                            </span>
-                                        </Link>
+                                    {moreItems.map((m) => (
+                                        <MoreLink key={m.name} item={m} pathname={pathname} onNavigate={goTo} onClose={() => setMoreOpen(false)} />
                                     ))}
                                 </div>
                             </div>
@@ -208,7 +252,7 @@ export function SiteNav() {
                             <button
                                 type="button"
                                 onClick={askIris}
-                                className="hidden h-10 items-center gap-2 rounded-xl bg-foreground px-4 text-sm font-medium text-background transition-opacity hover:opacity-85 sm:flex">
+                                className="hidden h-10 items-center gap-2 whitespace-nowrap rounded-xl bg-foreground px-4 text-sm font-medium text-background transition-opacity hover:opacity-85 sm:flex">
                                 <MessageCircle className="size-4" />
                                 Ask Iris
                             </button>
@@ -230,18 +274,15 @@ export function SiteNav() {
                         id="mobile-menu"
                         inert={!menuOpen}
                         className={cn(
-                            'mt-2 origin-top overflow-hidden rounded-2xl border bg-background/95 p-2 shadow-xl shadow-black/10 backdrop-blur-xl transition-all duration-300 lg:hidden dark:shadow-black/50',
-                            menuOpen ? 'max-h-[80vh] scale-100 opacity-100' : 'pointer-events-none max-h-0 scale-95 border-transparent p-0 opacity-0',
+                            'mt-2 origin-top overflow-y-auto overscroll-contain rounded-2xl border bg-background/95 shadow-xl shadow-black/10 backdrop-blur-xl transition-all duration-300 lg:hidden dark:shadow-black/50',
+                            menuOpen ? 'max-h-[calc(100dvh-6rem)] scale-100 p-2 opacity-100' : 'pointer-events-none max-h-0 scale-95 border-transparent p-0 opacity-0',
                         )}>
                         <div className="grid grid-cols-2 gap-1">
                             {sectionItems.map((item) => (
                                 <SectionLink
                                     key={item.section}
                                     section={item.section}
-                                    onNavigate={() => {
-                                        setSection(item.section)
-                                        setMenuOpen(false)
-                                    }}
+                                    onNavigate={() => goTo(item.section)}
                                     className={cn(
                                         'flex items-center gap-2.5 rounded-xl px-3 py-3 text-sm font-medium transition-colors hover:bg-accent',
                                         active === item.section && 'bg-accent',
@@ -251,17 +292,12 @@ export function SiteNav() {
                                 </SectionLink>
                             ))}
                         </div>
-                        <p className="px-3 pb-1 pt-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Resources</p>
-                        {resources.map((r) => (
-                            <Link
-                                key={r.href}
-                                href={r.href}
-                                onClick={() => setMenuOpen(false)}
-                                className={cn('flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-colors hover:bg-accent', pathname === r.href && 'bg-accent')}>
-                                <r.icon className="size-4" />
-                                {r.name}
-                            </Link>
-                        ))}
+                        <p className="px-3 pb-1 pt-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">More</p>
+                        <div className="grid grid-cols-2 gap-1">
+                            {moreItems.map((m) => (
+                                <MoreLink key={m.name} item={m} pathname={pathname} onNavigate={goTo} onClose={() => setMenuOpen(false)} compact />
+                            ))}
+                        </div>
                         <button
                             type="button"
                             onClick={askIris}
@@ -273,6 +309,67 @@ export function SiteNav() {
                 </div>
             </header>
         </>
+    )
+}
+
+function MoreLink({
+    item,
+    pathname,
+    onNavigate,
+    onClose,
+    compact,
+}: {
+    item: MoreItem
+    pathname: string
+    onNavigate: (section: string) => void
+    onClose: () => void
+    compact?: boolean
+}) {
+    const current = 'href' in item && pathname === item.href
+    const className = cn(
+        'flex items-start gap-3 rounded-xl transition-colors hover:bg-accent',
+        compact ? 'items-center px-3 py-2.5 text-sm' : 'p-2.5',
+        current && 'bg-accent',
+    )
+    const body = compact ? (
+        <>
+            <item.icon className="size-4 shrink-0" />
+            <span className="truncate">{item.name}</span>
+            {item.badge && <span className="ml-auto rounded-full border px-1.5 text-[10px] text-muted-foreground">{item.badge}</span>}
+        </>
+    ) : (
+        <>
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border bg-background">
+                <item.icon className="size-4" />
+            </span>
+            <span className="min-w-0">
+                <span className="flex items-center gap-2 text-sm font-medium">
+                    {item.name}
+                    {item.badge && <span className="rounded-full border px-1.5 text-[10px] font-normal text-muted-foreground">{item.badge}</span>}
+                </span>
+                <span className="block text-xs text-muted-foreground">{item.description}</span>
+            </span>
+        </>
+    )
+
+    if ('section' in item) {
+        return (
+            <SectionLink
+                section={item.section}
+                role="menuitem"
+                onNavigate={() => {
+                    onNavigate(item.section)
+                    onClose()
+                }}
+                className={className}>
+                {body}
+            </SectionLink>
+        )
+    }
+    return (
+        <Link href={item.href} role="menuitem" aria-current={current ? 'page' : undefined} onClick={onClose} className={className}>
+            {body}
+        </Link>
     )
 }
 

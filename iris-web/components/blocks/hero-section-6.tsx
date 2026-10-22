@@ -2,6 +2,8 @@
 import { Button } from '@/components/ui/button'
 import { PendingSectionScroll, SectionLink } from '@/components/blocks/section-link'
 import { SiteNav } from '@/components/blocks/site-nav'
+import { BlurRevealText } from '@/components/ui/blur-reveal'
+import { CHECKS } from '@/lib/checks'
 import { ArrowDown, ArrowRight, Clock, ScanEye } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 
@@ -70,16 +72,15 @@ export function HeroSection({ children }: { children?: React.ReactNode }) {
                                     <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
                                 </SectionLink>
 
-                                <h1
-                                    className={`${enter} mt-10 text-balance text-4xl font-bold md:text-5xl xl:text-5xl`}
-                                    style={{ animationDelay: '120ms' }}>
-                                    Check your eyes with just your phone
+                                <h1 className="mt-10 text-balance text-4xl font-bold tracking-tight md:text-6xl">
+                                    <BlurRevealText text="Three eye checks." delay={0.1} />{' '}
+                                    <BlurRevealText text="Just your phone." delay={0.45} className="text-muted-foreground" />
                                 </h1>
                                 <p
                                     className={`${enter} mt-8 text-muted-foreground`}
-                                    style={{ animationDelay: '240ms' }}>
-                                    Iris is exploring three checks in one phone scan: diabetes-related pupil responses, glaucoma-related differences
-                                    between eyes, and cataract-related cloudiness. Just your camera and screen light. All three are coming soon.
+                                    style={{ animationDelay: '600ms' }}>
+                                    Iris is exploring one 30-second phone scan that looks for signs linked to diabetes, glaucoma and cataracts, using
+                                    only your camera and screen light. It&apos;s a student research project, and all three checks are coming soon.
                                 </p>
 
                                 <div
@@ -109,16 +110,24 @@ export function HeroSection({ children }: { children?: React.ReactNode }) {
                                         </div>
                                     </div>
 
-                                    <ul className="list-inside list-disc space-y-2 text-left sm:mx-auto sm:w-fit lg:mx-0">
-                                        <li>Uses only your phone&apos;s camera and screen</li>
-                                        <li>Results explained in plain language</li>
-                                        <li>Built on published eye research</li>
+                                    <ul aria-label="The three planned checks" className="flex flex-wrap justify-center gap-2 lg:justify-start">
+                                        {CHECKS.map((c) => (
+                                            <li key={c.id}>
+                                                <SectionLink
+                                                    section="checks"
+                                                    className="inline-flex items-center gap-2 rounded-full border bg-background/80 px-3 py-1.5 text-sm backdrop-blur transition-colors hover:bg-accent">
+                                                    <c.icon className="size-4" />
+                                                    {c.name}
+                                                    <span className="text-xs text-muted-foreground">· {c.signal.toLowerCase()}</span>
+                                                </SectionLink>
+                                            </li>
+                                        ))}
                                     </ul>
                                 </div>
                             </div>
                         </div>
                         <div className="absolute inset-0 -mx-4 rounded-3xl p-3 lg:col-span-3">
-                            <div aria-hidden className="absolute z-[1] inset-0 bg-gradient-to-r from-background from-35% to-background/30 lg:to-transparent" />
+                            <div aria-hidden className="absolute inset-0 z-[1] rounded-3xl bg-background/80 lg:bg-transparent lg:bg-gradient-to-r lg:from-background lg:from-35% lg:to-transparent" />
                             <div className="relative h-full overflow-hidden rounded-3xl animate-in fade-in zoom-in-95 [animation-duration:1200ms] motion-reduce:animate-none">
                                 <div
                                     ref={imageRef}
