@@ -1,8 +1,9 @@
 import { ArrowRight } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { Reveal } from "@/components/motion/reveal";
 import { BlurRevealText } from "@/components/ui/blur-reveal";
-import { CHECKS } from "@/lib/checks";
+import { CHECKS, NEI_CREDIT } from "@/lib/checks";
 
 export function ChecksSection() {
   return (
@@ -22,7 +23,23 @@ export function ChecksSection() {
         <div className="mt-12 grid gap-4 lg:grid-cols-3">
           {CHECKS.map((c, i) => (
             <Reveal key={c.id} delay={i * 120} className="h-full">
-              <article className="group flex h-full flex-col rounded-3xl border bg-card p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-black/5 dark:hover:shadow-white/5">
+              <article className="group flex h-full flex-col overflow-hidden rounded-3xl border bg-card p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-black/5 dark:hover:shadow-white/5">
+                {/* What the condition can do to vision. Grayscale like the rest of the site; color on hover. */}
+                <figure className="-mx-6 -mt-6 mb-6">
+                  <div className="relative aspect-[3/2] overflow-hidden border-b">
+                    <Image
+                      src={c.image.src}
+                      alt={c.image.alt}
+                      fill
+                      sizes="(min-width: 1024px) 360px, 100vw"
+                      className="object-cover grayscale transition-[filter,transform] duration-500 group-hover:scale-[1.03] group-hover:grayscale-0"
+                    />
+                    <figcaption className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent px-4 pb-3 pt-10 text-sm font-medium text-white">
+                      {c.image.caption}
+                    </figcaption>
+                  </div>
+                  <p className="px-6 pt-2 text-[11px] text-muted-foreground">{NEI_CREDIT}</p>
+                </figure>
                 <div className="flex items-start justify-between">
                   <span className="flex size-11 items-center justify-center rounded-2xl bg-foreground text-background transition-transform duration-300 group-hover:scale-105">
                     <c.icon className="size-5" />

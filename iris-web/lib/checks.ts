@@ -14,7 +14,12 @@ export type Check = {
   stage: string;
   limits: string;
   nextStep: string;
+  /** Vision simulation photo (National Eye Institute, public domain). */
+  image: { src: string; alt: string; caption: string };
 };
+
+/** Credit the National Eye Institute requests for its eye-disease simulation photos. */
+export const NEI_CREDIT = "Simulation: National Eye Institute, NIH";
 
 export const CHECKS: Check[] = [
   {
@@ -28,6 +33,7 @@ export const CHECKS: Check[] = [
     stage: "Research question",
     limits: "Groups overlap, so it can't say yes or no for one person, and a typical result doesn't rule diabetes out.",
     nextStep: "A blood test such as A1C",
+    image: { src: "/checks/diabetes.jpg", alt: "Two boys holding balls, with dark blotches covering parts of the picture, as someone with diabetic retinopathy might see them", caption: "How diabetic eye damage (retinopathy) can look" },
   },
   {
     id: "glaucoma",
@@ -40,6 +46,7 @@ export const CHECKS: Check[] = [
     stage: "Known test, new device",
     limits: "It only notices damage that's worse in one eye, and other optic-nerve problems can look the same.",
     nextStep: "An eye exam (eye pressure and optic nerve)",
+    image: { src: "/checks/glaucoma.jpg", alt: "Two boys holding balls, clear in the middle but dark around the edges, as someone with glaucoma might see them", caption: "How glaucoma can narrow your side vision" },
   },
   {
     id: "cataract",
@@ -52,6 +59,7 @@ export const CHECKS: Check[] = [
     stage: "Best studied",
     limits: "Works best for advanced cataracts; glare and lighting can look like haze, and early ones may be missed.",
     nextStep: "An eye exam",
+    image: { src: "/checks/cataract.jpg", alt: "Two boys holding balls, blurry and hazy all over, as someone with cataracts might see them", caption: "How cataracts can blur and dim your vision" },
   },
 ];
 
