@@ -15,12 +15,41 @@ const LABELS = ['normal', 'cataract', 'conjunctivitis', 'uveitis', 'eyelid'];
 
 // Drop exact duplicate files.
 const seen = new Set();
-const items = raw.filter((r) => !seen.has(r.sha256) && seen.add(r.sha256));
+const all = raw.filter((r) => !seen.has(r.sha256) && seen.add(r.sha256));
+// "aug_" files are edited copies (flips, rotations...) that exist only in the disease folders.
+// Leaving them in would leak copies of test photos into training and teach the model that
+// "edited-looking" means disease, so they are left out of training, testing and matching.
+const isAugmented = (r) => /^aug/i.test(r.file);
+const items = all.filter((r) => !isAugmented(r));
+const augmented = all.filter(isAugmented);
 const y = items.map((r) => LABELS.indexOf(LABEL[r.cls]));
 const X = items.map((r) => l2normalize(Float32Array.from(r.emb)));
 const Xf = items.map((r) => l2normalize(Float32Array.from(r.flip)));
-const split = stratifiedSplit(y, { seed: 42 });
 const K = LABELS.length;
+
+// Group near-identical photos (the same picture at another size or crop) so a group never
+// lands in both training and testing.
+const NEAR_DUPLICATE = 0.95;
+const parent = items.map((_, i) => i);
+const find = (i) => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+for (let i = 0; i < X.length; i++) {
+  for (let j = i + 1; j < X.length; j++) {
+    let d = 0;
+    const a = X[i], b = X[j];
+    for (let k = 0; k < a.length; k++) d += a[k] * b[k];
+    if (d >= NEAR_DUPLICATE) parent[find(i)] = find(j);
+  }
+}
+const groups = new Map();
+items.forEach((_, i) => {
+  const g = find(i);
+  if (!groups.has(g)) groups.set(g, []);
+  groups.get(g).push(i);
+});
+const groupList = [...groups.values()];
+const groupSplit = stratifiedSplit(groupList.map((g) => y[g[0]]), { seed: 42 });
+const split = Object.fromEntries(Object.entries(groupSplit).map(([name, gi]) => [name, gi.flatMap((g) => groupList[g])]));
+console.log('originals', items.length, 'augmented left out', augmented.length, 'near-duplicate groups', groupList.filter((g) => g.length > 1).length);
 
 const rows = (idx, flips) => {
   const A = [], B = [];
@@ -74,6 +103,7 @@ const model = {
     id: 'mendeley-eye-diseases-classification',
     name: 'Eye Diseases Classification (Mendeley Data, 2024)',
     images: items.length,
+    augmentedLeftOut: augmented.length,
     counts,
   },
   labels: LABELS,
@@ -106,6 +136,8 @@ const refs = {
     split: splitOf[i],
     embedding: encodeVectors([X[i]]),
   })),
+  // Edited copies: recorded so they're marked in the database, but never matched against.
+  augmented: augmented.map((r) => ({ label: LABEL[r.cls], file: `${r.cls}/${r.file}`, sha256: r.sha256, width: r.width, height: r.height })),
 };
 fs.writeFileSync(refOut, JSON.stringify(refs));
 

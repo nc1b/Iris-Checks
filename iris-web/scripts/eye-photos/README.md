@@ -13,10 +13,18 @@ Supabase, never the photos.
    matters: the dataset's normal photos are small crops while the disease photos are large, so
    without it the model would learn "blurry = healthy".
 3. **Training.** `node train.mjs embeddings.json eye-photo-model.json eye-reference-v1.json`
-   removes duplicates, splits 70/15/15 per label (seed 42), trains a softmax classifier with
-   mirrored copies, sets each condition's flag line on the validation photos to catch at least
-   85% of cases, and measures accuracy on the test photos only.
-4. **Supabase.** The migration `20261023233000_iris_eye_photo_match.sql` adds pgvector and
+   removes duplicates and the 340 `aug_` files (edited copies that exist only in the disease
+   folders: keeping them would leak copies of test photos into training and teach the model that
+   "edited-looking" means disease). Near-identical originals are grouped so a group stays in one
+   split. It splits 70/15/15 per label (seed 42), trains a softmax classifier with mirrored copies,
+   sets each condition's flag line on the validation photos to catch at least 85% of cases, and
+   measures accuracy on the test photos only.
+
+   Test results (288 original photos): any problem vs normal caught 92%, normal correctly cleared
+   99%; cataract 92% caught / 95% cleared; red eye 83% / 96%; eyelid problem 80% / 97%; uveitis
+   59% / 95% (weak: few photos, noisy labels). Top guess correct 85%.
+4. **Supabase.** The migrations `20261023233000_iris_eye_photo_match.sql` and
+   `20261024000500_iris_eye_photo_skip_augmented.sql` add pgvector and
    `iris.eye_photo_embeddings`. `select iris.import_eye_references('<url of eye-reference-v1.json>')`
    loads the file; `public.iris_match_eye` finds the closest reference photos for a scan.
 

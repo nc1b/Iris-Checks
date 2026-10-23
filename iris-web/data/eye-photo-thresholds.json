@@ -7,9 +7,9 @@
     "eyelid"
   ],
   "thresholds": {
-    "cataract": 0.2113,
-    "conjunctivitis": 0.2367,
-    "uveitis": 0.241,
-    "eyelid": 0.3136
+    "cataract": 0.2875,
+    "conjunctivitis": 0.2599,
+    "uveitis": 0.3475,
+    "eyelid": 0.371
   }
 }
