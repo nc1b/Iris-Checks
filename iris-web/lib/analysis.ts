@@ -74,6 +74,8 @@ export type Analysis = {
 };
 
 const FPS = 30;
+/** Below this many processed frames per second the reflex can't be timed reliably. */
+const MIN_FPS = 8;
 
 function median(values: number[]) {
   const s = values.filter(Number.isFinite).sort((a, b) => a - b);
@@ -193,13 +195,16 @@ export function analyse(samples: Sample[], protocol: Protocol): Analysis {
   const blue = perStimulus.find((m) => m.color === "blue");
   const netPipr = red && blue && red.pipr6s !== null && blue.pipr6s !== null ? blue.pipr6s - red.pipr6s : null;
 
-  const expected = protocol.duration * 15; // assume at least 15 fps is achievable
-  const validFraction = Math.min(1, raw.length / expected);
+  // Share of the frames this phone actually processed in which the pupil was measured.
+  // (Not frames per second: slower phones process fewer frames but can track every one.)
+  const validFraction = samples.length ? Math.min(1, raw.length / samples.length) : 0;
+  const fps = samples.length / protocol.duration;
   const contrasts = samples.flatMap((s) => [s.left?.contrast, s.right?.contrast]).filter((c): c is number => c != null);
   const meanContrast = contrasts.length ? contrasts.reduce((a, b) => a + b, 0) / contrasts.length : 0;
 
   const reasons: string[] = [];
   if (validFraction < 0.5) reasons.push("The pupil was only tracked in part of the recording (blinks, movement, or poor lighting).");
+  if (fps < MIN_FPS) reasons.push("This phone processed too few frames to time the reflex. Close other apps and try again.");
   if (meanContrast < 15) reasons.push("The pupil was hard to see against the iris. Try a dimmer room and hold the phone closer.");
   if (!main) reasons.push("No clear response to the flash was recorded.");
   const ok = reasons.length === 0;

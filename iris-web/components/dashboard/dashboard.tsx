@@ -31,7 +31,7 @@ import type { Dashboard as DashboardData, Profile, Scan } from "@/lib/dashboard-
 import { ROADMAP } from "@/lib/roadmap";
 import { cn } from "@/lib/utils";
 
-const SCAN_STEPS = ["Lining up your eyes", "Flash 1 of 3 · both eyes", "Flashes 2 and 3 · one eye at a time", "Saving your three results"];
+const SCAN_STEPS = ["Getting close to your right eye", "Flash 1 of 2 · right eye", "Flash 2 of 2 · left eye", "Saving your three results"];
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const dateTime = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
@@ -661,7 +661,7 @@ function EmptyState({ onRun, busy }: { onRun: () => void; busy: boolean }) {
       <EyeTracker aria-hidden shape="Circle" size={88} track="window" style={{ width: 110, height: 110 }} bodyClassName="fill-foreground stroke-foreground" eyeClassName="fill-background" />
       <h2 className="mt-2 text-xl font-semibold">No scans yet</h2>
       <p className="mt-2 max-w-md text-sm text-muted-foreground">
-        The camera scan takes about 30 seconds: one flash for both eyes, then one per eye. A demo scan saves three simulated results instead.
+        The camera scan takes about 30 seconds: one close-up flash for each eye. A demo scan saves three simulated results instead.
       </p>
       <div className="mt-6 flex flex-wrap justify-center gap-2">
         <Link

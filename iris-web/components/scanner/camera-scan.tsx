@@ -9,20 +9,24 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { CHECK_VIEWS, StatusBadge } from "@/components/dashboard/status";
 import type { Sample, StimulusColor } from "@/lib/analysis";
 import {
-  combineScan,
+  CLOSE_UP,
+  combineEyes,
+  EYE_ORDER,
+  EYE_PROTOCOL,
+  findGlint,
   IMAGE_SIDE,
   measureHaze,
-  ONE_EYE_STAGES,
-  PERSON_EYE,
-  STAGE_PROTOCOL,
+  OTHER_EYE,
+  PRECISION_CROP,
   type CameraScanResult,
-  type HazeReading,
+  type EyeRecording,
   type ImageSide,
-  type Stage,
+  type PersonEye,
 } from "@/lib/camera-scan";
 import { SCAN_STEPS } from "@/lib/checks";
 import type { Scan } from "@/lib/dashboard-types";
-import { CROP_SIZE, CROP_SPAN, eyeAspectRatio, LANDMARKS, measurePupil } from "@/lib/pupil";
+import { CROP_SPAN, eyeAspectRatio, LANDMARKS, measurePupil } from "@/lib/pupil";
+import { IRIS_DIAMETER_MM } from "@/lib/reference";
 import { rateScan } from "@/lib/scan-rating";
 import { cn } from "@/lib/utils";
 
@@ -31,14 +35,31 @@ const WASM_URL = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MEDIAPI
 const MODEL_URL = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
 
 const OPEN_EAR = 0.18; // eye aspect ratio above this = eye open
-const MIN_CONTRAST = 12; // pupil vs iris brightness needed to measure the pupil
-const READY_FRAMES = 15; // ~0.5 s of good line-up before Start unlocks
-const COVER_FRAMES = 20; // ~0.7 s of one eye covered before the flash starts by itself
-const MANUAL_START_MS = 5000; // offer a manual start if cover detection doesn't settle
+const FAR_IRIS_PX = 11; // iris radius at arm's length, where the closeness meter starts
+const MANUAL_START_MS = 6000; // offer a manual start if cover detection doesn't settle
+const TRACK_WINDOW = 30; // frames used for the live tracking percentage
+// The target ring on screen: centre as a share of screen width/height, radius as a share of
+// width. Keeping the eye here keeps it fully in view and close to the camera lens.
+const RING = { x: 0.5, y: 0.36, radius: 0.2 };
 
-type Phase = "intro" | "loading" | "lineup" | "cover" | "countdown" | "recording" | "results";
-type Checks = { face: boolean; distance: "ok" | "far" | "close" | null; open: boolean; pupils: boolean };
-type CoverState = { covered: boolean; lit: boolean };
+type Phase = "intro" | "loading" | "align" | "countdown" | "recording" | "results";
+
+type Align = {
+  found: boolean;
+  /** Eye centre inside the on-screen target ring. */
+  centered: boolean;
+  distance: "far" | "close" | "ok" | null;
+  closeness: number;
+  open: boolean;
+  sharp: boolean;
+  covered: boolean;
+  steady: boolean;
+  pupilMm: number | null;
+  tracking: number;
+  hold: number;
+};
+
+const EMPTY_ALIGN: Align = { found: false, centered: false, distance: null, closeness: 0, open: false, sharp: false, covered: false, steady: false, pupilMm: null, tracking: 0, hold: 0 };
 
 type EyeReading = {
   cx: number;
@@ -46,32 +67,25 @@ type EyeReading = {
   irisR: number;
   pupilR: number;
   contrast: number;
+  coverage: number;
   ear: number;
   crop: ImageData;
   pupilCropPx: number;
+  glint: { x: number; y: number } | null;
 };
 
 const STIM_BG: Record<StimulusColor, string> = { white: "#ffffff", red: "#ff0000", blue: "#0000ff" };
-
-const STAGE_TEXT: Record<Stage, { step: string; title: string; body: string }> = {
-  both: { step: "Flash 1 of 3", title: "Both eyes", body: "Look at the dot and keep both eyes open." },
-  leftLit: { step: "Flash 2 of 3", title: "Cover your right eye", body: "Cover your right eye with your palm. Keep your left eye open on the dot." },
-  rightLit: { step: "Flash 3 of 3", title: "Cover your left eye", body: "Now cover your left eye. Keep your right eye open on the dot." },
-};
-
-const nameOf = { left: "left", right: "right" } as const;
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export function CameraScan() {
   const { isLoaded, isSignedIn, getToken } = useAuth();
   const router = useRouter();
 
   const [phase, setPhase] = useState<Phase>("intro");
-  const [stage, setStage] = useState<Stage>("both");
+  const [eye, setEye] = useState<PersonEye>("right");
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [checks, setChecks] = useState<Checks>({ face: false, distance: null, open: false, pupils: false });
-  const [ready, setReady] = useState(false);
-  const [cover, setCover] = useState<CoverState>({ covered: false, lit: false });
+  const [align, setAlign] = useState<Align>(EMPTY_ALIGN);
   const [manualStart, setManualStart] = useState(false);
   const [countdown, setCountdown] = useState(3);
   const [flash, setFlash] = useState<StimulusColor | null>(null);
@@ -89,12 +103,14 @@ export function CameraScan() {
   const loopRef = useRef<number | null>(null);
   const lastTsRef = useRef(0);
   const phaseRef = useRef<Phase>("intro");
-  const stageRef = useRef<Stage>("both");
+  const eyeRef = useRef<PersonEye>("right");
   const goodFramesRef = useRef(0);
-  const coverFramesRef = useRef(0);
-  const recordingRef = useRef<{ start: number; samples: Sample[]; stage: Stage } | null>(null);
-  const hazeRef = useRef<HazeReading[]>([]);
-  const recordingsRef = useRef<{ both: Sample[] | null; leftLit: Sample[] | null; rightLit: Sample[] | null }>({ both: null, leftLit: null, rightLit: null });
+  const prevCenterRef = useRef<{ x: number; y: number } | null>(null);
+  const trackRef = useRef<boolean[]>([]);
+  const pupilMmRef = useRef<number | null>(null);
+  const frameCountRef = useRef(0);
+  const recordingRef = useRef<{ start: number; eye: PersonEye; rec: EyeRecording } | null>(null);
+  const recordingsRef = useRef<Record<PersonEye, EyeRecording | null>>({ right: null, left: null });
   const frameRef = useRef<() => void>(() => {});
   const timersRef = useRef<number[]>([]);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
@@ -109,8 +125,8 @@ export function CameraScan() {
     phaseRef.current = phase;
   }, [phase]);
   useEffect(() => {
-    stageRef.current = stage;
-  }, [stage]);
+    eyeRef.current = eye;
+  }, [eye]);
   useEffect(() => {
     voiceRef.current = voice;
     if (!voice) window.speechSynthesis?.cancel();
@@ -148,7 +164,7 @@ export function CameraScan() {
 
   // ---------- Measuring one eye in one frame ----------
 
-  const readEye = useCallback((lm: { x: number; y: number }[], side: ImageSide, vw: number, vh: number): EyeReading | null => {
+  const readEye = useCallback((lm: { x: number; y: number }[], side: ImageSide, vw: number, vh: number, withGlint = true): EyeReading | null => {
     const video = videoRef.current;
     if (!video) return null;
     const L = LANDMARKS[side];
@@ -159,32 +175,34 @@ export function CameraScan() {
     if (!Number.isFinite(irisR) || irisR < 3) return null;
     if (!cropRef.current) {
       cropRef.current = document.createElement("canvas");
-      cropRef.current.width = CROP_SIZE;
-      cropRef.current.height = CROP_SIZE;
+      cropRef.current.width = PRECISION_CROP;
+      cropRef.current.height = PRECISION_CROP;
     }
     const ctx = cropRef.current.getContext("2d", { willReadFrequently: true });
     if (!ctx) return null;
     const half = irisR * CROP_SPAN;
-    ctx.drawImage(video, cx - half, cy - half, half * 2, half * 2, 0, 0, CROP_SIZE, CROP_SIZE);
-    const crop = ctx.getImageData(0, 0, CROP_SIZE, CROP_SIZE);
+    ctx.drawImage(video, cx - half, cy - half, half * 2, half * 2, 0, 0, PRECISION_CROP, PRECISION_CROP);
+    const crop = ctx.getImageData(0, 0, PRECISION_CROP, PRECISION_CROP);
     const reading = measurePupil(crop);
     if (!reading) return null;
-    const ear = eyeAspectRatio(lm, L.upper, L.lower, L.inner, L.outer, vw / vh);
+    const scale = irisR / reading.irisPx; // crop px → video px
+    const glint = withGlint ? findGlint(crop, reading.irisPx) : null;
     return {
       cx,
       cy,
       irisR,
-      pupilR: reading.pupilPx * (irisR / reading.irisPx),
+      pupilR: reading.pupilPx * scale,
       contrast: reading.contrast,
-      ear,
+      coverage: reading.coverage,
+      ear: eyeAspectRatio(lm, L.upper, L.lower, L.inner, L.outer, vw / vh),
       crop,
       pupilCropPx: reading.pupilPx,
+      glint: glint && { x: cx + (glint.x - PRECISION_CROP / 2) * scale, y: cy + (glint.y - PRECISION_CROP / 2) * scale },
     };
   }, []);
 
-  const measurable = (e: EyeReading | null) => !!e && e.ear > OPEN_EAR && e.contrast >= MIN_CONTRAST && Number.isFinite(e.pupilR);
-
-  const drawOverlay = useCallback((eyes: (EyeReading | null)[], vw: number, vh: number) => {
+  // Rings on the iris and pupil, a crosshair on the centre, and a dot on the screen's reflection.
+  const drawOverlay = useCallback((target: EyeReading | null, other: EyeReading | null, locked: boolean, vw: number, vh: number) => {
     const canvas = overlayRef.current;
     if (!canvas) return;
     if (canvas.width !== vw || canvas.height !== vh) {
@@ -194,71 +212,105 @@ export function CameraScan() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.clearRect(0, 0, vw, vh);
-    ctx.lineWidth = Math.max(2, vw / 360);
-    for (const e of eyes) {
-      if (!e) continue;
-      ctx.strokeStyle = "rgba(255,255,255,0.9)";
+    const line = Math.max(2, vw / 420);
+    if (other) {
+      ctx.setLineDash([line * 3, line * 3]);
+      ctx.lineWidth = line;
+      ctx.strokeStyle = "rgba(255,255,255,0.35)";
       ctx.beginPath();
-      ctx.arc(e.cx, e.cy, e.irisR, 0, Math.PI * 2);
+      ctx.arc(other.cx, other.cy, other.irisR, 0, Math.PI * 2);
       ctx.stroke();
-      if (Number.isFinite(e.pupilR)) {
-        ctx.fillStyle = "rgba(255,255,255,0.25)";
-        ctx.beginPath();
-        ctx.arc(e.cx, e.cy, e.pupilR, 0, Math.PI * 2);
-        ctx.fill();
-      }
+      ctx.setLineDash([]);
+    }
+    if (!target) return;
+    const { cx, cy, irisR, pupilR } = target;
+    ctx.lineWidth = line * 1.4;
+    ctx.strokeStyle = locked ? "rgba(134,239,172,0.95)" : "rgba(255,255,255,0.9)";
+    ctx.shadowColor = ctx.strokeStyle;
+    ctx.shadowBlur = irisR * 0.3;
+    ctx.beginPath();
+    ctx.arc(cx, cy, irisR, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    if (Number.isFinite(pupilR)) {
+      ctx.lineWidth = line;
+      ctx.strokeStyle = "rgba(255,255,255,0.95)";
+      ctx.beginPath();
+      ctx.arc(cx, cy, pupilR, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    const tick = irisR * 0.18;
+    ctx.lineWidth = line * 0.8;
+    ctx.strokeStyle = "rgba(255,255,255,0.7)";
+    ctx.beginPath();
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      ctx.moveTo(cx + dx * (irisR + tick * 0.4), cy + dy * (irisR + tick * 0.4));
+      ctx.lineTo(cx + dx * (irisR + tick * 1.6), cy + dy * (irisR + tick * 1.6));
+    }
+    ctx.stroke();
+    if (target.glint) {
+      const g = ctx.createRadialGradient(target.glint.x, target.glint.y, 0, target.glint.x, target.glint.y, irisR * 0.18);
+      g.addColorStop(0, "rgba(255,255,255,1)");
+      g.addColorStop(0.4, "rgba(186,230,253,0.9)");
+      g.addColorStop(1, "rgba(186,230,253,0)");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(target.glint.x, target.glint.y, irisR * 0.18, 0, Math.PI * 2);
+      ctx.fill();
     }
   }, []);
 
   // ---------- Flow ----------
 
-  const finishScan = useCallback(() => {
-    stopCamera();
-    const recs = recordingsRef.current;
-    if (!recs.both) return;
-    setResult(combineScan({ both: recs.both, haze: hazeRef.current, leftLit: recs.leftLit, rightLit: recs.rightLit }));
-    setPhase("results");
-    say("Scan complete.");
-  }, [say, stopCamera]);
-
-  const enterCover = useCallback(
-    (next: Exclude<Stage, "both">) => {
-      coverFramesRef.current = 0;
-      setCover({ covered: false, lit: false });
+  const enterAlign = useCallback(
+    (next: PersonEye) => {
+      clearTimers();
+      goodFramesRef.current = 0;
+      prevCenterRef.current = null;
+      trackRef.current = [];
+      pupilMmRef.current = null;
+      setAlign(EMPTY_ALIGN);
       setManualStart(false);
-      setStage(next);
-      setPhase("cover");
-      say(STAGE_TEXT[next].body);
+      setEye(next);
+      eyeRef.current = next;
+      phaseRef.current = "align";
+      setPhase("align");
+      say(`Cover your ${OTHER_EYE[next]} eye with your hand, and bring the phone close to your ${next} eye.`);
       timersRef.current.push(window.setTimeout(() => setManualStart(true), MANUAL_START_MS));
     },
-    [say],
+    [clearTimers, say],
   );
 
-  const finishStage = useCallback(() => {
-    const rec = recordingRef.current;
+  const finishEye = useCallback(() => {
+    const current = recordingRef.current;
     recordingRef.current = null;
     setFlash(null);
-    if (!rec) return;
-    recordingsRef.current[rec.stage] = rec.samples;
-    if (rec.stage === "both") enterCover("leftLit");
-    else if (rec.stage === "leftLit") enterCover("rightLit");
-    else finishScan();
-  }, [enterCover, finishScan]);
+    if (!current) return;
+    recordingsRef.current[current.eye] = current.rec;
+    const next = EYE_ORDER[EYE_ORDER.indexOf(current.eye) + 1];
+    if (next) {
+      enterAlign(next);
+      return;
+    }
+    stopCamera();
+    setResult(combineEyes(recordingsRef.current));
+    phaseRef.current = "results";
+    setPhase("results");
+    say("Scan complete.");
+  }, [enterAlign, say, stopCamera]);
 
   const startCountdown = useCallback(() => {
-    if (phaseRef.current === "countdown" || phaseRef.current === "recording") return;
+    if (phaseRef.current !== "align") return;
     clearTimers();
     phaseRef.current = "countdown";
     setPhase("countdown");
     setCountdown(3);
-    if (stageRef.current === "both") {
-      document.documentElement.requestFullscreen?.().catch(() => {});
-      say("Look at the dot. Try not to blink.");
-    }
+    document.documentElement.requestFullscreen?.().catch(() => {});
+    say("Hold still. Look at the dot.");
     [2, 1].forEach((n, i) => timersRef.current.push(window.setTimeout(() => setCountdown(n), (i + 1) * 1000)));
     timersRef.current.push(
       window.setTimeout(() => {
-        recordingRef.current = { start: performance.now(), samples: [], stage: stageRef.current };
+        recordingRef.current = { start: performance.now(), eye: eyeRef.current, rec: { samples: [], haze: [] } };
         setProgress(0);
         phaseRef.current = "recording";
         setPhase("recording");
@@ -278,74 +330,69 @@ export function CameraScan() {
       if (ts <= lastTsRef.current) ts = lastTsRef.current + 1;
       lastTsRef.current = ts;
       const lm = landmarker.detectForVideo(video, ts).faceLandmarks?.[0];
-      const eyes: Record<ImageSide, EyeReading | null> = {
-        left: lm && lm.length >= 478 ? readEye(lm, "left", vw, vh) : null,
-        right: lm && lm.length >= 478 ? readEye(lm, "right", vw, vh) : null,
-      };
       const current = phaseRef.current;
-      if (current !== "recording" && current !== "countdown") drawOverlay([eyes.left, eyes.right], vw, vh);
+      const targetEye = recordingRef.current?.eye ?? eyeRef.current;
+      const targetSide = IMAGE_SIDE[targetEye];
+      const has = lm && lm.length >= 478;
+      // During a recording, skip the glint search to keep the frame rate up.
+      const target = has ? readEye(lm, targetSide, vw, vh, current !== "recording") : null;
 
       const rec = recordingRef.current;
       if (current === "recording" && rec) {
-        const protocol = STAGE_PROTOCOL[rec.stage];
         const t = (ts - rec.start) / 1000;
-        const stim = protocol.stimuli.find((s) => t >= s.onset && t < s.offset);
+        const stim = EYE_PROTOCOL.stimuli.find((s) => t >= s.onset && t < s.offset);
         setFlash(stim ? stim.color : null);
-        setProgress(Math.min(1, t / protocol.duration));
-        const toSample = (e: EyeReading | null) =>
-          e && Number.isFinite(e.pupilR) ? { pupilPx: e.pupilR, irisPx: e.irisR, contrast: e.contrast } : undefined;
+        setProgress(Math.min(1, t / EYE_PROTOCOL.duration));
+        const open = (target?.ear ?? 0) > OPEN_EAR;
+        const sample: Sample = { t, open };
+        if (target && Number.isFinite(target.pupilR)) sample[targetSide] = { pupilPx: target.pupilR, irisPx: target.irisR, contrast: target.contrast };
+        rec.rec.samples.push(sample);
+        // Flash photos for the cataract check, once the camera has adjusted to the flash.
+        if (stim && t >= stim.onset + 0.35 && target && open) {
+          const haze = measureHaze(target.crop, target.pupilCropPx);
+          if (haze !== null) rec.rec.haze.push(haze);
+        }
+        if (t >= EYE_PROTOCOL.duration) finishEye();
+      } else if (current === "align") {
+        const other = has ? readEye(lm, IMAGE_SIDE[OTHER_EYE[targetEye]], vw, vh, false) : null;
+        const prev = prevCenterRef.current;
+        const jitter = target && prev ? Math.hypot(target.cx - prev.x, target.cy - prev.y) / target.irisR : 1;
+        prevCenterRef.current = target ? { x: target.cx, y: target.cy } : null;
 
-        if (rec.stage === "both") {
-          rec.samples.push({
-            t,
-            open: (eyes.left?.ear ?? 0) > OPEN_EAR && (eyes.right?.ear ?? 0) > OPEN_EAR,
-            left: toSample(eyes.left),
-            right: toSample(eyes.right),
-          });
-          // Flash photos for the cataract check, once the camera has adjusted to the flash.
-          if (stim && t >= stim.onset + 0.35) {
-            for (const side of ["left", "right"] as const) {
-              const e = eyes[side];
-              if (!e || e.ear <= OPEN_EAR) continue;
-              const haze = measureHaze(e.crop, e.pupilCropPx);
-              if (haze !== null) hazeRef.current.push({ eye: PERSON_EYE[side], haze });
-            }
-          }
-        } else {
-          // Only the uncovered eye is measured; the covered one is behind a hand.
-          const litSide = IMAGE_SIDE[ONE_EYE_STAGES[rec.stage].lit];
-          const lit = eyes[litSide];
-          rec.samples.push({ t, open: (lit?.ear ?? 0) > OPEN_EAR, [litSide]: toSample(lit) });
+        const sharp = !!target && Number.isFinite(target.pupilR) && target.contrast >= CLOSE_UP.minContrast && target.coverage >= CLOSE_UP.minCoverage;
+        trackRef.current.push(sharp);
+        if (trackRef.current.length > TRACK_WINDOW) trackRef.current.shift();
+        if (sharp && target) {
+          const mm = (target.pupilR / target.irisR) * IRIS_DIAMETER_MM;
+          pupilMmRef.current = pupilMmRef.current === null ? mm : pupilMmRef.current * 0.8 + mm * 0.2;
         }
-        if (t >= protocol.duration) {
-          finishStage();
-          loopRef.current = requestAnimationFrame(() => frameRef.current());
-          return;
-        }
-      } else if (current === "lineup") {
-        const irisR = Math.max(eyes.left?.irisR ?? 0, eyes.right?.irisR ?? 0);
-        const next: Checks = {
-          face: !!lm,
-          distance: !lm ? null : irisR < 11 ? "far" : irisR > 70 ? "close" : "ok",
-          open: (eyes.left?.ear ?? 0) > OPEN_EAR && (eyes.right?.ear ?? 0) > OPEN_EAR,
-          pupils: Math.min(eyes.left?.contrast ?? 0, eyes.right?.contrast ?? 0) >= MIN_CONTRAST,
+
+        const irisR = target?.irisR ?? 0;
+        const next: Align = {
+          found: !!target,
+          centered: !!target && inRing(target, vw, vh, overlayRef.current),
+          distance: !target ? null : irisR < CLOSE_UP.minIrisPx ? "far" : irisR > CLOSE_UP.maxIrisPx ? "close" : "ok",
+          closeness: Math.min(1, Math.max(0, (irisR - FAR_IRIS_PX) / (CLOSE_UP.minIrisPx - FAR_IRIS_PX))),
+          open: (target?.ear ?? 0) > OPEN_EAR,
+          sharp,
+          // The other eye must be hidden: behind a hand, closed, or out of frame.
+          covered: !other || other.ear < 0.12 || !Number.isFinite(other.pupilR) || other.contrast < 8,
+          steady: jitter <= CLOSE_UP.maxJitter,
+          pupilMm: pupilMmRef.current,
+          tracking: trackRef.current.filter(Boolean).length / Math.max(1, trackRef.current.length),
+          hold: 0,
         };
-        const good = next.face && next.distance === "ok" && next.open && next.pupils;
-        goodFramesRef.current = good ? goodFramesRef.current + 1 : 0;
-        setChecks((p) => (p.face === next.face && p.distance === next.distance && p.open === next.open && p.pupils === next.pupils ? p : next));
-        setReady(goodFramesRef.current > READY_FRAMES);
-      } else if (current === "cover" && stageRef.current !== "both") {
-        const { lit, covered } = ONE_EYE_STAGES[stageRef.current as Exclude<Stage, "both">];
-        const litEye = eyes[IMAGE_SIDE[lit]];
-        const coveredEye = eyes[IMAGE_SIDE[covered]];
-        const next: CoverState = { lit: measurable(litEye), covered: !!lm && !measurable(coveredEye) };
-        coverFramesRef.current = next.lit && next.covered ? coverFramesRef.current + 1 : 0;
-        setCover((p) => (p.lit === next.lit && p.covered === next.covered ? p : next));
-        if (coverFramesRef.current > COVER_FRAMES) startCountdown();
+        const good = next.found && next.centered && next.distance === "ok" && next.open && next.sharp && next.steady && next.covered;
+        goodFramesRef.current = good ? goodFramesRef.current + 1 : Math.max(0, goodFramesRef.current - 3);
+        next.hold = Math.min(1, goodFramesRef.current / CLOSE_UP.holdFrames);
+        drawOverlay(target, other, good, vw, vh);
+        // Refresh the panel every few frames so the numbers are readable.
+        if (++frameCountRef.current % 3 === 0 || good !== (align.hold > 0)) setAlign(next);
+        if (goodFramesRef.current >= CLOSE_UP.holdFrames) startCountdown();
       }
     }
     loopRef.current = requestAnimationFrame(() => frameRef.current());
-  }, [drawOverlay, finishStage, readEye, startCountdown]);
+  }, [align.hold, drawOverlay, finishEye, readEye, startCountdown]);
 
   useEffect(() => {
     frameRef.current = frame;
@@ -354,11 +401,9 @@ export function CameraScan() {
   const openCamera = useCallback(async () => {
     setError(null);
     setPhase("loading");
-    recordingsRef.current = { both: null, leftLit: null, rightLit: null };
-    hazeRef.current = [];
+    recordingsRef.current = { right: null, left: null };
     setResult(null);
     setSaveError(null);
-    setStage("both");
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error("unsupported");
       const streamPromise = navigator.mediaDevices.getUserMedia({
@@ -372,11 +417,11 @@ export function CameraScan() {
           vision.FaceLandmarker.createFromOptions(fileset, { baseOptions: { modelAssetPath: MODEL_URL, delegate }, runningMode: "VIDEO", numFaces: 1 });
         landmarkerRef.current = await make("GPU").catch(() => make("CPU"));
       }
-      streamRef.current = await streamPromise;
-      goodFramesRef.current = 0;
-      setReady(false);
-      // The <video> mounts with the line-up screen; the effect below attaches the stream to it.
-      setPhase("lineup");
+      const stream = await streamPromise;
+      await sharpenCamera(stream.getVideoTracks()[0]);
+      streamRef.current = stream;
+      // The <video> mounts with the align screen; the effect below attaches the stream to it.
+      enterAlign("right");
     } catch (e) {
       const name = e instanceof Error ? `${e.name} ${e.message}` : String(e);
       console.error("camera scan failed to start", e);
@@ -392,11 +437,11 @@ export function CameraScan() {
               : "The scanner couldn't start. Check your internet connection and try again.",
       );
     }
-  }, [stopCamera]);
+  }, [enterAlign, stopCamera]);
 
   // Attach the camera to the <video> once it's on the page, then start the frame loop.
   useEffect(() => {
-    if (phase !== "lineup") return;
+    if (phase !== "align") return;
     const video = videoRef.current;
     const stream = streamRef.current;
     if (!video || !stream || video.srcObject === stream) return;
@@ -404,7 +449,6 @@ export function CameraScan() {
     video.play().then(
       () => {
         navigator.wakeLock?.request("screen").then((l) => (wakeLockRef.current = l), () => {});
-        say("Hold the phone at eye level, about a hand's length away.");
         if (loopRef.current === null) loopRef.current = requestAnimationFrame(() => frameRef.current());
       },
       (e) => {
@@ -414,7 +458,7 @@ export function CameraScan() {
         setError("The camera preview couldn't start. Try again.");
       },
     );
-  }, [phase, say, stopCamera]);
+  }, [phase, stopCamera]);
 
   const cancel = () => {
     stopCamera();
@@ -445,7 +489,9 @@ export function CameraScan() {
 
   // ---------- Render ----------
 
-  const cameraOn = phase === "lineup" || phase === "cover" || phase === "countdown" || phase === "recording";
+  const cameraOn = phase === "align" || phase === "countdown" || phase === "recording";
+  const other = OTHER_EYE[eye];
+  const allButCover = align.found && align.centered && align.distance === "ok" && align.open && align.sharp && align.steady;
 
   return (
     <div className="min-h-[100dvh] bg-background">
@@ -456,19 +502,20 @@ export function CameraScan() {
       {phase === "results" && result ? <Results result={result} saving={saving} saveError={saveError} onSave={save} onRetake={openCamera} /> : null}
 
       {cameraOn && (
+        // Above the site's floating chat button (z-40), including during the flashes.
         <div className="fixed inset-0 z-[60] bg-black text-white">
           <div className="absolute inset-0 -scale-x-100">
             <video ref={videoRef} playsInline muted className="h-full w-full object-cover" />
             <canvas ref={overlayRef} className="pointer-events-none absolute inset-0 h-full w-full object-cover" />
           </div>
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-black/70 to-transparent" />
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-72 bg-gradient-to-t from-black/90 to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-black/70 to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-80 bg-gradient-to-t from-black/90 to-transparent" />
 
           <header className="absolute inset-x-0 top-0 flex items-center justify-between gap-3 p-4 pt-[max(1rem,env(safe-area-inset-top))]">
             <button type="button" onClick={cancel} aria-label="Stop the scan" className="flex size-10 items-center justify-center rounded-full bg-white/15 backdrop-blur">
               <X className="size-5" />
             </button>
-            <StageDots phase={phase} stage={stage} />
+            <EyeSteps eye={eye} />
             <button
               type="button"
               onClick={() => setVoice((v) => !v)}
@@ -479,40 +526,57 @@ export function CameraScan() {
             </button>
           </header>
 
-          {phase === "lineup" && (
-            <>
-              <div className="pointer-events-none absolute inset-x-0 top-[22%] flex justify-center">
-                <div className={cn("h-28 w-64 rounded-[50%] border-2 border-dashed transition-colors", ready ? "border-white" : "border-white/40")} />
-              </div>
-              <BottomSheet eyebrow="Line up" title={ready ? "Ready" : "Line up your eyes"} body="Phone at eye level, about a hand's length away, in a dim room.">
-                <div className="grid grid-cols-2 gap-2">
-                  <Chip ok={checks.face} label="Face found" />
-                  <Chip ok={checks.distance === "ok"} label={checks.distance === "far" ? "Move closer" : checks.distance === "close" ? "Move back" : "Distance"} />
-                  <Chip ok={checks.open} label="Eyes open" />
-                  <Chip ok={checks.pupils} label={checks.pupils ? "Pupils visible" : "Dim the room"} />
-                </div>
-                <button
-                  type="button"
-                  disabled={!ready}
-                  onClick={startCountdown}
-                  className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-white text-sm font-semibold text-black transition-opacity disabled:opacity-40"
-                >
-                  {ready ? "Start scan" : "Waiting for a clear view…"}
-                </button>
-              </BottomSheet>
-            </>
+          {phase === "align" && (
+            // The target ring: put the eye here. Sized as a share of the screen width, like RING.
+            <div
+              aria-hidden
+              className={cn(
+                "pointer-events-none absolute left-1/2 aspect-square -translate-x-1/2 -translate-y-1/2 rounded-full border-2 transition-colors",
+                align.hold > 0 ? "border-emerald-300" : align.centered ? "border-white" : "border-dashed border-white/50",
+              )}
+              style={{ top: `${RING.y * 100}%`, width: `${RING.radius * 200}vw` }}
+            />
           )}
 
-          {phase === "cover" && stage !== "both" && (
-            <BottomSheet eyebrow={STAGE_TEXT[stage].step} title={STAGE_TEXT[stage].title} body={STAGE_TEXT[stage].body} icon={<Hand className="size-5" />}>
-              <div className="grid grid-cols-2 gap-2">
-                <Chip ok={cover.covered} label={`${capitalize(nameOf[ONE_EYE_STAGES[stage].covered])} eye covered`} />
-                <Chip ok={cover.lit} label={`${capitalize(nameOf[ONE_EYE_STAGES[stage].lit])} eye visible`} />
+          {phase === "align" && (
+            <BottomSheet
+              eyebrow={`${cap(eye)} eye · ${EYE_ORDER.indexOf(eye) + 1} of 2`}
+              title={align.distance === "ok" ? `Hold still on your ${eye} eye` : `Get close to your ${eye} eye`}
+              body={`Cover your ${other} eye with your hand. Bring the phone about 15 cm (6 in) from your ${eye} eye, until it fills the ring.`}
+              icon={<Hand className="size-5" />}
+            >
+              <div>
+                <div className="flex justify-between text-[11px] text-white/60">
+                  <span>{align.distance === "close" ? "Too close, move back a little" : "Closer"}</span>
+                  <span>Close enough</span>
+                </div>
+                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/15">
+                  <div className={cn("h-full rounded-full transition-all", align.distance === "ok" ? "bg-emerald-300" : "bg-white/70")} style={{ width: `${align.closeness * 100}%` }} />
+                </div>
               </div>
-              <p className="mt-3 text-center text-xs text-white/60">The flash starts by itself once Iris sees one eye covered.</p>
-              {manualStart && (
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Chip ok={align.found && align.centered} label={align.found ? `${cap(eye)} eye in the ring` : `Looking for your ${eye} eye`} />
+                <Chip ok={align.distance === "ok"} label={align.distance === "close" ? "Move back a little" : "Close enough"} />
+                <Chip ok={align.sharp} label={align.sharp ? "Pupil sharp" : "Dim the room"} />
+                <Chip ok={align.open} label="Eye open" />
+                <Chip ok={align.covered} label={`${cap(other)} eye covered`} />
+                <Chip ok={align.steady} label="Steady" />
+              </div>
+              <div className="mt-3 flex items-center justify-between rounded-xl bg-white/5 px-3 py-2 text-xs tabular-nums ring-1 ring-white/10">
+                <span className="text-white/60">Pupil</span>
+                <span className="font-semibold">{align.pupilMm === null ? "–" : `${align.pupilMm.toFixed(2)} mm`}</span>
+                <span className="text-white/60">Tracking</span>
+                <span className="font-semibold">{Math.round(align.tracking * 100)}%</span>
+              </div>
+              <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/10" aria-label="Holding steady">
+                <div className="h-full bg-emerald-300 transition-[width]" style={{ width: `${align.hold * 100}%` }} />
+              </div>
+              <p className="mt-2 text-center text-xs text-white/60">
+                {align.hold > 0 ? "Locked on. Hold still, the flash starts by itself." : "The flash starts by itself once everything is green."}
+              </p>
+              {manualStart && allButCover && !align.covered && (
                 <button type="button" onClick={startCountdown} className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-2xl border border-white/30 text-sm font-medium">
-                  I&apos;m covering it, start
+                  My {other} eye is covered, start
                 </button>
               )}
             </BottomSheet>
@@ -520,17 +584,17 @@ export function CameraScan() {
 
           {(phase === "countdown" || phase === "recording") && (
             <div className="fixed inset-0 z-50 flex flex-col items-center" style={{ background: flash ? STIM_BG[flash] : "#000" }}>
-              {/* Keep the eyes near the camera: the dot sits at the top of the screen. */}
-              <div className={cn("mt-[12vh] size-3 rounded-full transition-colors", flash ? "bg-black/70" : "bg-white/80")} />
+              {/* Keep the eye near the camera: the dot sits at the top of the screen. */}
+              <div className={cn("mt-[10vh] size-3 rounded-full transition-colors", flash ? "bg-black/70" : "bg-white/80")} />
               {phase === "countdown" ? (
-                <div className="mt-auto mb-auto text-center">
-                  <p className="text-xs font-medium uppercase tracking-widest text-white/60">{STAGE_TEXT[stage].step}</p>
+                <div className="mb-auto mt-auto text-center">
+                  <p className="text-xs font-medium uppercase tracking-widest text-white/60">{cap(eye)} eye</p>
                   <p className="mt-2 text-8xl font-semibold tabular-nums">{countdown}</p>
-                  <p className="mt-4 text-sm text-white/70">Look at the dot. Try not to blink.</p>
+                  <p className="mt-4 text-sm text-white/70">Look at the dot. Keep your {other} eye covered. Try not to blink.</p>
                 </div>
               ) : (
                 !flash && (
-                  <div className="mt-auto mb-16 w-48">
+                  <div className="mb-16 mt-auto w-48">
                     <div className="h-1 overflow-hidden rounded-full bg-white/15">
                       <div className="h-full bg-white/70" style={{ width: `${progress * 100}%` }} />
                     </div>
@@ -545,14 +609,43 @@ export function CameraScan() {
   );
 }
 
-const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+/**
+ * Is the eye inside the on-screen ring? The preview is mirrored and fills the screen like
+ * CSS object-fit: cover, so map the eye from camera pixels to screen pixels first.
+ */
+function inRing(eye: { cx: number; cy: number }, vw: number, vh: number, view: HTMLElement | null) {
+  const sw = view?.clientWidth || vw;
+  const sh = view?.clientHeight || vh;
+  const scale = Math.max(sw / vw, sh / vh);
+  const x = sw / 2 + (vw / 2 - eye.cx) * scale; // mirrored
+  const y = sh / 2 + (eye.cy - vh / 2) * scale;
+  return Math.hypot(x - sw * RING.x, y - sh * RING.y) <= sw * RING.radius;
+}
 
-function StageDots({ phase, stage }: { phase: Phase; stage: Stage }) {
-  const index = phase === "lineup" ? 0 : stage === "both" ? 1 : stage === "leftLit" ? 2 : 3;
+/** Ask for sharp, steady close-up video: continuous focus, and a little zoom where the phone allows it. */
+async function sharpenCamera(track: MediaStreamTrack | undefined) {
+  if (!track?.getCapabilities) return;
+  const caps = track.getCapabilities() as MediaTrackCapabilities & { focusMode?: string[]; zoom?: { min: number; max: number } };
+  const advanced: Record<string, unknown> = {};
+  if (caps.focusMode?.includes("continuous")) advanced.focusMode = "continuous";
+  if (caps.zoom && caps.zoom.max >= 1.5) advanced.zoom = Math.min(2, caps.zoom.max);
+  if (!Object.keys(advanced).length) return;
+  try {
+    await track.applyConstraints({ advanced: [advanced as MediaTrackConstraintSet] });
+  } catch {
+    // Not supported on this phone; the defaults still work.
+  }
+}
+
+function EyeSteps({ eye }: { eye: PersonEye }) {
+  const index = EYE_ORDER.indexOf(eye);
   return (
-    <div className="flex items-center gap-1.5" aria-label={`Step ${index + 1} of 4`}>
-      {[0, 1, 2, 3].map((i) => (
-        <span key={i} className={cn("h-1.5 rounded-full transition-all", i === index ? "w-6 bg-white" : i < index ? "w-1.5 bg-white" : "w-1.5 bg-white/35")} />
+    <div className="flex items-center gap-2 text-[11px] font-medium" aria-label={`${cap(eye)} eye, ${index + 1} of 2`}>
+      {EYE_ORDER.map((e, i) => (
+        <span key={e} className={cn("rounded-full px-2.5 py-1 transition-colors", i === index ? "bg-white text-black" : i < index ? "bg-white/30" : "bg-white/10 text-white/60")}>
+          {i < index ? "✓ " : ""}
+          {cap(e)} eye
+        </span>
       ))}
     </div>
   );
@@ -600,7 +693,7 @@ function Intro({
         <ArrowLeft className="size-4" /> Dashboard
       </Link>
       <h1 className="mt-6 text-3xl font-bold tracking-tight">Camera scan</h1>
-      <p className="mt-2 text-muted-foreground">About 30 seconds. Three flashes from your screen, then your three results.</p>
+      <p className="mt-2 text-muted-foreground">About 30 seconds, one eye at a time. Your screen flashes once for each eye, then you get your three results.</p>
 
       <ol className="mt-6 space-y-3">
         {SCAN_STEPS.map((s, i) => (
@@ -619,14 +712,15 @@ function Intro({
         <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
           <li>Use a dim room and turn your screen brightness all the way up.</li>
           <li>Take off glasses. Contact lenses are fine.</li>
-          <li>Hold the phone steady at eye level. A stand or a friend helps.</li>
+          <li>You&apos;ll hold the phone close, about 15 cm (6 in) from one eye, while your hand covers the other.</li>
+          <li>Rest your elbow on a table so the phone stays steady.</li>
         </ul>
       </div>
 
       <label className="mt-6 flex items-start gap-3 text-sm">
         <input type="checkbox" checked={consent} onChange={(e) => onConsent(e.target.checked)} className="mt-0.5 size-4 accent-foreground" />
         <span className="text-muted-foreground">
-          I understand Iris is a student research prototype, not a medical test. The screen flashes bright light three times, so I won&apos;t use
+          I understand Iris is a student research prototype, not a medical test. The screen flashes bright light twice, close to my eyes, so I won&apos;t use
           it if flashing lights affect me. Video stays on my phone; only the numbers are saved.
         </span>
       </label>
