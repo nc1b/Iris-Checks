@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { ChatWidget } from "@/components/blocks/chat-widget-loader";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/site";
 import { themeScript } from "@/lib/theme-script";
 import "./globals.css";
 
@@ -10,9 +11,42 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Iris: eye checks by phone",
-  description:
-    "Iris is developing three phone-based research checks for diabetes-related pupil responses, glaucoma-related eye differences, and cataract-related cloudiness. Coming soon.",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: `${SITE_NAME}: eye checks by phone for diabetes, glaucoma and cataracts`,
+    template: `%s · ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  keywords: [
+    "Iris Checks",
+    "Iris",
+    "eye check",
+    "phone eye scan",
+    "pupil light reflex",
+    "diabetes screening research",
+    "glaucoma",
+    "cataracts",
+    "student research project",
+  ],
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    url: SITE_URL,
+    siteName: SITE_NAME,
+    title: `${SITE_NAME}: ${SITE_TAGLINE}`,
+    description: SITE_DESCRIPTION,
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${SITE_NAME}: ${SITE_TAGLINE}`,
+    description: SITE_DESCRIPTION,
+  },
+  robots: { index: true, follow: true },
+  category: "health",
+  // Google Search Console "HTML tag" verification: set GOOGLE_SITE_VERIFICATION in Vercel.
+  ...(process.env.GOOGLE_SITE_VERIFICATION ? { verification: { google: process.env.GOOGLE_SITE_VERIFICATION } } : {}),
 };
 
 export const viewport: Viewport = {

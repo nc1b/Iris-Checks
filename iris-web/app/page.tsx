@@ -12,6 +12,7 @@ import { FaqSection } from "@/components/blocks/faq-section";
 import { RoadmapSection } from "@/components/blocks/roadmap-section";
 import { BlurRevealText } from "@/components/ui/blur-reveal";
 import { SCAN_STEPS } from "@/lib/checks";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 
 const supporterTypes = [
   { icon: Stethoscope, title: "Clinics and eye doctors", body: "Advice on safe testing and checking our results against clinic devices." },
@@ -19,9 +20,34 @@ const supporterTypes = [
   { icon: Building2, title: "Local organizations", body: "Help reaching people who could benefit from a free eye check." },
 ];
 
+// Tells search engines the site's name and logo (shown in Google results).
+const structuredData = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": `${SITE_URL}/#website`,
+      url: SITE_URL,
+      name: SITE_NAME,
+      alternateName: ["Iris", "irischecks.app"],
+      description: SITE_DESCRIPTION,
+      publisher: { "@id": `${SITE_URL}/#organization` },
+    },
+    {
+      "@type": "Organization",
+      "@id": `${SITE_URL}/#organization`,
+      name: SITE_NAME,
+      url: SITE_URL,
+      logo: `${SITE_URL}/iris-logo-square.png`,
+      description: "A student research project exploring phone-based eye checks.",
+    },
+  ],
+};
+
 export default function Home() {
   return (
     <HeroSection>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} />
       <section aria-label="Interactive eye" className="border-t">
         <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
           <Reveal effect="zoom">

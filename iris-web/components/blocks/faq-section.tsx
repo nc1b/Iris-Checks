@@ -20,7 +20,7 @@ export function FaqSection() {
           <BlurRevealText text="Frequently asked questions" />
         </h2>
         <p className="mx-auto mt-5 max-w-xl text-muted-foreground">
-          The three planned checks, how one scan covers them, and what a result could and couldn&apos;t tell you. Hover a row to pause it.
+          The three planned checks, how one scan covers them, and what a result could and couldn&apos;t tell you. Hover a row, or use the button below, to pause.
         </p>
       </div>
 

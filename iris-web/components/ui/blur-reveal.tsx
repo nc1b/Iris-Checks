@@ -52,17 +52,17 @@ export function BlurRevealText({
   duration?: number;
 }) {
   const words = text.split(/\s+/).filter(Boolean);
+  // The words are real text (just animated), so screen readers, copy-paste and search
+  // engines read the sentence once. A hidden duplicate made it appear twice.
   return (
     <span className={className}>
-      <span className="sr-only">{text}</span>
-      <span aria-hidden>
-        {words.map((word, i) => (
-          <BlurReveal key={`${word}-${i}`} delay={delay + i * stagger} duration={duration} className={wordClassName}>
-            {word}
-            {i < words.length - 1 ? " " : ""}
-          </BlurReveal>
-        ))}
-      </span>
+      {words.map((word, i) => (
+        <BlurReveal key={`${word}-${i}`} delay={delay + i * stagger} duration={duration} className={wordClassName}>
+          {word}
+          {/* Non-breaking: a normal trailing space is trimmed inside each inline-block word. */}
+          {i < words.length - 1 ? " " : ""}
+        </BlurReveal>
+      ))}
     </span>
   );
 }

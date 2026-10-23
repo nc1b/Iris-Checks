@@ -3,7 +3,8 @@ import Link from "next/link";
 import { LegalPage } from "@/components/blocks/legal-page";
 
 export const metadata: Metadata = {
-  title: "Terms of Service · Iris",
+  title: "Terms of Service",
+  alternates: { canonical: "/terms" },
   description: "The terms for using the Iris website and AI assistant.",
 };
 

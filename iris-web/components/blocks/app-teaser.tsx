@@ -19,7 +19,8 @@ export function AppTeaser() {
     const [paused, setPaused] = useState(false)
 
     useEffect(() => {
-        if (paused || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+        // Plays on every device (like the FAQ roller); hovering or picking a step pauses it.
+        if (paused) return
         const id = window.setInterval(() => setStep((s) => (s + 1) % SCAN_STEPS.length), STEP_MS)
         return () => window.clearInterval(id)
     }, [paused, step])
@@ -89,7 +90,7 @@ export function AppTeaser() {
                                             aria-hidden
                                             className={cn(
                                                 'absolute bottom-0 left-0 h-0.5 bg-foreground',
-                                                paused ? 'w-full' : 'motion-safe:animate-[teaser-progress_linear_forwards] motion-reduce:w-full',
+                                                paused ? 'w-full' : 'animate-[teaser-progress_linear_forwards]',
                                             )}
                                             style={{ animationDuration: `${STEP_MS}ms` }}
                                         />

@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { SiteNav } from "@/components/blocks/site-nav";
 
 export const metadata: Metadata = {
-  title: "Eye scan · Coming soon · Iris",
+  title: "Eye scan (coming soon)",
+  alternates: { canonical: "/scan" },
 };
 
 // The scanner (components/scanner) is kept in the codebase but switched off until it has been tested on real phones.

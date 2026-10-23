@@ -7,7 +7,8 @@ import { BlurRevealText } from "@/components/ui/blur-reveal";
 import { TeamShowcase, type TeamMember } from "@/components/ui/team-showcase";
 
 export const metadata: Metadata = {
-  title: "Team · Iris",
+  title: "Team",
+  alternates: { canonical: "/team" },
   description: "The students building Iris. Team profiles are coming soon.",
 };
 

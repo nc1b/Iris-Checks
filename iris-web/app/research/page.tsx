@@ -9,7 +9,8 @@ import { ResearchMarkdown } from "@/components/blocks/research-markdown";
 import notebook from "@/data/research-notebook.json";
 
 export const metadata: Metadata = {
-  title: "Research · Iris",
+  title: "Research",
+  alternates: { canonical: "/research" },
   description: "Explore the Iris research notebook: diabetes, glaucoma, cataracts, AI eye studies, the research timeline, datasets, prior art, methods, limitations, and collected source links.",
 };
 
