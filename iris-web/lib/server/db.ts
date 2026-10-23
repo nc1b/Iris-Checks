@@ -42,6 +42,8 @@ export const db = {
   addScan: (userId: string, scan: Omit<Scan, "id" | "created_at">) => rpc<Scan>("iris_add_scan", { p_user: userId, p_scan: scan }),
   deleteScan: (userId: string, scanId: string) => rpc<boolean>("iris_delete_scan", { p_user: userId, p_scan_id: scanId }),
   deleteMyData: (userId: string) => rpc<boolean>("iris_delete_my_data", { p_user: userId }),
+  /** Most similar reference eye photos to a fingerprint (pgvector), as { label, similarity }. */
+  matchEye: (embedding: string, k: number) => rpc<{ label: string; similarity: number }[]>("iris_match_eye", { p_embedding: embedding, p_k: k }),
 };
 
 /** Turns a thrown error into a safe JSON response (no internal details). */

@@ -24,7 +24,16 @@ import {
   type PersonEye,
 } from "@/lib/camera-scan";
 import { SCAN_STEPS } from "@/lib/checks";
-import type { Scan } from "@/lib/dashboard-types";
+import {
+  captureEyePhoto,
+  embedEyePhoto,
+  loadEyeEmbedder,
+  PHOTO_CONDITIONS,
+  PHOTO_THRESHOLDS,
+  type PhotoCondition,
+  type PhotoMatchResponse,
+} from "@/lib/eye-photo";
+import type { Scan, ScanMetrics } from "@/lib/dashboard-types";
 import { CROP_SPAN, eyeAspectRatio, LANDMARKS, measurePupil } from "@/lib/pupil";
 import { IRIS_DIAMETER_MM } from "@/lib/reference";
 import { rateScan } from "@/lib/scan-rating";
@@ -62,6 +71,8 @@ type Align = {
 const EMPTY_ALIGN: Align = { found: false, centered: false, distance: null, closeness: 0, open: false, sharp: false, covered: false, steady: false, pupilMm: null, tracking: 0, hold: 0 };
 
 type EyeReading = {
+  /** Corner-to-corner width of the eye, in video pixels. */
+  eyeWidth: number;
   cx: number;
   cy: number;
   irisR: number;
@@ -94,6 +105,7 @@ export function CameraScan() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [voice, setVoice] = useState(true);
+  const [photo, setPhoto] = useState<PhotoState>({ status: "none" });
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
@@ -115,6 +127,8 @@ export function CameraScan() {
   const timersRef = useRef<number[]>([]);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const voiceRef = useRef(true);
+  // The sharpest close-up of each eye from the line-up, for the photo match.
+  const eyePhotosRef = useRef<Record<PersonEye, { canvas: HTMLCanvasElement; score: number; at: number } | null>>({ right: null, left: null });
 
   // Sign-in is needed to save results, same as the dashboard.
   useEffect(() => {
@@ -187,7 +201,9 @@ export function CameraScan() {
     if (!reading) return null;
     const scale = irisR / reading.irisPx; // crop px → video px
     const glint = withGlint ? findGlint(crop, reading.irisPx) : null;
+    const eyeWidth = Math.hypot((lm[L.inner].x - lm[L.outer].x) * vw, (lm[L.inner].y - lm[L.outer].y) * vh);
     return {
+      eyeWidth,
       cx,
       cy,
       irisR,
@@ -281,6 +297,33 @@ export function CameraScan() {
     [clearTimers, say],
   );
 
+  // Fingerprint each eye's close-up on the phone and compare it with the Iris photo database.
+  const runPhotoMatch = useCallback(async () => {
+    const photos = eyePhotosRef.current;
+    const eyes = EYE_ORDER.filter((e) => photos[e]);
+    if (eyes.length === 0) {
+      setPhoto({ status: "none" });
+      return;
+    }
+    setPhoto({ status: "loading" });
+    try {
+      const body: Partial<Record<PersonEye, number[]>> = {};
+      for (const e of eyes) body[e] = await embedEyePhoto(photos[e]!.canvas);
+      const token = await getToken();
+      const res = await fetch("/api/photo-match", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ eyes: body }),
+      });
+      const json = (await res.json().catch(() => ({}))) as PhotoMatchResponse & { error?: string };
+      if (!res.ok) throw new Error(json.error || "The photo match didn't finish.");
+      setPhoto({ status: "done", data: json });
+    } catch (e) {
+      console.error("photo match failed", e);
+      setPhoto({ status: "error", error: e instanceof Error ? e.message : "The photo match didn't finish." });
+    }
+  }, [getToken]);
+
   const finishEye = useCallback(() => {
     const current = recordingRef.current;
     recordingRef.current = null;
@@ -294,10 +337,11 @@ export function CameraScan() {
     }
     stopCamera();
     setResult(combineEyes(recordingsRef.current));
+    void runPhotoMatch();
     phaseRef.current = "results";
     setPhase("results");
     say("Scan complete.");
-  }, [enterAlign, say, stopCamera]);
+  }, [enterAlign, runPhotoMatch, say, stopCamera]);
 
   const startCountdown = useCallback(() => {
     if (phaseRef.current !== "align") return;
@@ -383,6 +427,15 @@ export function CameraScan() {
           hold: 0,
         };
         const good = next.found && next.centered && next.distance === "ok" && next.open && next.sharp && next.steady && next.covered;
+        // Keep the sharpest framed close-up of this eye (checked at most 5 times a second).
+        if (target && next.centered && next.distance === "ok" && next.open && next.sharp && next.steady) {
+          const score = target.contrast * target.coverage;
+          const kept = eyePhotosRef.current[targetEye];
+          if ((!kept || score > kept.score) && ts - (kept?.at ?? 0) > 200) {
+            const canvas = captureEyePhoto(video, target.cx, target.cy, target.eyeWidth * 1.1);
+            if (canvas) eyePhotosRef.current[targetEye] = { canvas, score, at: ts };
+          }
+        }
         goodFramesRef.current = good ? goodFramesRef.current + 1 : Math.max(0, goodFramesRef.current - 3);
         next.hold = Math.min(1, goodFramesRef.current / CLOSE_UP.holdFrames);
         drawOverlay(target, other, good, vw, vh);
@@ -402,6 +455,8 @@ export function CameraScan() {
     setError(null);
     setPhase("loading");
     recordingsRef.current = { right: null, left: null };
+    eyePhotosRef.current = { right: null, left: null };
+    setPhoto({ status: "none" });
     setResult(null);
     setSaveError(null);
     try {
@@ -419,6 +474,8 @@ export function CameraScan() {
       }
       const stream = await streamPromise;
       await sharpenCamera(stream.getVideoTracks()[0]);
+      // Start downloading the photo-match model now so it's ready when the scan ends.
+      loadEyeEmbedder().catch(() => {});
       streamRef.current = stream;
       // The <video> mounts with the align screen; the effect below attaches the stream to it.
       enterAlign("right");
@@ -476,7 +533,7 @@ export function CameraScan() {
       const res = await fetch("/api/scans", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ source: "camera", metrics: result.metrics }),
+        body: JSON.stringify({ source: "camera", metrics: { ...result.metrics, ...photoMetrics(photo) } }),
       });
       const json = (await res.json().catch(() => ({}))) as Partial<Scan> & { error?: string };
       if (!res.ok) throw new Error(json.error || "The scan couldn't be saved.");
@@ -499,7 +556,9 @@ export function CameraScan() {
         <Intro consent={consent} onConsent={setConsent} onStart={openCamera} loading={phase === "loading"} error={error} />
       ) : null}
 
-      {phase === "results" && result ? <Results result={result} saving={saving} saveError={saveError} onSave={save} onRetake={openCamera} /> : null}
+      {phase === "results" && result ? (
+        <Results result={result} photo={photo} saving={saving || photo.status === "loading"} saveError={saveError} onSave={save} onRetake={openCamera} />
+      ) : null}
 
       {cameraOn && (
         // Above the site's floating chat button (z-40), including during the flashes.
@@ -746,18 +805,21 @@ function Intro({
 
 function Results({
   result,
+  photo,
   saving,
   saveError,
   onSave,
   onRetake,
 }: {
   result: CameraScanResult;
+  photo: PhotoState;
   saving: boolean;
   saveError: string | null;
   onSave: () => void;
   onRetake: () => void;
 }) {
-  const statuses = rateScan(result.metrics);
+  const metrics = { ...result.metrics, ...photoMetrics(photo) };
+  const statuses = rateScan(metrics);
   const scanLike = { ...statuses } as Pick<Scan, "diabetes_status" | "glaucoma_status" | "cataract_status">;
   return (
     <main className="mx-auto max-w-3xl px-5 pb-16 pt-6">
@@ -785,7 +847,7 @@ function Results({
               <StatusBadge status={status} />
             </div>
             <dl className="mt-4 space-y-1 border-t pt-3 text-xs">
-              {c.details(result.metrics).map((d) => (
+              {c.details(metrics).map((d) => (
                 <div key={d.label} className="flex justify-between gap-2">
                   <dt className="text-muted-foreground">{d.label}</dt>
                   {/* Numbers from an unclear recording would only mislead. */}
@@ -798,6 +860,8 @@ function Results({
           );
         })}
       </div>
+
+      <PhotoMatch photo={photo} />
 
       {result.warnings.length > 0 && (
         <div className="mt-4 rounded-2xl border border-dashed p-4 text-sm">
@@ -835,5 +899,124 @@ function Results({
         cut-offs are provisional. Only the numbers are saved, never images.
       </p>
     </main>
+  );
+}
+
+type PhotoState =
+  | { status: "none" }
+  | { status: "loading" }
+  | { status: "error"; error: string }
+  | { status: "done"; data: PhotoMatchResponse };
+
+const PHOTO_METRIC: Record<PhotoCondition, keyof ScanMetrics> = {
+  cataract: "photoCataract",
+  conjunctivitis: "photoConjunctivitis",
+  uveitis: "photoUveitis",
+  eyelid: "photoEyelid",
+};
+
+/** Highest score across the eyes that could be compared, for each condition. */
+function photoMetrics(photo: PhotoState): ScanMetrics {
+  if (photo.status !== "done") return {};
+  const eyes = Object.values(photo.data.eyes).filter((e) => e?.usable);
+  if (eyes.length === 0) return {};
+  const out: ScanMetrics = {};
+  for (const c of Object.keys(PHOTO_METRIC) as PhotoCondition[]) {
+    out[PHOTO_METRIC[c]] = Math.round(Math.max(...eyes.map((e) => e!.probs[c])) * 1000) / 1000;
+  }
+  return out;
+}
+
+const pct = (v: number) => `${Math.round(v * 100)}%`;
+
+function PhotoMatch({ photo }: { photo: PhotoState }) {
+  if (photo.status === "none") {
+    return (
+      <section className="mt-4 rounded-2xl border border-dashed p-4 text-sm text-muted-foreground">
+        No clear close-up of either eye was captured, so the photo match was skipped.
+      </section>
+    );
+  }
+  if (photo.status === "loading") {
+    return (
+      <section className="mt-4 flex items-center gap-3 rounded-2xl border p-4 text-sm">
+        <Loader2 className="size-4 animate-spin" /> Comparing your eye photos with the Iris database…
+      </section>
+    );
+  }
+  if (photo.status === "error") {
+    return <section className="mt-4 rounded-2xl border border-dashed p-4 text-sm text-muted-foreground">Photo match: {photo.error}</section>;
+  }
+
+  const { data } = photo;
+  return (
+    <section className="mt-4 rounded-2xl border bg-card p-4">
+      <h2 className="font-semibold">Photo match</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        A close-up of each eye, compared on our server with {data.referenceCount.toLocaleString()} labelled front-of-eye photos. Only a numeric
+        fingerprint was sent, never the photo.
+      </p>
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        {EYE_ORDER.map((eye) => {
+          const m = data.eyes[eye];
+          if (!m) return null;
+          const counts = new Map<string, number>();
+          for (const n of m.neighbors) counts.set(n.label, (counts.get(n.label) ?? 0) + 1);
+          return (
+            <article key={eye} className="rounded-xl border p-3">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold">{cap(eye)} eye</h3>
+                <span
+                  className={cn(
+                    "rounded-full border px-2 py-0.5 text-[11px] font-medium",
+                    !m.usable ? "border-dashed text-muted-foreground" : m.flagged.length ? "border-foreground bg-foreground text-background" : "",
+                  )}
+                >
+                  {!m.usable ? "Unclear photo" : m.flagged.length ? "Worth a check" : "Looks typical"}
+                </span>
+              </div>
+              {!m.usable ? (
+                <p className="mt-2 text-xs text-muted-foreground">This close-up didn&apos;t look like any photo in the database, so Iris won&apos;t guess.</p>
+              ) : (
+                <>
+                  <ul className="mt-3 space-y-2">
+                    {(Object.keys(PHOTO_CONDITIONS) as PhotoCondition[]).map((c) => {
+                      const v = m.probs[c];
+                      const t = PHOTO_THRESHOLDS[c];
+                      return (
+                        <li key={c} className="text-xs">
+                          <div className="flex justify-between gap-2">
+                            <span className={cn(m.flagged.includes(c) && "font-semibold")}>{PHOTO_CONDITIONS[c].name}</span>
+                            <span className="tabular-nums text-muted-foreground">{pct(v)}</span>
+                          </div>
+                          <div className="relative mt-1 h-1.5 rounded-full bg-muted">
+                            <div className="h-full rounded-full bg-foreground/70" style={{ width: pct(Math.min(1, v)) }} />
+                            <span className="absolute -top-0.5 h-2.5 w-0.5 rounded bg-foreground" style={{ left: pct(t) }} title="Flag line" />
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <p className="mt-3 text-[11px] text-muted-foreground">
+                    Closest {m.neighbors.length} photos:{" "}
+                    {[...counts.entries()].map(([label, n]) => `${n} ${label === "normal" ? "typical" : (PHOTO_CONDITIONS[label as PhotoCondition]?.name ?? label).toLowerCase()}`).join(", ")}.
+                  </p>
+                  {m.flagged.map((c) => (
+                    <p key={c} className="mt-2 text-[11px]">
+                      <span className="font-medium">{PHOTO_CONDITIONS[c].name}:</span> {PHOTO_CONDITIONS[c].summary}. Next step: {PHOTO_CONDITIONS[c].nextStep}.
+                      {data.accuracy[c]?.sensitivity != null &&
+                        ` In testing, Iris caught ${pct(data.accuracy[c].sensitivity!)} of these photos and wrongly flagged ${pct(1 - (data.accuracy[c].specificity ?? 1))} of others.`}
+                    </p>
+                  ))}
+                </>
+              )}
+            </article>
+          );
+        })}
+      </div>
+      <p className="mt-3 text-[11px] text-muted-foreground">
+        The reference photos come from a public dataset collected from the web, not phone scans, so treat this as a rough first check.
+      </p>
+    </section>
   );
 }

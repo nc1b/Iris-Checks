@@ -1,0 +1,15 @@
+{
+  "labels": [
+    "normal",
+    "cataract",
+    "conjunctivitis",
+    "uveitis",
+    "eyelid"
+  ],
+  "thresholds": {
+    "cataract": 0.2113,
+    "conjunctivitis": 0.2367,
+    "uveitis": 0.241,
+    "eyelid": 0.3136
+  }
+}

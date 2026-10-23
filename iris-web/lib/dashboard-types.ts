@@ -32,6 +32,11 @@ export type ScanMetrics = {
   hazeRight?: number; // 0-1
   /** Capture quality */
   validFraction?: number; // 0-1
+  /** Photo match: highest score across both eyes for each condition (0-1), vs the Iris photo database */
+  photoCataract?: number;
+  photoConjunctivitis?: number;
+  photoUveitis?: number;
+  photoEyelid?: number;
 };
 
 export type Scan = {

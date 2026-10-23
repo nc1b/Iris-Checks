@@ -1,4 +1,5 @@
 import type { CheckStatus, ScanMetrics } from "@/lib/dashboard-types";
+import { PHOTO_THRESHOLDS } from "@/lib/eye-photo";
 import { THRESHOLDS, rateMetric, rateReflexBalance, rateSizeDifference, type EyeDifferenceStatus } from "@/lib/reference";
 
 /**
@@ -48,9 +49,20 @@ export function rateGlaucoma(m: ScanMetrics): CheckStatus {
 
 export function rateCataract(m: ScanMetrics): CheckStatus {
   const values = [m.hazeLeft, m.hazeRight].filter((v): v is number => v !== undefined && Number.isFinite(v));
-  if (values.length === 0) return "unclear";
-  const haze = Math.max(...values);
-  return haze < HAZE.typical ? "typical" : haze < HAZE.borderline ? "borderline" : "see_doctor";
+  const haze: CheckStatus | null = values.length
+    ? Math.max(...values) < HAZE.typical
+      ? "typical"
+      : Math.max(...values) < HAZE.borderline
+        ? "borderline"
+        : "see_doctor"
+    : null;
+  // Photo match against the Iris database of eye photos: a match alone is "borderline";
+  // together with a hazy flash photo it becomes "see a doctor".
+  const photo: CheckStatus | null =
+    m.photoCataract === undefined ? null : m.photoCataract >= PHOTO_THRESHOLDS.cataract ? "borderline" : "typical";
+  if (!haze && !photo) return "unclear";
+  if (haze && photo && haze !== "typical" && photo === "borderline") return "see_doctor";
+  return worse(haze ?? "typical", photo ?? "typical");
 }
 
 export function rateScan(m: ScanMetrics) {
@@ -74,6 +86,10 @@ const METRIC_RANGES: Record<keyof ScanMetrics, [number, number]> = {
   hazeLeft: [0, 1],
   hazeRight: [0, 1],
   validFraction: [0, 1],
+  photoCataract: [0, 1],
+  photoConjunctivitis: [0, 1],
+  photoUveitis: [0, 1],
+  photoEyelid: [0, 1],
 };
 
 /** Keeps only known, finite, in-range numbers from untrusted input (e.g. a request body). */
