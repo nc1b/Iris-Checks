@@ -2,7 +2,6 @@
 import { Button } from '@/components/ui/button'
 import { PendingSectionScroll, SectionLink } from '@/components/blocks/section-link'
 import { SiteNav } from '@/components/blocks/site-nav'
-import { BlurRevealText } from '@/components/ui/blur-reveal'
 import { CHECKS } from '@/lib/checks'
 import { ArrowDown, ArrowRight, Clock, ScanEye } from 'lucide-react'
 import { useEffect, useRef } from 'react'
@@ -20,14 +19,11 @@ const heroImages = {
     },
 }
 
-// Staggered entrance for the hero text (tw-animate-css).
-const enter = 'animate-in fade-in slide-in-from-bottom-6 [animation-duration:900ms] [animation-fill-mode:both] motion-reduce:animate-none'
-
 export function HeroSection({ children }: { children?: React.ReactNode }) {
     const imageRef = useRef<HTMLDivElement>(null)
-    const textRef = useRef<HTMLDivElement>(null)
 
-    // Scroll-linked parallax: the photo drifts and zooms slowly, the text eases away.
+    // Scroll-linked parallax: the photo drifts and zooms slowly. (The text used to fade out and
+    // back in with the scroll, and slide in on load; both were removed because they looked buggy.)
     useEffect(() => {
         if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
         let frame = 0
@@ -35,10 +31,6 @@ export function HeroSection({ children }: { children?: React.ReactNode }) {
             frame = 0
             const y = Math.min(window.scrollY, 900)
             if (imageRef.current) imageRef.current.style.transform = `translate3d(0, ${y * 0.25}px, 0) scale(${1 + y * 0.0003})`
-            if (textRef.current) {
-                textRef.current.style.transform = `translate3d(0, ${y * -0.08}px, 0)`
-                textRef.current.style.opacity = String(Math.max(0, 1 - y / 700))
-            }
         }
         const onScroll = () => {
             if (!frame) frame = requestAnimationFrame(update)
@@ -59,12 +51,10 @@ export function HeroSection({ children }: { children?: React.ReactNode }) {
                 <section className="overflow-hidden">
                     <div className="relative mx-auto max-w-5xl px-6 py-28 lg:pb-24 lg:pt-36">
                         <div className="lg:flex lg:items-center lg:gap-12">
-                            <div
-                                ref={textRef}
-                                className="relative z-10 mx-auto max-w-xl text-center will-change-transform lg:ml-0 lg:w-1/2 lg:text-left">
+                            <div className="relative z-10 mx-auto max-w-xl text-center lg:ml-0 lg:w-1/2 lg:text-left">
                                 <SectionLink
                                     section="coming-soon"
-                                    className={`${enter} group rounded-lg mx-auto flex w-fit items-center gap-2 border bg-background p-1 pr-3 transition-colors hover:bg-accent lg:ml-0`}>
+                                    className={`group rounded-lg mx-auto flex w-fit items-center gap-2 border bg-background p-1 pr-3 transition-colors hover:bg-accent lg:ml-0`}>
                                     <span className="bg-muted rounded-[calc(var(--radius)-0.25rem)] px-2 py-1 text-xs">Coming soon</span>
                                     <span className="text-sm">Eye checks by phone</span>
                                     <span className="bg-(--color-border) block h-4 w-px"></span>
@@ -73,19 +63,14 @@ export function HeroSection({ children }: { children?: React.ReactNode }) {
                                 </SectionLink>
 
                                 <h1 className="mt-10 text-balance text-4xl font-bold tracking-tight md:text-6xl">
-                                    <BlurRevealText text="Three eye checks." delay={0.1} />{' '}
-                                    <BlurRevealText text="Just your phone." delay={0.45} className="text-muted-foreground" />
+                                    Three eye checks. <span className="text-muted-foreground">Just your phone.</span>
                                 </h1>
-                                <p
-                                    className={`${enter} mt-8 text-muted-foreground`}
-                                    style={{ animationDelay: '600ms' }}>
+                                <p className="mt-8 text-muted-foreground">
                                     Iris is exploring one 30-second phone scan that looks for signs linked to diabetes, glaucoma and cataracts, using
                                     only your camera and screen light. It&apos;s a student research project, and all three checks are coming soon.
                                 </p>
 
-                                <div
-                                    className={enter}
-                                    style={{ animationDelay: '360ms' }}>
+                                <div>
                                     <div
                                         id="scan-status"
                                         className="mx-auto my-10 max-w-sm lg:my-12 lg:ml-0 lg:mr-auto">
@@ -128,7 +113,7 @@ export function HeroSection({ children }: { children?: React.ReactNode }) {
                         </div>
                         <div className="absolute inset-0 -mx-4 rounded-3xl p-3 lg:col-span-3">
                             <div aria-hidden className="absolute inset-0 z-[1] rounded-3xl bg-background/80 lg:bg-transparent lg:bg-gradient-to-r lg:from-background lg:from-35% lg:to-transparent" />
-                            <div className="relative h-full overflow-hidden rounded-3xl animate-in fade-in zoom-in-95 [animation-duration:1200ms] motion-reduce:animate-none">
+                            <div className="relative h-full overflow-hidden rounded-3xl">
                                 <div
                                     ref={imageRef}
                                     className="h-full w-full will-change-transform">

@@ -35,14 +35,14 @@ export function BlurReveal({
   );
 }
 
-/** Splits text into words and reveals them one after another. */
+/**
+ * Headings used to blur in word by word. The words stayed invisible until they scrolled
+ * into view, which looked broken, so the text now shows straight away. The props are kept
+ * so existing headings don't need changing.
+ */
 export function BlurRevealText({
   text,
   className,
-  wordClassName,
-  delay = 0,
-  stagger = 0.1,
-  duration = 0.8,
 }: {
   text: string;
   className?: string;
@@ -51,18 +51,5 @@ export function BlurRevealText({
   stagger?: number;
   duration?: number;
 }) {
-  const words = text.split(/\s+/).filter(Boolean);
-  // The words are real text (just animated), so screen readers, copy-paste and search
-  // engines read the sentence once. A hidden duplicate made it appear twice.
-  return (
-    <span className={className}>
-      {words.map((word, i) => (
-        <BlurReveal key={`${word}-${i}`} delay={delay + i * stagger} duration={duration} className={wordClassName}>
-          {word}
-          {/* Non-breaking: a normal trailing space is trimmed inside each inline-block word. */}
-          {i < words.length - 1 ? " " : ""}
-        </BlurReveal>
-      ))}
-    </span>
-  );
+  return <span className={className}>{text}</span>;
 }
