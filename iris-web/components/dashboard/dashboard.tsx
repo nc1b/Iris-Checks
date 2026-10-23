@@ -170,7 +170,7 @@ export function Dashboard() {
             <section className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
               <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
                 <span className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs text-muted-foreground">
-                  <ShieldCheck className="size-3.5" /> Research prototype · demo data
+                  <ShieldCheck className="size-3.5" /> Research prototype
                 </span>
                 <h1 className="mt-4 text-3xl font-bold tracking-tight md:text-4xl">
                   {greeting()}
@@ -178,25 +178,24 @@ export function Dashboard() {
                 </h1>
                 <p className="mt-2 max-w-xl text-muted-foreground">
                   {data.total_scans
-                    ? "Here's how your three checks look over time. Every scan here is simulated until the camera check is ready."
-                    : "Run your first demo scan to see how Iris will show your three checks."}
+                    ? data.scans.some((s) => s.source === "camera")
+                      ? "Here's how your three checks look over time. Camera scans are real; demo scans are simulated."
+                      : "Here's how your three checks look over time. These are demo scans so far; run a camera scan for real numbers."
+                    : "Run your first camera scan, or try a demo scan to see how Iris shows your three checks."}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  disabled
-                  title="The camera scan is coming soon"
-                  className="inline-flex h-11 items-center gap-2 rounded-xl border px-4 text-sm font-medium text-muted-foreground opacity-70"
+                <Link
+                  href="/dashboard/scan"
+                  className="inline-flex h-11 items-center gap-2 rounded-xl bg-foreground px-5 text-sm font-medium text-background shadow-lg shadow-black/10 transition-all hover:opacity-90 active:scale-[0.98] dark:shadow-white/5"
                 >
                   <Camera className="size-4" /> Camera scan
-                  <span className="rounded-full bg-muted px-2 py-0.5 text-[10px]">Soon</span>
-                </button>
+                </Link>
                 <button
                   type="button"
                   onClick={runScan}
                   disabled={scanStep !== null}
-                  className="inline-flex h-11 items-center gap-2 rounded-xl bg-foreground px-5 text-sm font-medium text-background shadow-lg shadow-black/10 transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-60 dark:shadow-white/5"
+                  className="inline-flex h-11 items-center gap-2 rounded-xl border px-4 text-sm font-medium transition-colors hover:bg-accent active:scale-[0.98] disabled:opacity-60"
                 >
                   <Activity className="size-4" /> Run demo scan
                 </button>
@@ -242,8 +241,8 @@ export function Dashboard() {
             )}
 
             <p className="mt-10 text-center text-xs text-muted-foreground">
-              Iris is a student research prototype, not a medical device. Results here are simulated and can&apos;t diagnose or rule out diabetes,
-              glaucoma or cataracts.
+              Iris is a student research prototype, not a medical device. Demo scans are simulated, and no result here can diagnose or rule out
+              diabetes, glaucoma or cataracts.
             </p>
           </>
         )}
@@ -364,7 +363,14 @@ function StatTiles({ data }: { data: DashboardData }) {
   const latest = data.scans[0];
   const typical = latest ? CHECK_VIEWS.filter((c) => c.statusOf(latest) === "typical").length : null;
   const tiles = [
-    { label: "Scans saved", value: String(data.total_scans), sub: data.total_scans === 1 ? "demo scan" : "demo scans" },
+    {
+      label: "Scans saved",
+      value: String(data.total_scans),
+      sub: (() => {
+        const camera = data.scans.filter((s) => s.source === "camera").length;
+        return camera ? `${camera} camera, ${data.scans.length - camera} demo` : data.total_scans === 1 ? "demo scan" : "demo scans";
+      })(),
+    },
     { label: "Last scan", value: latest ? relative(latest.created_at) : "–", sub: latest ? dateTime.format(new Date(latest.created_at)) : "No scans yet" },
     { label: "Latest scan", value: typical === null ? "–" : `${typical} of 3`, sub: "checks look typical" },
     { label: "Research sharing", value: data.profile.research_consent ? "On" : "Off", sub: data.profile.research_consent ? "Numbers only, never images" : "You can turn it on below" },
@@ -482,7 +488,7 @@ function Trends({ scans, active, onChange }: { scans: Scan[]; active: number; on
         <TrendChart key={c.id} points={points} unit={c.metric.unit} label={c.metric.label} band={c.metric.typical} />
       </div>
       <p className="mt-3 text-[11px] text-muted-foreground">
-        The shaded band is the typical range from published studies and our provisional cut-offs. Demo values are simulated.
+        The shaded band is the typical range from published studies and our provisional cut-offs. Demo scan values are simulated.
       </p>
     </section>
   );
@@ -583,7 +589,7 @@ function DataCard({ count, onDeleteAll }: { count: number; onDeleteAll: () => Pr
           <Check className="mt-0.5 size-4 shrink-0 text-foreground" /> Scan numbers and your answers are stored in our database, linked to your account.
         </li>
         <li className="flex gap-2">
-          <Check className="mt-0.5 size-4 shrink-0 text-foreground" /> No eye images are stored. Real scans will process images on your phone.
+          <Check className="mt-0.5 size-4 shrink-0 text-foreground" /> No eye images are stored. Camera scans process the video on your phone.
         </li>
         <li className="flex gap-2">
           <Check className="mt-0.5 size-4 shrink-0 text-foreground" /> Delete everything anytime.{" "}
@@ -655,17 +661,24 @@ function EmptyState({ onRun, busy }: { onRun: () => void; busy: boolean }) {
       <EyeTracker aria-hidden shape="Circle" size={88} track="window" style={{ width: 110, height: 110 }} bodyClassName="fill-foreground stroke-foreground" eyeClassName="fill-background" />
       <h2 className="mt-2 text-xl font-semibold">No scans yet</h2>
       <p className="mt-2 max-w-md text-sm text-muted-foreground">
-        A demo scan simulates the planned 30-second check (one flash for both eyes, then one per eye) and saves three example results to your
-        account.
+        The camera scan takes about 30 seconds: one flash for both eyes, then one per eye. A demo scan saves three simulated results instead.
       </p>
-      <button
-        type="button"
-        onClick={onRun}
-        disabled={busy}
-        className="mt-6 inline-flex h-11 items-center gap-2 rounded-xl bg-foreground px-5 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-60"
-      >
-        <Activity className="size-4" /> Run your first demo scan
-      </button>
+      <div className="mt-6 flex flex-wrap justify-center gap-2">
+        <Link
+          href="/dashboard/scan"
+          className="inline-flex h-11 items-center gap-2 rounded-xl bg-foreground px-5 text-sm font-medium text-background transition-opacity hover:opacity-90"
+        >
+          <Camera className="size-4" /> Run your first camera scan
+        </Link>
+        <button
+          type="button"
+          onClick={onRun}
+          disabled={busy}
+          className="inline-flex h-11 items-center gap-2 rounded-xl border px-4 text-sm font-medium transition-colors hover:bg-accent disabled:opacity-60"
+        >
+          <Activity className="size-4" /> Try a demo scan
+        </button>
+      </div>
     </section>
   );
 }

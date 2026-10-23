@@ -1,38 +1,16 @@
 import "server-only";
-import type { CheckStatus, Scan, ScanMetrics } from "@/lib/dashboard-types";
-import { THRESHOLDS, rateMetric, rateReflexBalance, rateSizeDifference, type EyeDifferenceStatus } from "@/lib/reference";
+import type { Scan, ScanMetrics } from "@/lib/dashboard-types";
+import { rateScan } from "@/lib/scan-rating";
 
 /**
- * A simulated scan for the prototype dashboard (the camera scan isn't live yet).
+ * A simulated scan for the prototype dashboard.
  * Numbers are drawn around typical values from the literature, with an occasional
- * weaker or uneven response, and rated with the same provisional thresholds the
- * scanner uses. Always saved with source "demo".
+ * weaker or uneven response, and rated with the same provisional rules as the camera
+ * scan (lib/scan-rating.ts). Always saved with source "demo".
  */
 
 const rand = (min: number, max: number) => min + Math.random() * (max - min);
 const round = (n: number, digits = 2) => Math.round(n * 10 ** digits) / 10 ** digits;
-
-// Haze score in the flash photo: 0 = clear pupil, 1 = fully white. Team-set, provisional.
-const HAZE = { typical: 0.2, borderline: 0.35 };
-
-function diabetesStatus(m: ScanMetrics): CheckStatus {
-  const values: Record<string, number | undefined> = { restingRatio: m.restingRatio, amplitude: m.amplitude, latency: m.latency, velocity: m.velocity };
-  const ratings = THRESHOLDS.map((t) => rateMetric(t, values[t.key]));
-  const atypical = ratings.filter((r) => r === "atypical").length;
-  const borderline = ratings.filter((r) => r === "borderline").length;
-  if (atypical >= 2 || (atypical === 1 && borderline >= 2)) return "see_doctor";
-  if (atypical === 1 || borderline >= 2) return "borderline";
-  return "typical";
-}
-
-function fromEyeStatus(s: EyeDifferenceStatus): CheckStatus {
-  return s === "check" ? "see_doctor" : s === "borderline" ? "borderline" : s === "even" ? "typical" : "unclear";
-}
-
-const worse = (a: CheckStatus, b: CheckStatus): CheckStatus => {
-  const order: CheckStatus[] = ["typical", "unclear", "borderline", "see_doctor"];
-  return order.indexOf(a) >= order.indexOf(b) ? a : b;
-};
 
 export function makeDemoScan(note?: string): Omit<Scan, "id" | "created_at"> {
   // Most demo scans look typical; some are weaker or uneven so the dashboard shows every state.
@@ -57,12 +35,9 @@ export function makeDemoScan(note?: string): Omit<Scan, "id" | "created_at"> {
     Math.min(metrics.leftLitAmplitude!, metrics.rightLitAmplitude!) / Math.max(metrics.leftLitAmplitude!, metrics.rightLitAmplitude!),
   );
 
-  const haze = Math.max(metrics.hazeLeft!, metrics.hazeRight!);
   return {
     source: "demo",
-    diabetes_status: diabetesStatus(metrics),
-    glaucoma_status: worse(fromEyeStatus(rateReflexBalance(metrics.reflexBalance!)), fromEyeStatus(rateSizeDifference(metrics.sizeDiffMm!))),
-    cataract_status: haze < HAZE.typical ? "typical" : haze < HAZE.borderline ? "borderline" : "see_doctor",
+    ...rateScan(metrics),
     metrics,
     note: note?.trim().slice(0, 500) || null,
   };
