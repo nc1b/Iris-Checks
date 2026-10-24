@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { BookOpen, Building2, GraduationCap, HeartHandshake, ShieldCheck, Smartphone, Stethoscope, Users } from "lucide-react";
 import TestimonialsBlock from "@/components/ui/testimonials-2";
-import { AppTeaser } from "@/components/blocks/app-teaser";
 import { EyeShowcase } from "@/components/blocks/eye-showcase";
 import { HeroSection } from "@/components/blocks/hero-section-6";
 import { SiteFooter } from "@/components/blocks/site-footer";
@@ -84,10 +83,6 @@ export default function Home() {
             ))}
           </div>
         </div>
-      </section>
-
-      <section id="coming-soon" className="scroll-mt-24 border-t bg-muted/40">
-        <AppTeaser />
       </section>
 
       <TestimonialsBlock />

@@ -53,7 +53,6 @@ const moreItems: MoreItem[] = [
 const spySections: [id: string, nav: string][] = [
     ['checks', 'checks'],
     ['how-it-works', 'how-it-works'],
-    ['coming-soon', 'how-it-works'],
     ['roadmap', 'roadmap'],
     ['supporters', 'more'],
     ['about', 'more'],

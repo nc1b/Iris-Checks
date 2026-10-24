@@ -53,7 +53,7 @@ export function HeroSection({ children }: { children?: React.ReactNode }) {
                         <div className="lg:flex lg:items-center lg:gap-12">
                             <div className="relative z-10 mx-auto max-w-xl text-center lg:ml-0 lg:w-1/2 lg:text-left">
                                 <SectionLink
-                                    section="coming-soon"
+                                    section="checks"
                                     className={`group rounded-lg mx-auto flex w-fit items-center gap-2 border bg-background p-1 pr-3 transition-colors hover:bg-accent lg:ml-0`}>
                                     <span className="bg-muted rounded-[calc(var(--radius)-0.25rem)] px-2 py-1 text-xs">Coming soon</span>
                                     <span className="text-sm">Eye checks by phone</span>

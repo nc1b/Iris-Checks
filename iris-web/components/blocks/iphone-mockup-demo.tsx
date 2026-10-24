@@ -1,6 +1,6 @@
 import IPhoneMockup from "@/components/ui/iphone-mockup";
 
-// Reference usage of the iPhone mockup (the live site uses it in components/blocks/app-teaser.tsx).
+// Reference usage of the iPhone mockup.
 export default function DemoOne() {
   return (
     <IPhoneMockup
