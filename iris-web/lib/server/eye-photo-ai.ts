@@ -79,7 +79,14 @@ export type ModelCall = {
   error?: string;
 };
 
-export async function analysePhoto(model: string, imageDataUrl: string, context?: string, timeoutMs = 45_000): Promise<ModelCall> {
+/** "off" disables thinking (fastest); some models require it, so "low" asks for a little. */
+export type Reasoning = "off" | "low" | "default";
+
+export async function analysePhoto(
+  model: string,
+  imageDataUrl: string,
+  { context, reasoning = "low", timeoutMs = 60_000 }: { context?: string; reasoning?: Reasoning; timeoutMs?: number } = {},
+): Promise<ModelCall> {
   const key = process.env.HACKCLUB_API_KEY;
   if (!key) return { analysis: null, raw: "", latencyMs: 0, usage: null, error: "not_configured" };
   const started = Date.now();
@@ -91,8 +98,9 @@ export async function analysePhoto(model: string, imageDataUrl: string, context?
       body: JSON.stringify({
         model,
         temperature: 0,
-        max_tokens: 600,
-        reasoning: { enabled: false },
+        // Leaves room for a little thinking before the JSON answer.
+        max_tokens: reasoning === "off" ? 700 : 3000,
+        ...(reasoning === "off" ? { reasoning: { enabled: false } } : reasoning === "low" ? { reasoning: { effort: "low" } } : {}),
         usage: { include: true },
         messages: [
           { role: "system", content: SYSTEM_PROMPT },

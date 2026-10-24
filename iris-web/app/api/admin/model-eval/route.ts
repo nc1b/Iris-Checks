@@ -74,6 +74,7 @@ export async function GET(request: Request) {
   const model = params.get("model");
   if (!model) return Response.json({ error: "model required" }, { status: 400 });
   const only = params.get("cases")?.split(",");
+  const reasoning = (["off", "low", "default"] as const).find((r) => r === params.get("reasoning")) ?? "low";
   const selected = ALL_CASES.filter((c) => !only || only.includes(c.id));
 
   const results: unknown[] = [];
@@ -83,7 +84,7 @@ export async function GET(request: Request) {
     Array.from({ length: 4 }, async () => {
       for (let c = queue.shift(); c; c = queue.shift()) {
         try {
-          const call = await analysePhoto(model, await imageDataUrl(c));
+          const call = await analysePhoto(model, await imageDataUrl(c), { reasoning });
           results.push({
             id: c.id,
             label: c.label,
@@ -107,5 +108,5 @@ export async function GET(request: Request) {
       }
     }),
   );
-  return Response.json({ model, n: results.length, results });
+  return Response.json({ model, reasoning, n: results.length, results });
 }
