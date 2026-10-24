@@ -1,7 +1,8 @@
 import type { FaceLandmarker } from "@mediapipe/tasks-vision";
 import { findGlint, measureHaze, PRECISION_CROP } from "@/lib/camera-scan";
 import { enhanceEyePhoto } from "@/lib/eye-enhance";
-import { findIris, integrate, type IrisGuess } from "@/lib/eye-search";
+import type { IrisGuess } from "@/lib/eye-search";
+import { findEyeCircles, findLimbus, toGrey, type Circle } from "@/lib/limbus";
 import { measureQuality } from "@/lib/photo-quality";
 import { CROP_SPAN, eyeAspectRatio, LANDMARKS, measurePupil } from "@/lib/pupil";
 import { IRIS_DIAMETER_MM } from "@/lib/reference";
@@ -12,8 +13,8 @@ import { IRIS_DIAMETER_MM } from "@/lib/reference";
  * 1. Machine learning first: Google's MediaPipe face landmarker (the same model the pupil scan
  *    uses) gives the iris centre and size, eye corners and eyelids when enough of the face is
  *    in view.
- * 2. Close-ups, where only one eye fills the picture and the face model can't work: the iris
- *    search in lib/eye-search.ts finds the dark iris between the white of the eye.
+ * 2. Close-ups, where only one eye fills the picture and the face model can't work: the
+ *    iris-edge search in lib/limbus.ts (Daugman's method, as in iris-recognition systems).
  * 3. Then the pupil is measured in a close-up of the iris (lib/pupil.ts), along with how dark
  *    the pupil is (a clear lens keeps it black), the redness of the white of the eye beside
  *    the iris, and how sharp the iris is.
@@ -71,20 +72,70 @@ export type EyeFound = {
 type Source = HTMLVideoElement | HTMLCanvasElement;
 const sizeOf = (s: Source) => (s instanceof HTMLVideoElement ? { w: s.videoWidth, h: s.videoHeight } : { w: s.width, h: s.height });
 
+/** The search runs on a copy of the picture this many pixels wide (fast enough for live video). */
+const SEARCH_W = 200;
+
+export type FindOptions = {
+  /** Where the eye probably is (source pixels), such as the eye found a moment ago. */
+  near?: IrisGuess | null;
+  scratch?: HTMLCanvasElement;
+  /** Only look inside this part of the source (source pixels), e.g. the framing guide. */
+  region?: Box | null;
+  /** Try the face model first (slower; off for live video). Default on. */
+  faceModel?: boolean;
+};
+
 /**
- * Finds the eye in `source`. `near` (source pixels) is where it probably is, such as the eye
- * found in the live preview; without it the search covers the middle of the picture.
+ * Does the face the model found fit inside the picture? Shown only one eye, the face model
+ * still answers, inventing a face several times bigger than the photo with its "iris" in the
+ * wrong place, which is what made the photo check measure the wrong circle.
  */
-export function findEye(source: Source, near?: IrisGuess | null, scratch?: HTMLCanvasElement): EyeFound | null {
+function faceFits(lm: { x: number; y: number }[]) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const p of lm) {
+    x0 = Math.min(x0, p.x);
+    y0 = Math.min(y0, p.y);
+    x1 = Math.max(x1, p.x);
+    y1 = Math.max(y1, p.y);
+  }
+  return x0 > -0.08 && y0 > -0.08 && x1 < 1.08 && y1 < 1.08 && x1 - x0 > 0.12;
+}
+
+/**
+ * Finds the eye in `source`:
+ * 1. The face model (machine learning), only when the whole face fits in the picture; its iris
+ *    is then sharpened with the iris-edge search.
+ * 2. Otherwise the iris-edge search in lib/limbus.ts (Daugman's method): near `near` if given
+ *    (fast, for following a moving eye), or the pupil-then-iris search across the picture.
+ */
+export function findEye(source: Source, opts: FindOptions = {}): EyeFound | null {
   const { w, h } = sizeOf(source);
   if (!w || !h) return null;
+  const region = opts.region ?? { x: 0, y: 0, w, h };
+  const near = opts.near ?? null;
 
-  // 1. The face model, when enough of the face is in view.
-  const model = faceModelNow();
+  // Small greyscale copy of the region for the iris-edge search.
+  const canvas = opts.scratch ?? document.createElement("canvas");
+  const k = Math.min(1, SEARCH_W / region.w);
+  canvas.width = Math.max(1, Math.round(region.w * k));
+  canvas.height = Math.max(1, Math.round(region.h * k));
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return null;
+  ctx.drawImage(source, region.x, region.y, region.w, region.h, 0, 0, canvas.width, canvas.height);
+  const g = toGrey(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
+  const toSmall = (p: IrisGuess) => ({ x: (p.x - region.x) * k, y: (p.y - region.y) * k, r: p.r * k });
+  const fromSmall = (c: Circle): IrisGuess => ({ x: region.x + c.x / k, y: region.y + c.y / k, r: c.r / k });
+  const around = (p: IrisGuess) => {
+    const n = toSmall(p);
+    return findLimbus(g, { rMin: n.r * 0.78, rMax: n.r * 1.3, near: n, reach: Math.max(4, n.r * 0.6) });
+  };
+
+  // 1. The face model, when the whole face is in view.
+  const model = opts.faceModel === false ? null : faceModelNow();
   if (model) {
     try {
       const lm = model.detect(source).faceLandmarks?.[0];
-      if (lm && lm.length >= 478) {
+      if (lm && lm.length >= 478 && faceFits(lm)) {
         const eyes = (["left", "right"] as const).map((side) => {
           const L = LANDMARKS[side];
           const c = lm[L.irisCenter];
@@ -98,31 +149,22 @@ export function findEye(source: Source, near?: IrisGuess | null, scratch?: HTMLC
             openness: eyeAspectRatio(lm, L.upper, L.lower, L.inner, L.outer, w / h),
           };
         });
-        // The eye nearest the expected spot (or the middle of the picture).
-        const target = near ?? { x: w / 2, y: h / 2, r: 0 };
+        // The eye nearest the expected spot (or the middle of the region).
+        const target = near ?? { x: region.x + region.w / 2, y: region.y + region.h / 2, r: 0 };
         const eye = eyes.sort((a, b) => Math.hypot(a.iris.x - target.x, a.iris.y - target.y) - Math.hypot(b.iris.x - target.x, b.iris.y - target.y))[0];
-        // A whole face is in view, so this isn't a close-up: if its iris is tiny, the eye is
-        // simply too far away, and the close-up search would only find something else.
-        return eye.iris.r >= 4 ? { method: "face-model", ...eye } : null;
+        // A whole face in view isn't a close-up: a tiny iris means the eye is just too far away.
+        if (eye.iris.r < 4) return null;
+        const sharper = around(eye.iris);
+        return { method: "face-model", ...eye, iris: sharper ? fromSmall(sharper) : eye.iris };
       }
     } catch {
-      // A frame the model can't read; fall through to the iris search.
+      // A frame the model can't read; fall through to the iris-edge search.
     }
   }
 
-  // 2. The iris search, for close-ups.
-  const canvas = scratch ?? document.createElement("canvas");
-  const scale = Math.min(1, 320 / w);
-  canvas.width = Math.max(1, Math.round(w * scale));
-  canvas.height = Math.max(1, Math.round(h * scale));
-  const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  if (!ctx) return null;
-  ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
-  const grey = integrate(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height, scale);
-  const found = near
-    ? findIris(grey, near, near.r * 1.2)
-    : findIris(grey, { x: w / 2, y: h / 2, r: Math.min(w, h) * 0.16 }, Math.min(w, h) * 0.3, [0.35, 0.5, 0.7, 0.9, 1.15, 1.45, 1.9, 2.5]);
-  return found ? { method: "iris-search", iris: { x: found.x, y: found.y, r: found.r }, corners: null, openness: null } : null;
+  // 2. The iris-edge search: near the last position first, then across the region.
+  const found = (near && around(near)) || findEyeCircles(g, { rMin: canvas.width * 0.05, rMax: canvas.width * 0.3 }).iris;
+  return found ? { method: "iris-search", iris: fromSmall(found), corners: null, openness: null } : null;
 }
 
 export type EyeMeasure = EyeFound & {
@@ -147,11 +189,11 @@ export type EyeMeasure = EyeFound & {
  * Finds the eye and measures it. In a dark photo the eye is looked for again in a brightened
  * copy; then only its position and size are kept, since colours from a dark photo mislead.
  */
-export function measureEye(source: Source, near?: IrisGuess | null, scratch?: HTMLCanvasElement): EyeMeasure | null {
-  let eye = findEye(source, near, scratch);
+export function measureEye(source: Source, opts: FindOptions = {}): EyeMeasure | null {
+  let eye = findEye(source, opts);
   let dark = false;
   if (!eye && source instanceof HTMLCanvasElement) {
-    eye = findEye(enhanceEyePhoto(source).canvas, near, scratch);
+    eye = findEye(enhanceEyePhoto(source).canvas, opts);
     dark = !!eye;
   }
   if (!eye) return null;

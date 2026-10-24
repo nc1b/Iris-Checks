@@ -107,7 +107,7 @@ export function photoFromFrame(frame: GuideFrame, burst = 1, eyeHint: { x: numbe
   const enhancedUrl = enhanced.canvas.toDataURL("image/jpeg", JPEG_QUALITY);
   // Where the eye is in this photo: the live preview's eye (moved into photo pixels) guides it.
   const near = eyeHint && { x: (eyeHint.x - frame.crop.x) * frame.scale, y: (eyeHint.y - frame.crop.y) * frame.scale, r: eyeHint.r * frame.scale };
-  const eye = measureEye(canvas, near);
+  const eye = measureEye(canvas, { near });
   return {
     dataUrl,
     enhancedUrl,

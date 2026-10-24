@@ -293,10 +293,13 @@ export function EyeCamera({
 
       // Where is the eye, and its pupil? Only an eye inside the guide counts.
       const g = viewToVideo(guideRect(view.clientWidth, view.clientHeight), view.clientWidth, view.clientHeight, video.videoWidth, video.videoHeight, mirrored);
-      if (++tickCount.current % EYE_EVERY === 0) {
+      const locked = !!eyeRef.current && now - eyeRef.current.at < EYE_STALE_MS;
+      // Following a found eye is quick; the full search is slower, so it runs half as often.
+      if (++tickCount.current % (locked ? EYE_EVERY : EYE_EVERY * 2) === 0) {
         eyeScratch.current ??= document.createElement("canvas");
-        const last = eyeRef.current && now - eyeRef.current.at < EYE_STALE_MS ? eyeRef.current.m.iris : null;
-        const m = measureEye(video, last, eyeScratch.current);
+        const last = locked ? eyeRef.current!.m.iris : null;
+        // Search only the oval (faster, and nothing else can be mistaken for the eye).
+        const m = measureEye(video, { near: last, scratch: eyeScratch.current, region: g, faceModel: false });
         const inside = m && m.iris.x > g.x && m.iris.x < g.x + g.w && m.iris.y > g.y && m.iris.y < g.y + g.h;
         if (inside) eyeRef.current = { m, at: now };
         else if (eyeRef.current && now - eyeRef.current.at > EYE_STALE_MS) eyeRef.current = null;

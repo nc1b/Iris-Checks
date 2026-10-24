@@ -20,6 +20,7 @@ You may get two images. The first is the original photo. The second, if present,
 Lens cloudiness (cataract), look carefully:
 - A healthy pupil is evenly black, even in a bright photo.
 - Cloudiness makes the pupil itself look grey, milky, white, or yellow-brown, either all over or in patches, spokes or a central disc behind the pupil.
+- A common age-related kind (nuclear cataract) makes the pupil look amber, brown or dull dark-brown instead of jet black, while the iris around it looks normal. In a brown eye, compare the pupil's colour with the darkest shadows in the photo: a pupil that is clearly less black than they are can be this kind of cloudiness.
 - A small bright dot, square or window shape is a reflection of a light on the cornea, NOT cloudiness. Look at the pupil around the reflection.
 - A light grey or blue iris is not cloudiness. Compare the pupil with the iris around it.
 - Use "likely" when the pupil is clearly grey or white, "possible" when it looks faintly hazy, "none" when it is clearly black, and "cannot_assess" when the pupil is too small, dark, blurred or hidden to judge.
