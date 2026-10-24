@@ -15,6 +15,15 @@ export const HAZE = { typical: 0.2, borderline: 0.35 };
 /** Below this share of usable frames, the recording is too patchy to rate. */
 export const MIN_VALID_FRACTION = 0.5;
 
+/**
+ * Light-reflex constriction above this is not physiological for a phone flash (healthy eyes
+ * reach roughly 20–35%), so it means the tracker lost the pupil edge, not a real result. A real
+ * phone scan in the database read 56.8% and was wrongly flagged before this guard.
+ */
+export const MAX_PLAUSIBLE_AMPLITUDE = 45;
+
+const implausible = (m: ScanMetrics) => m.amplitude !== undefined && m.amplitude > MAX_PLAUSIBLE_AMPLITUDE;
+
 const ORDER: CheckStatus[] = ["typical", "unclear", "borderline", "see_doctor"];
 const worse = (a: CheckStatus, b: CheckStatus): CheckStatus => (ORDER.indexOf(a) >= ORDER.indexOf(b) ? a : b);
 
@@ -24,6 +33,7 @@ function fromEyeStatus(s: EyeDifferenceStatus): CheckStatus {
 
 export function rateDiabetes(m: ScanMetrics): CheckStatus {
   if (m.validFraction !== undefined && m.validFraction < MIN_VALID_FRACTION) return "unclear";
+  if (implausible(m)) return "unclear";
   const values: Record<string, number | undefined> = { restingRatio: m.restingRatio, amplitude: m.amplitude, latency: m.latency, velocity: m.velocity };
   const ratings = THRESHOLDS.map((t) => rateMetric(t, values[t.key]));
   // Constriction is the core measurement; without it, or with most numbers missing, don't guess.
@@ -38,6 +48,7 @@ export function rateDiabetes(m: ScanMetrics): CheckStatus {
 export function rateGlaucoma(m: ScanMetrics): CheckStatus {
   const balance = fromEyeStatus(rateReflexBalance(m.reflexBalance ?? null));
   // Resting sizes come from the both-eyes recording; a patchy one can't be trusted to compare eyes.
+  if (implausible(m)) return "unclear";
   const sizeTrusted = m.validFraction === undefined || m.validFraction >= MIN_VALID_FRACTION;
   const size = fromEyeStatus(rateSizeDifference(sizeTrusted ? (m.sizeDiffMm ?? null) : null));
   if (balance === "unclear" && size === "unclear") return "unclear";

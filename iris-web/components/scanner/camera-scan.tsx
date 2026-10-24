@@ -760,8 +760,18 @@ function Intro({
       <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="size-4" /> Dashboard
       </Link>
-      <h1 className="mt-6 text-3xl font-bold tracking-tight">Camera scan</h1>
+      <h1 className="mt-6 flex items-center gap-3 text-3xl font-bold tracking-tight">
+        Pupil reflex test <span className="rounded-full border px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">Experimental</span>
+      </h1>
       <p className="mt-2 text-muted-foreground">About 30 seconds, one eye at a time. Your screen flashes once for each eye, then you get your three results.</p>
+      <p className="mt-3 rounded-2xl border p-3 text-sm text-muted-foreground">
+        Measuring the pupil with an ordinary phone camera is unreliable, especially with dark eyes, so many results come back &quot;unclear&quot;. For a
+        description of how the eye looks, use the{" "}
+        <Link href="/dashboard/eye-check" className="font-medium text-foreground underline underline-offset-4">
+          eye photo check
+        </Link>{" "}
+        instead.
+      </p>
 
       <ol className="mt-6 space-y-3">
         {SCAN_STEPS.map((s, i) => (

@@ -180,16 +180,22 @@ export function Dashboard() {
                   {data.total_scans
                     ? data.scans.some((s) => s.source === "camera")
                       ? "Here's how your three checks look over time. Camera scans are real; demo scans are simulated."
-                      : "Here's how your three checks look over time. These are demo scans so far; run a camera scan for real numbers."
-                    : "Run your first camera scan, or try a demo scan to see how Iris shows your three checks."}
+                      : "Here's how your three checks look over time. These are demo scans so far; try the eye photo check."
+                    : "Start with the eye photo check, or try a demo scan to see how Iris shows your three checks."}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <Link
-                  href="/dashboard/scan"
+                  href="/dashboard/eye-check"
                   className="inline-flex h-11 items-center gap-2 rounded-xl bg-foreground px-5 text-sm font-medium text-background shadow-lg shadow-black/10 transition-all hover:opacity-90 active:scale-[0.98] dark:shadow-white/5"
                 >
-                  <Camera className="size-4" /> Camera scan
+                  <Camera className="size-4" /> Eye photo check
+                </Link>
+                <Link
+                  href="/dashboard/scan"
+                  className="inline-flex h-11 items-center gap-2 rounded-xl border px-4 text-sm font-medium transition-colors hover:bg-accent active:scale-[0.98]"
+                >
+                  Pupil test <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wide">Experimental</span>
                 </Link>
                 <button
                   type="button"
@@ -661,14 +667,14 @@ function EmptyState({ onRun, busy }: { onRun: () => void; busy: boolean }) {
       <EyeTracker aria-hidden shape="Circle" size={88} track="window" style={{ width: 110, height: 110 }} bodyClassName="fill-foreground stroke-foreground" eyeClassName="fill-background" />
       <h2 className="mt-2 text-xl font-semibold">No scans yet</h2>
       <p className="mt-2 max-w-md text-sm text-muted-foreground">
-        The camera scan takes about 30 seconds: one close-up flash for each eye. A demo scan saves three simulated results instead.
+        The eye photo check asks a few questions, then describes one close-up photo of the eye. A demo scan saves three simulated results instead.
       </p>
       <div className="mt-6 flex flex-wrap justify-center gap-2">
         <Link
-          href="/dashboard/scan"
+          href="/dashboard/eye-check"
           className="inline-flex h-11 items-center gap-2 rounded-xl bg-foreground px-5 text-sm font-medium text-background transition-opacity hover:opacity-90"
         >
-          <Camera className="size-4" /> Run your first camera scan
+          <Camera className="size-4" /> Start an eye photo check
         </Link>
         <button
           type="button"
