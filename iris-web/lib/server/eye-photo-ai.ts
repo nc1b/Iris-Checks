@@ -97,8 +97,8 @@ const CONFIDENCE = ["low", "medium", "high"] as const;
 /**
  * Combines answers from several models looking at the same photo, cautiously: each feature
  * takes the most concerning answer any model gave, and the category is the most concerning
- * one. In testing, Fable 5.1 caught cataracts that Opus 5.5 abstained on, but once called a
- * cataract normal, which Opus never did; together, a miss needs both models to miss.
+ * one, so a miss needs every model to miss. In testing, one model called a cataract normal
+ * while another flagged it; combined, it was flagged.
  * When the models disagree on the category, confidence drops to "low".
  */
 export function combineAnalyses(answers: PhotoAnalysis[]): PhotoAnalysis {
