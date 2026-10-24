@@ -307,16 +307,25 @@ export function CameraScan() {
     }
     setPhoto({ status: "loading" });
     try {
-      const body: Partial<Record<PersonEye, number[]>> = {};
-      for (const e of eyes) body[e] = await embedEyePhoto(photos[e]!.canvas);
-      const token = await getToken();
-      const res = await fetch("/api/photo-match", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ eyes: body }),
-      });
-      const json = (await res.json().catch(() => ({}))) as PhotoMatchResponse & { error?: string };
-      if (!res.ok) throw new Error(json.error || "The photo match didn't finish.");
+      // Never leave the results waiting forever (Save is paused while this runs).
+      const json = await withTimeout(
+        (async () => {
+          const body: Partial<Record<PersonEye, number[]>> = {};
+          for (const e of eyes) body[e] = await embedEyePhoto(photos[e]!.canvas);
+          // If the sign-in token is slow, ask anyway; the server answers "Please sign in" if needed.
+          const token = await withTimeout(getToken(), 10_000, "Signing in took too long.").catch(() => null);
+          const res = await fetch("/api/photo-match", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+            body: JSON.stringify({ eyes: body }),
+          });
+          const data = (await res.json().catch(() => ({}))) as PhotoMatchResponse & { error?: string };
+          if (!res.ok) throw new Error(data.error || "The photo match didn't finish.");
+          return data;
+        })(),
+        45_000,
+        "The photo match took too long. Your other results are still fine to save.",
+      );
       setPhoto({ status: "done", data: json });
     } catch (e) {
       console.error("photo match failed", e);
@@ -900,6 +909,22 @@ function Results({
       </p>
     </main>
   );
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const id = window.setTimeout(() => reject(new Error(message)), ms);
+    promise.then(
+      (v) => {
+        window.clearTimeout(id);
+        resolve(v);
+      },
+      (e) => {
+        window.clearTimeout(id);
+        reject(e);
+      },
+    );
+  });
 }
 
 type PhotoState =
