@@ -78,9 +78,9 @@ export const PRECISION_CROP = 192;
 /**
  * Lens haze from the pupil in a flash frame (cataract check), 0 = clear and dark, 1 = white.
  * A clear lens keeps the pupil dark even under the screen flash; a cloudy lens scatters the
- * light back, so the pupil looks grey or white. The brightest 30% of pupil pixels are left
- * out because the screen's reflection on the cornea sits on the pupil, and from 15 cm the
- * whole screen reflects there, not just a dot.
+ * light back, so the pupil looks grey or white. Reflections on the cornea (from 15 cm the
+ * whole screen reflects there, not just a dot) are left out, and the darker quarter of the
+ * pupil is used, so a big reflection doesn't make a clear pupil look grey.
  * Team-set and provisional: the scale needs calibrating against eye-exam results.
  */
 export const HAZE_SCALE = { dark: 20, white: 180 };
@@ -104,9 +104,15 @@ export function measureHaze(img: ImageData, pupilRadiusPx: number): number | nul
   }
   if (values.length < 12) return null;
   values.sort((a, b) => a - b);
-  const kept = values.slice(0, Math.max(1, Math.floor(values.length * 0.7)));
-  const median = kept[kept.length >> 1];
-  return Math.min(1, Math.max(0, (median - HAZE_SCALE.dark) / (HAZE_SCALE.white - HAZE_SCALE.dark)));
+  // Reflections are bright pixels that stand out from the rest of the pupil: drop them. (A
+  // cloudy lens makes the whole pupil grey, so its pixels don't stand out from each other.)
+  const mid = values[values.length >> 1];
+  const spread = values.map((v) => Math.abs(v - mid)).sort((a, b) => a - b)[values.length >> 1] || 1;
+  const kept = values.filter((v) => v <= mid + 3 * spread || v < 120);
+  // Then the darker part of what's left: a clear pupil is black there even next to a big
+  // window reflection, while a cataract keeps even its darkest part grey.
+  const level = kept[Math.floor(kept.length * 0.25)];
+  return Math.min(1, Math.max(0, (level - HAZE_SCALE.dark) / (HAZE_SCALE.white - HAZE_SCALE.dark)));
 }
 
 /**

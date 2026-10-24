@@ -168,7 +168,8 @@ export function cataractSignals(analysis: PhotoAnalysis, match: MatchState, eye:
   const verdict: Verdict =
     ai.finding === "yes" || yes >= 2 || (yes >= 1 && maybe >= 1)
       ? { level: "signs", title: "Signs of a cloudy lens", body: "More than one check saw a grey or cloudy pupil, which can be a cataract. Book an eye exam in the next few weeks, sooner if your vision changed suddenly." }
-      : yes + maybe >= 1
+      : // A phone "maybe" alone doesn't outweigh the AI review seeing a clear, black pupil.
+        yes >= 1 || (maybe >= 1 && ai.finding !== "no")
         ? { level: "possible", title: "Possible cloudiness", body: "One check saw something. Lighting and reflections can cause this too. Retake the photo in even light, and mention it at your next eye exam." }
         : no >= 1
           ? { level: "none", title: "No sign of a cloudy lens", body: "The pupil looked clear. Early cataracts don't always show in a photo, so keep up regular eye exams." }

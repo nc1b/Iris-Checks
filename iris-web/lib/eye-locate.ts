@@ -215,7 +215,23 @@ export function measureEye(source: Source, opts: FindOptions = {}): EyeMeasure |
   // The pupil edge is found by looking for a dark disc. A cloudy lens makes the pupil grey or
   // white, so then the centre of the iris is measured directly instead: if it isn't dark, that
   // is itself the finding.
-  const haze = measureHaze(pixels, pupilFound ? reading!.pupilPx : irisPx * 0.4);
+  // Without a pupil edge, the iris centre may sit a little off the pupil, so try a few spots
+  // close to it and keep the darkest: a black pupil there reads clear, a cataract stays grey.
+  let haze = pupilFound ? measureHaze(pixels, reading!.pupilPx) : null;
+  if (!pupilFound) {
+    const shifted = document.createElement("canvas");
+    shifted.width = shifted.height = PRECISION_CROP;
+    const sctx = shifted.getContext("2d", { willReadFrequently: true });
+    for (const dy of [-0.12, 0, 0.12]) {
+      for (const dx of [-0.12, 0, 0.12]) {
+        if (!sctx) break;
+        sctx.clearRect(0, 0, PRECISION_CROP, PRECISION_CROP);
+        sctx.drawImage(crop, -dx * irisPx, -dy * irisPx);
+        const h = measureHaze(sctx.getImageData(0, 0, PRECISION_CROP, PRECISION_CROP), irisPx * 0.4);
+        if (h !== null && (haze === null || h < haze)) haze = h;
+      }
+    }
+  }
   const glint = reading ? findGlint(pixels, reading.irisPx) : null;
   const sharpness = measureQuality(pixels.data, PRECISION_CROP, PRECISION_CROP).sharpness;
 
