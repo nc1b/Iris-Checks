@@ -65,7 +65,7 @@ export const CHECKS: Check[] = [
 
 /** The planned scan, in order (also shown on the app preview). */
 export const SCAN_STEPS = [
-  { title: "Get close", body: "Dim room. Cover one eye and bring the phone close to the other.", icon: ScanEye },
+  { title: "Get close", body: "Soft light, screen brightness up. Cover one eye and bring the phone close to the other.", icon: ScanEye },
   { title: "Right eye, one flash", body: "Iris locks onto your pupil, records its reflex and takes flash photos.", icon: Activity },
   { title: "Left eye, one flash", body: "The same for your other eye, so the two can be compared.", icon: Eye },
   { title: "Three results", body: "Each check says “looks typical” or “see a doctor”, in plain words.", icon: Droplet },

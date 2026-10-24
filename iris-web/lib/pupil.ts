@@ -20,6 +20,8 @@ export type PupilReading = {
   contrast: number;
   /** Fraction of rays that found an edge. */
   coverage: number;
+  /** Brightness of the iris ring (0–255). Low = the eye is too dark for the camera. */
+  irisLevel: number;
 };
 
 function luminance(data: Uint8ClampedArray, i: number) {
@@ -45,8 +47,39 @@ export function measurePupil(img: ImageData): PupilReading | null {
   const cy = height / 2;
   const irisPx = width / 2 / CROP_SPAN;
 
-  const lum = new Float32Array(width * height);
-  for (let p = 0, i = 0; p < lum.length; p++, i += 4) lum[p] = luminance(data, i);
+  // Brightness (luma) and the red channel. Brown irises reflect much more red than green,
+  // so in dim light the red channel often shows the dark pupil far more clearly.
+  const luma = new Float32Array(width * height);
+  const red = new Float32Array(width * height);
+  for (let p = 0, i = 0; p < luma.length; p++, i += 4) {
+    luma[p] = luminance(data, i);
+    red[p] = data[i];
+  }
+
+  // Pupil level: darkest part of the central disc. Iris level: the outer ring.
+  const levels = (lum: Float32Array) => {
+    const core: number[] = [];
+    const ring: number[] = [];
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const r = Math.hypot(x - cx, y - cy) / irisPx;
+        const v = lum[y * width + x];
+        if (r < 0.5) core.push(v);
+        else if (r > 0.72 && r < 0.92 && Math.abs(y - cy) < irisPx * 0.55) ring.push(v);
+      }
+    }
+    core.sort((a, b) => a - b);
+    const pupilLevel = percentile(core, 0.08);
+    const irisLevel = median(ring);
+    return { pupilLevel, irisLevel, contrast: irisLevel - pupilLevel };
+  };
+  const byLuma = levels(luma);
+  const byRed = levels(red);
+  // Prefer the red channel only when it clearly separates pupil and iris better.
+  const useRed = Number.isFinite(byRed.contrast) && byRed.contrast > (Number.isFinite(byLuma.contrast) ? byLuma.contrast * 1.15 : 0);
+  const lum = useRed ? red : luma;
+  const { pupilLevel, irisLevel, contrast } = useRed ? byRed : byLuma;
+  const irisLight = Number.isFinite(byLuma.irisLevel) ? byLuma.irisLevel : 0;
 
   const at = (x: number, y: number) => {
     const xi = Math.min(width - 1, Math.max(0, Math.round(x)));
@@ -54,23 +87,8 @@ export function measurePupil(img: ImageData): PupilReading | null {
     return lum[yi * width + xi];
   };
 
-  // Pupil level: darkest part of the central disc. Iris level: the outer ring.
-  const core: number[] = [];
-  const ring: number[] = [];
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const r = Math.hypot(x - cx, y - cy) / irisPx;
-      const v = lum[y * width + x];
-      if (r < 0.5) core.push(v);
-      else if (r > 0.72 && r < 0.92 && Math.abs(y - cy) < irisPx * 0.55) ring.push(v);
-    }
-  }
-  core.sort((a, b) => a - b);
-  const pupilLevel = percentile(core, 0.08);
-  const irisLevel = median(ring);
-  const contrast = irisLevel - pupilLevel;
   if (!Number.isFinite(contrast) || contrast < 6) {
-    return { pupilPx: NaN, irisPx, contrast: Number.isFinite(contrast) ? contrast : 0, coverage: 0 };
+    return { pupilPx: NaN, irisPx, contrast: Number.isFinite(contrast) ? contrast : 0, coverage: 0, irisLevel: irisLight };
   }
 
   const threshold = pupilLevel + 0.5 * contrast;
@@ -104,9 +122,9 @@ export function measurePupil(img: ImageData): PupilReading | null {
   }
 
   if (radii.length < rays * 0.4) {
-    return { pupilPx: NaN, irisPx, contrast, coverage: radii.length / rays };
+    return { pupilPx: NaN, irisPx, contrast, coverage: radii.length / rays, irisLevel: irisLight };
   }
-  return { pupilPx: median(radii), irisPx, contrast, coverage: radii.length / rays };
+  return { pupilPx: median(radii), irisPx, contrast, coverage: radii.length / rays, irisLevel: irisLight };
 }
 
 /** Eye aspect ratio from MediaPipe face mesh landmarks (blink detection). */

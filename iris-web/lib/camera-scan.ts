@@ -56,6 +56,20 @@ export const CLOSE_UP = {
   holdFrames: 24,
 };
 
+/**
+ * Eye lighting, as the iris ring's brightness (0–255) in the camera frame. A front camera in a
+ * dim room sees an almost black eye, so the pupil can't be told apart from the iris.
+ * Team-set from test phones; `target` is where the screen light aims.
+ */
+export const LIGHT = { dark: 40, target: 70, bright: 215 };
+
+/**
+ * Screen light: a white frame around the camera view that lights the eye from 15 cm away.
+ * It rises until the eye is bright enough (up to `max` opacity) and stays the same through the
+ * recording, so the flash is the only change in light the pupil reacts to.
+ */
+export const SCREEN_LIGHT = { max: 0.75, step: 0.015, frame: "9vw" };
+
 /** The pupil is measured on a 192 px square crop of the eye, for sub-pixel precision. */
 export const PRECISION_CROP = 192;
 
@@ -166,6 +180,22 @@ export function analyseEye(rec: EyeRecording | null): EyeResult | null {
   };
 }
 
+/**
+ * Did the camera see enough light? Compares the eye's brightness while resting with its
+ * brightness during the flash. Returns null when there's too little to judge.
+ */
+export function lightCheck(rec: EyeRecording | null): "dark" | "weak-flash" | "ok" | null {
+  if (!rec) return null;
+  const stim = EYE_PROTOCOL.stimuli[0];
+  const rest = median(rec.samples.filter((s) => s.light !== undefined && s.t < stim.onset).map((s) => s.light!));
+  // Skip the first moments of the flash while the camera adjusts its exposure.
+  const lit = median(rec.samples.filter((s) => s.light !== undefined && s.t >= stim.onset + 0.1 && s.t < stim.offset).map((s) => s.light!));
+  if (rest === null || lit === null) return null;
+  if (rest < LIGHT.dark && lit < LIGHT.dark) return "dark";
+  if (lit < rest * 1.1 && lit < LIGHT.target) return "weak-flash";
+  return "ok";
+}
+
 export function combineEyes(recordings: Record<PersonEye, EyeRecording | null>): CameraScanResult {
   const eyes = { right: analyseEye(recordings.right), left: analyseEye(recordings.left) };
   const usable = EYE_ORDER.map((e) => eyes[e]).filter((e): e is EyeResult => !!e?.usable);
@@ -211,6 +241,12 @@ export function combineEyes(recordings: Record<PersonEye, EyeRecording | null>):
         `Your ${eye} eye: ${reasons[0] ?? "Iris couldn't track the pupil clearly through the flash."} Hold the phone close and steady, in a dimmer room, and try not to blink.`,
       );
     }
+  }
+  for (const eye of EYE_ORDER) {
+    const light = lightCheck(recordings[eye]);
+    if (light === "dark") warnings.push(`Your ${eye} eye was too dark for the camera. Turn your screen brightness all the way up and use a softly lit room, not a dark one.`);
+    else if (light === "weak-flash")
+      warnings.push(`The flash barely lit your ${eye} eye. Turn screen brightness all the way up, and turn off battery saver and auto-brightness, which can dim the screen.`);
   }
   if (metrics.hazeLeft === undefined || metrics.hazeRight === undefined) {
     warnings.push("Iris didn't get clear flash photos of both pupils, so the cataract check may be unclear.");

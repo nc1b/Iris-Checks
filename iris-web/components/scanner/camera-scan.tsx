@@ -15,9 +15,11 @@ import {
   EYE_PROTOCOL,
   findGlint,
   IMAGE_SIDE,
+  LIGHT,
   measureHaze,
   OTHER_EYE,
   PRECISION_CROP,
+  SCREEN_LIGHT,
   type CameraScanResult,
   type EyeRecording,
   type ImageSide,
@@ -66,9 +68,27 @@ type Align = {
   pupilMm: number | null;
   tracking: number;
   hold: number;
+  /** How the camera sees the eye's lighting. */
+  light: "dark" | "ok" | "bright" | null;
+  /** Screen light around the camera view, 0–1. */
+  screen: number;
 };
 
-const EMPTY_ALIGN: Align = { found: false, centered: false, distance: null, closeness: 0, open: false, sharp: false, covered: false, steady: false, pupilMm: null, tracking: 0, hold: 0 };
+const EMPTY_ALIGN: Align = {
+  found: false,
+  centered: false,
+  distance: null,
+  closeness: 0,
+  open: false,
+  sharp: false,
+  covered: false,
+  steady: false,
+  pupilMm: null,
+  tracking: 0,
+  hold: 0,
+  light: null,
+  screen: 0,
+};
 
 type EyeReading = {
   /** Corner-to-corner width of the eye, in video pixels. */
@@ -79,6 +99,8 @@ type EyeReading = {
   pupilR: number;
   contrast: number;
   coverage: number;
+  /** Iris brightness (0–255): how well lit the eye is. */
+  light: number;
   ear: number;
   crop: ImageData;
   pupilCropPx: number;
@@ -120,6 +142,9 @@ export function CameraScan() {
   const prevCenterRef = useRef<{ x: number; y: number } | null>(null);
   const trackRef = useRef<boolean[]>([]);
   const pupilMmRef = useRef<number | null>(null);
+  // Screen light level (0–1). Set while lining up, then held steady through the recording.
+  const screenRef = useRef(0);
+  const [screen, setScreen] = useState(0);
   const frameCountRef = useRef(0);
   const recordingRef = useRef<{ start: number; eye: PersonEye; rec: EyeRecording } | null>(null);
   const recordingsRef = useRef<Record<PersonEye, EyeRecording | null>>({ right: null, left: null });
@@ -210,6 +235,7 @@ export function CameraScan() {
       pupilR: reading.pupilPx * scale,
       contrast: reading.contrast,
       coverage: reading.coverage,
+      light: reading.irisLevel,
       ear: eyeAspectRatio(lm, L.upper, L.lower, L.inner, L.outer, vw / vh),
       crop,
       pupilCropPx: reading.pupilPx,
@@ -399,6 +425,7 @@ export function CameraScan() {
         const open = (target?.ear ?? 0) > OPEN_EAR;
         const sample: Sample = { t, open };
         if (target && Number.isFinite(target.pupilR)) sample[targetSide] = { pupilPx: target.pupilR, irisPx: target.irisR, contrast: target.contrast };
+        if (target && open) sample.light = target.light;
         rec.rec.samples.push(sample);
         // Flash photos for the cataract check, once the camera has adjusted to the flash.
         if (stim && t >= stim.onset + 0.35 && target && open) {
@@ -420,6 +447,13 @@ export function CameraScan() {
           pupilMmRef.current = pupilMmRef.current === null ? mm : pupilMmRef.current * 0.8 + mm * 0.2;
         }
 
+        // Light the eye with the screen when the camera sees it too dark, and back off when it's bright.
+        // With no eye found at all the room may simply be too dark, so the light comes up too.
+        const lightLevel = target?.light ?? null;
+        const s0 = screenRef.current;
+        if (lightLevel === null || lightLevel < LIGHT.target) screenRef.current = Math.min(SCREEN_LIGHT.max, s0 + SCREEN_LIGHT.step);
+        else if (lightLevel > LIGHT.target * 1.8) screenRef.current = Math.max(0, s0 - SCREEN_LIGHT.step);
+
         const irisR = target?.irisR ?? 0;
         const next: Align = {
           found: !!target,
@@ -434,6 +468,8 @@ export function CameraScan() {
           pupilMm: pupilMmRef.current,
           tracking: trackRef.current.filter(Boolean).length / Math.max(1, trackRef.current.length),
           hold: 0,
+          light: lightLevel === null ? null : lightLevel < LIGHT.dark ? "dark" : lightLevel > LIGHT.bright ? "bright" : "ok",
+          screen: screenRef.current,
         };
         const good = next.found && next.centered && next.distance === "ok" && next.open && next.sharp && next.steady && next.covered;
         // Keep the sharpest framed close-up of this eye (checked at most 5 times a second).
@@ -449,7 +485,10 @@ export function CameraScan() {
         next.hold = Math.min(1, goodFramesRef.current / CLOSE_UP.holdFrames);
         drawOverlay(target, other, good, vw, vh);
         // Refresh the panel every few frames so the numbers are readable.
-        if (++frameCountRef.current % 3 === 0 || good !== (align.hold > 0)) setAlign(next);
+        if (++frameCountRef.current % 3 === 0 || good !== (align.hold > 0)) {
+          setAlign(next);
+          setScreen(screenRef.current);
+        }
         if (goodFramesRef.current >= CLOSE_UP.holdFrames) startCountdown();
       }
     }
@@ -465,6 +504,8 @@ export function CameraScan() {
     setPhase("loading");
     recordingsRef.current = { right: null, left: null };
     eyePhotosRef.current = { right: null, left: null };
+    screenRef.current = 0;
+    setScreen(0);
     setPhoto({ status: "none" });
     setResult(null);
     setSaveError(null);
@@ -576,6 +617,8 @@ export function CameraScan() {
             <video ref={videoRef} playsInline muted className="h-full w-full object-cover" />
             <canvas ref={overlayRef} className="pointer-events-none absolute inset-0 h-full w-full object-cover" />
           </div>
+          {/* Screen light: a white frame that lights the eye when the camera needs more light. */}
+          <ScreenLight level={screen} />
           <div className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-black/70 to-transparent" />
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-80 bg-gradient-to-t from-black/90 to-transparent" />
 
@@ -625,7 +668,7 @@ export function CameraScan() {
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <Chip ok={align.found && align.centered} label={align.found ? `${cap(eye)} eye in the ring` : `Looking for your ${eye} eye`} />
                 <Chip ok={align.distance === "ok"} label={align.distance === "close" ? "Move back a little" : "Close enough"} />
-                <Chip ok={align.sharp} label={align.sharp ? "Pupil sharp" : "Dim the room"} />
+                <Chip ok={align.sharp} label={pupilLabel(align)} />
                 <Chip ok={align.open} label="Eye open" />
                 <Chip ok={align.covered} label={`${cap(other)} eye covered`} />
                 <Chip ok={align.steady} label="Steady" />
@@ -652,6 +695,8 @@ export function CameraScan() {
 
           {(phase === "countdown" || phase === "recording") && (
             <div className="fixed inset-0 z-50 flex flex-col items-center" style={{ background: flash ? STIM_BG[flash] : "#000" }}>
+              {/* The same screen light as while lining up, so the only change in light is the flash. */}
+              {!flash && <ScreenLight level={screen} />}
               {/* Keep the eye near the camera: the dot sits at the top of the screen. */}
               <div className={cn("mt-[10vh] size-3 rounded-full transition-colors", flash ? "bg-black/70" : "bg-white/80")} />
               {phase === "countdown" ? (
@@ -703,6 +748,27 @@ async function sharpenCamera(track: MediaStreamTrack | undefined) {
   } catch {
     // Not supported on this phone; the defaults still work.
   }
+}
+
+/** The white frame around the screen that lights the eye. */
+function ScreenLight({ level }: { level: number }) {
+  if (level <= 0) return null;
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-0"
+      style={{ boxShadow: `inset 0 0 0 ${SCREEN_LIGHT.frame} rgba(255,255,255,${level.toFixed(3)})` }}
+    />
+  );
+}
+
+/** The pupil chip: says what's wrong with the light before blaming the focus. */
+function pupilLabel(align: Align) {
+  if (align.sharp) return "Pupil sharp";
+  if (align.light === "bright") return "Too bright, dim the room";
+  if (align.light === "dark" || (align.light === null && align.screen > 0))
+    return align.screen >= SCREEN_LIGHT.max ? "Too dark, add soft light" : "Lighting your eye…";
+  return align.found ? "Hold still, finding pupil" : "Pupil not found yet";
 }
 
 function EyeSteps({ eye }: { eye: PersonEye }) {
@@ -788,7 +854,7 @@ function Intro({
       <div className="mt-6 rounded-2xl border p-4 text-sm">
         <p className="font-medium">Before you start</p>
         <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
-          <li>Use a dim room and turn your screen brightness all the way up.</li>
+          <li>Turn your screen brightness all the way up and use a softly lit room, not a dark one. If the camera needs more light, the screen lights your eye.</li>
           <li>Take off glasses. Contact lenses are fine.</li>
           <li>You&apos;ll hold the phone close, about 15 cm (6 in) from one eye, while your hand covers the other.</li>
           <li>Rest your elbow on a table so the phone stays steady.</li>

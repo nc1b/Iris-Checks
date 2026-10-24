@@ -47,6 +47,8 @@ export type Sample = {
   right?: EyeSample;
   /** Both eyes open (no blink). */
   open: boolean;
+  /** How brightly the eye was lit in the camera frame (iris brightness, 0–255), if measured. */
+  light?: number;
 };
 
 export type StimulusMetrics = {
@@ -205,7 +207,7 @@ export function analyse(samples: Sample[], protocol: Protocol): Analysis {
   const reasons: string[] = [];
   if (validFraction < 0.5) reasons.push("The pupil was only tracked in part of the recording (blinks, movement, or poor lighting).");
   if (fps < MIN_FPS) reasons.push("This phone processed too few frames to time the reflex. Close other apps and try again.");
-  if (meanContrast < 15) reasons.push("The pupil was hard to see against the iris. Try a dimmer room and hold the phone closer.");
+  if (meanContrast < 15) reasons.push("The pupil was hard to see against the iris. Turn your screen brightness all the way up, avoid a pitch-dark room, and hold the phone closer.");
   if (!main) reasons.push("No clear response to the flash was recorded.");
   const ok = reasons.length === 0;
 

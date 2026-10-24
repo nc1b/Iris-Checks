@@ -1,6 +1,6 @@
 "use client";
 
-import { Camera, Flashlight, FlashlightOff, Loader2, RefreshCw, SwitchCamera, X } from "lucide-react";
+import { Camera, Flashlight, FlashlightOff, Loader2, RefreshCw, Sun, SunDim, SwitchCamera, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { captureGuide, GUIDE, sampleGuide, viewPointToVideo, type CapturedPhoto } from "@/lib/eye-capture";
 import { QUALITY_LIMITS, type QualityReport } from "@/lib/photo-quality";
@@ -58,6 +58,10 @@ export function EyeCamera({
   const [live, setLive] = useState<QualityReport | null>(null);
   const [resolution, setResolution] = useState<string>("");
   const [attempt, setAttempt] = useState(0);
+  // Front camera only: the screen around the oval turns white to light the face. It comes on by
+  // itself the first time the photo is too dark, and the person can switch it off.
+  const [screenLight, setScreenLight] = useState(false);
+  const screenLightAuto = useRef(false);
   const mirrored = facing === "user";
 
   // Start (or restart, on switching) the camera.
@@ -125,7 +129,12 @@ export function EyeCamera({
       const view = viewRef.current;
       if (!video || !view) return;
       sampleCanvas.current ??= document.createElement("canvas");
-      setLive(sampleGuide(video, view.clientWidth, view.clientHeight, mirrored, sampleCanvas.current));
+      const report = sampleGuide(video, view.clientWidth, view.clientHeight, mirrored, sampleCanvas.current);
+      setLive(report);
+      if (mirrored && report?.issues.includes("too_dark") && !screenLightAuto.current) {
+        screenLightAuto.current = true;
+        setScreenLight(true);
+      }
     }, 500);
     return () => window.clearInterval(id);
   }, [stream, mirrored]);
@@ -161,6 +170,8 @@ export function EyeCamera({
     setError(null);
     setTorchOn(false);
     setLive(null);
+    setScreenLight(false);
+    screenLightAuto.current = false;
     if (next === facing) setAttempt((a) => a + 1);
     else onFacing(next);
   }
@@ -217,7 +228,8 @@ export function EyeCamera({
     onCapture(photo);
   }
 
-  const hint = liveHint(live);
+  const hint = liveHint(live, { facing, torch: controls.torch && !avoidTorch, screenLight });
+  const lightOn = screenLight && mirrored;
 
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-black text-white">
@@ -234,8 +246,10 @@ export function EyeCamera({
         <div
           aria-hidden
           className={cn(
-            "pointer-events-none absolute left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-[45%] border-2 shadow-[0_0_0_9999px_rgba(0,0,0,0.55)] transition-colors",
+            "pointer-events-none absolute left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-[45%] border-2 transition-[border-color,box-shadow]",
+            lightOn ? "shadow-[0_0_0_9999px_rgba(255,255,255,0.95)]" : "shadow-[0_0_0_9999px_rgba(0,0,0,0.55)]",
             hint.good ? "border-white" : "border-white/50",
+            lightOn && (hint.good ? "border-black" : "border-black/40"),
           )}
           style={{ width: `${GUIDE.width * 100}%`, aspectRatio: `${1 / GUIDE.aspect}`, top: `${GUIDE.centerY * 100}%` }}
         />
@@ -351,6 +365,17 @@ export function EyeCamera({
             <Camera className="size-7" />
           </button>
           <div className="flex w-16 justify-end">
+            {mirrored && (
+              <button
+                type="button"
+                onClick={() => setScreenLight((v) => !v)}
+                aria-label={screenLight ? "Turn screen light off" : "Light the eye with the screen"}
+                aria-pressed={screenLight}
+                className={cn("flex size-11 items-center justify-center rounded-full", screenLight ? "bg-white text-black" : "bg-white/15")}
+              >
+                {screenLight ? <Sun className="size-5" /> : <SunDim className="size-5" />}
+              </button>
+            )}
             {controls.torch && facing === "environment" && (
               <button
                 type="button"
@@ -375,13 +400,17 @@ function Chip({ ok, children }: { ok: boolean | null; children: React.ReactNode 
   );
 }
 
-function liveHint(q: QualityReport | null) {
+function liveHint(q: QualityReport | null, opts: { facing: Facing; torch: boolean; screenLight: boolean }) {
   if (!q) return { good: false, light: "Light …", sharp: "Focus …", size: "Size …", tip: "Tap the eye on screen to focus." };
   const light = q.issues.includes("too_dark") ? "Too dark" : q.issues.includes("too_bright") ? "Too bright" : q.issues.includes("glare") ? "Glare" : "Light good";
   const sharp = q.issues.includes("blur") ? "Blurry" : "Sharp";
   const size = q.side < QUALITY_LIMITS.minSide ? "Low detail" : "Detail good";
   const tip = q.issues.includes("too_dark")
-    ? "Face a window or bright lamp, with the light in front of the person."
+    ? opts.facing === "environment" && opts.torch
+      ? "Face a window or bright lamp, or tap the flashlight button for a moment of extra light."
+      : opts.facing === "user" && !opts.screenLight
+        ? "Tap the sun button to light the eye with the screen, or face a window or bright lamp."
+        : "Face a window or bright lamp, with the light in front of the person. Turn screen brightness up."
     : q.issues.includes("glare") || q.issues.includes("too_bright")
       ? "Tilt the phone a little or move away from direct light."
       : q.issues.includes("blur")
