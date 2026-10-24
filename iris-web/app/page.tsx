@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { BookOpen, Building2, GraduationCap, HeartHandshake, ShieldCheck, Smartphone, Stethoscope, Users } from "lucide-react";
 import TestimonialsBlock from "@/components/ui/testimonials-2";
-import { EyeShowcase } from "@/components/blocks/eye-showcase";
 import { HeroSection } from "@/components/blocks/hero-section-6";
 import { SiteFooter } from "@/components/blocks/site-footer";
 import { Reveal } from "@/components/motion/reveal";
@@ -47,14 +46,6 @@ export default function Home() {
   return (
     <HeroSection>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} />
-      <section aria-label="Interactive eye" className="border-t">
-        <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
-          <Reveal effect="zoom">
-            <EyeShowcase />
-          </Reveal>
-        </div>
-      </section>
-
       <ChecksSection />
 
       <section id="how-it-works" className="scroll-mt-24 border-t">

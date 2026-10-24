@@ -176,8 +176,8 @@ export function analyseEye(rec: EyeRecording | null): EyeResult | null {
     analysis,
     usable,
     restingMm: usable && analysis.metrics.restingRatio !== null ? analysis.metrics.restingRatio * IRIS_DIAMETER_MM : null,
-    // Haze needs a few flash frames to be trusted.
-    haze: rec.haze.length >= 3 ? median(rec.haze) : null,
+    // Haze needs a few flash frames, from a recording that actually tracked this pupil.
+    haze: rec.haze.length >= 3 && analysis.quality.validFraction >= MIN_VALID_FRACTION ? median(rec.haze) : null,
   };
 }
 

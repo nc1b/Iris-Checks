@@ -71,10 +71,11 @@ function boxMean(f: GreyFrame, x: number, y: number, a: number) {
  */
 function irisScore(f: GreyFrame, x: number, y: number, r: number) {
   const inner = boxMean(f, x, y, r * 0.7);
-  const left = boxMean(f, x - r * 1.35, y, r * 0.22);
-  const right = boxMean(f, x + r * 1.35, y, r * 0.22);
-  if (inner.n === 0 || left.n === 0 || right.n === 0) return -Infinity;
-  return Math.min(left.sum / left.n, right.sum / right.n) - inner.sum / inner.n;
+  if (inner.n === 0) return -Infinity;
+  // A side that falls off the picture (a very close photo) doesn't count; the other must be white.
+  const sides = [boxMean(f, x - r * 1.35, y, r * 0.22), boxMean(f, x + r * 1.35, y, r * 0.22)].filter((b) => b.n > 0 && b.n >= (r * 0.44) ** 2 * 0.6);
+  if (!sides.length) return -Infinity;
+  return Math.min(...sides.map((b) => b.sum / b.n)) - inner.sum / inner.n;
 }
 
 /**
@@ -96,7 +97,7 @@ export function findIris(f: GreyFrame, guess: IrisGuess, reach: number, radii = 
     for (let y = gy - R; y <= gy + R; y += step) {
       for (let x = gx - R; x <= gx + R; x += step) {
         // The whole iris must be in the frame.
-        if (x - r * 1.6 < 0 || y - r < 0 || x + r * 1.6 > f.w || y + r > f.h) continue;
+        if (x - r < 0 || y - r < 0 || x + r > f.w || y + r > f.h) continue;
         // A pupil inside a light iris can look as disc-like as the iris itself: when they
         // score alike, the larger disc (the iris) wins.
         const score = irisScore(f, x, y, r) * Math.pow(k, 0.25);

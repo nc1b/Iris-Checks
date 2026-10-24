@@ -3,13 +3,16 @@
 import { useAuth } from "@clerk/nextjs";
 import { AlertTriangle, ArrowLeft, Camera, Check, ChevronDown, Info, Loader2, RotateCcw, Smartphone, Users } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { PhotoMatch } from "@/components/scanner/photo-match";
 import type { CapturedPhoto } from "@/lib/eye-capture";
+import { embedEyePhoto, loadEyeEmbedder, type PhotoMatchResponse } from "@/lib/eye-photo";
 import type { Category, PhotoAnalysis, QualityProblem } from "@/lib/eye-check-types";
 import { CLINICAL_REVIEW, EMPTY_SYMPTOMS, RED_FLAGS, triage, type Symptoms, type Triage, type Urgency } from "@/lib/eye-symptoms";
 import { RETAKE, type QualityIssue } from "@/lib/photo-quality";
 import { cn } from "@/lib/utils";
 import { EyeCamera, type Facing } from "./eye-camera";
+import { AnnotatedPhoto, cataractSignals, ConditionCard, glaucomaVerdict, PhoneFindings, type MatchState } from "./phone-findings";
 
 type Step = "symptoms" | "camera-choice" | "camera" | "review" | "analysing" | "result";
 
@@ -86,7 +89,34 @@ export function EyeCheck() {
   const [photo, setPhoto] = useState<CapturedPhoto | null>(null);
   const [result, setResult] = useState<CheckResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [match, setMatch] = useState<MatchState>({ status: "none" });
   const advice = useMemo(() => triage(symptoms), [symptoms]);
+
+  // Warm up the photo-match model while the person looks at their photo.
+  useEffect(() => {
+    if (step === "review") loadEyeEmbedder().catch(() => {});
+  }, [step]);
+
+  /** The photo match: the eye close-up's fingerprint, compared with the labelled eye photos. */
+  async function runMatch(p: CapturedPhoto, token: string | null) {
+    if (!p.eyeCanvas) return setMatch({ status: "none" });
+    setMatch({ status: "loading" });
+    try {
+      const side = symptoms.eye === "left" ? "left" : "right";
+      const embedding = await embedEyePhoto(p.eyeCanvas);
+      const res = await fetch("/api/photo-match", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ eyes: { [side]: embedding } }),
+        signal: AbortSignal.timeout(45_000),
+      });
+      const json = (await res.json().catch(() => ({}))) as PhotoMatchResponse & { error?: string };
+      if (!res.ok) throw new Error(json.error || "The photo match didn't finish.");
+      setMatch({ status: "done", data: json });
+    } catch (e) {
+      setMatch({ status: "error", error: e instanceof Error && e.name !== "TimeoutError" ? e.message : "The photo match took too long." });
+    }
+  }
   const eyeLabel = symptoms.eye === "left" ? "left eye" : symptoms.eye === "right" ? "right eye" : "eye";
 
   async function analyse() {
@@ -95,6 +125,7 @@ export function EyeCheck() {
     setError(null);
     try {
       const token = await Promise.race([getToken(), new Promise<null>((r) => setTimeout(() => r(null), 10_000))]);
+      void runMatch(photo, token);
       const res = await fetch("/api/eye-check", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
@@ -115,6 +146,7 @@ export function EyeCheck() {
   function retake() {
     setPhoto(null);
     setResult(null);
+    setMatch({ status: "none" });
     setError(null);
     setStep("camera");
   }
@@ -170,7 +202,7 @@ export function EyeCheck() {
         <Review photo={photo} busy={step === "analysing"} error={error} onRetake={retake} onAnalyse={analyse} facing={facing} />
       )}
 
-      {step === "result" && result && <Result result={result} photo={photo} onRetake={retake} />}
+      {step === "result" && result && <Result result={result} photo={photo} match={match} onRetake={retake} />}
 
       <CanCannot />
 
@@ -444,12 +476,13 @@ function Review({
   return (
     <section className="mt-6" data-testid="review">
       <h2 className="text-lg font-semibold">{q.ok ? "Photo looks usable" : "Let's retake this photo"}</h2>
-      {/* eslint-disable-next-line @next/next/no-img-element -- a local data URL, not a remote image */}
-      <img src={photo.dataUrl} alt="The eye photo you took" className="mt-3 w-full rounded-2xl border bg-black object-contain" />
+      <AnnotatedPhoto photo={photo} className="mt-3" />
       <p className="mt-2 text-xs text-muted-foreground">
         {photo.cropW}×{photo.cropH} camera pixels from a {photo.frameW}×{photo.frameH} frame · {Math.round(photo.bytes / 1024)} KB. Cropped from the original
-        image; nothing is enlarged.
+        image; nothing is enlarged.{photo.burst > 1 ? ` Sharpest of ${photo.burst} frames.` : ""}
       </p>
+
+      <PhoneFindings eye={photo.eye} />
 
       {!q.ok && (
         <ul className="mt-4 space-y-3" data-testid="quality-issues">
@@ -528,7 +561,7 @@ const OBSERVATION_VALUES: Record<string, string> = {
   cannot_assess: "Can't tell from this photo",
 };
 
-function Result({ result, photo, onRetake }: { result: CheckResponse; photo: CapturedPhoto | null; onRetake: () => void }) {
+function Result({ result, photo, match, onRetake }: { result: CheckResponse; photo: CapturedPhoto | null; match: MatchState; onRetake: () => void }) {
   const a = result.analysis;
 
   if (!a.quality.usable) {
@@ -555,7 +588,9 @@ function Result({ result, photo, onRetake }: { result: CheckResponse; photo: Cap
   }
 
   const text = CATEGORY_TEXT[a.category];
-  const urgency = worse(result.triage.urgency, text.urgency);
+  // Signs of a cloudy lens from the combined cataract checks call for an exam soon.
+  const cataract = cataractSignals(a, match, photo?.eye ?? null).verdict;
+  const urgency = worse(worse(result.triage.urgency, text.urgency), cataract.level === "signs" ? "soon" : "routine");
   const reasons = [...result.triage.reasons];
   if (URGENCY_ORDER.indexOf(text.urgency) > URGENCY_ORDER.indexOf(result.triage.urgency)) reasons.push(text.body);
 
@@ -567,9 +602,8 @@ function Result({ result, photo, onRetake }: { result: CheckResponse; photo: Cap
       <p className="mt-2 text-sm text-muted-foreground">{text.body}</p>
       <p className="mt-2 text-xs text-muted-foreground">How sure: {a.confidence === "high" ? "fairly sure" : a.confidence === "medium" ? "somewhat sure" : "not very sure"}.</p>
 
-      <div className="mt-4 grid gap-4 sm:grid-cols-[160px_1fr]">
-        {/* eslint-disable-next-line @next/next/no-img-element -- a local data URL */}
-        {photo && <img src={photo.dataUrl} alt="Your eye photo" className="w-full rounded-xl border object-contain" />}
+      <div className="mt-4 grid gap-4 sm:grid-cols-[200px_1fr]">
+        {photo && <AnnotatedPhoto photo={photo} className="rounded-xl" />}
         <dl className="divide-y rounded-2xl border text-sm">
           {(Object.keys(OBSERVATION_LABELS) as (keyof PhotoAnalysis["observations"])[]).map((k) => (
             <div key={k} className="flex justify-between gap-3 px-3 py-2">
@@ -582,7 +616,13 @@ function Result({ result, photo, onRetake }: { result: CheckResponse; photo: Cap
 
       <TriageCard urgency={urgency} reasons={reasons} />
 
-      <GlaucomaNote />
+      <CataractCard analysis={a} match={match} photo={photo} />
+      <ConditionCard name="Glaucoma" verdict={glaucomaVerdict(a)}>
+        <GlaucomaNote />
+      </ConditionCard>
+
+      {photo && <PhoneFindings eye={photo.eye} />}
+      <PhotoMatch photo={match} />
 
       <button type="button" onClick={onRetake} className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border text-sm font-medium">
         <RotateCcw className="size-4" /> Take another photo
@@ -591,11 +631,16 @@ function Result({ result, photo, onRetake }: { result: CheckResponse; photo: Cap
   );
 }
 
+function CataractCard({ analysis, match, photo }: { analysis: PhotoAnalysis; match: MatchState; photo: CapturedPhoto | null }) {
+  const { signals, verdict } = cataractSignals(analysis, match, photo?.eye ?? null);
+  return <ConditionCard name="Cataract" verdict={verdict} signals={signals} />;
+}
+
 /** A photo can only catch a sudden pressure attack; the slow, common glaucoma needs other checks. */
 function GlaucomaNote() {
   return (
-    <div className="mt-4 rounded-2xl border p-4 text-sm" data-testid="glaucoma-note">
-      <p className="font-medium">What about glaucoma?</p>
+    <div className="mt-3 rounded-xl bg-muted/50 p-3 text-sm" data-testid="glaucoma-note">
+      <p className="font-medium">The slow kind of glaucoma</p>
       <p className="mt-1 text-muted-foreground">
         This photo was checked for signs of a sudden eye-pressure attack (acute angle-closure glaucoma). The common, slow kind of glaucoma doesn&apos;t show
         in a photo. For that, the{" "}

@@ -2,7 +2,8 @@
 
 import { Camera, Flashlight, FlashlightOff, Loader2, RefreshCw, Sun, SunDim, SwitchCamera, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { GUIDE, grabGuide, motionBetween, photoFromFrame, sampleGuide, viewPointToVideo, type CapturedPhoto, type GuideFrame } from "@/lib/eye-capture";
+import { GUIDE, grabGuide, guideRect, motionBetween, photoFromFrame, sampleGuide, viewPointToVideo, viewToVideo, type CapturedPhoto, type GuideFrame } from "@/lib/eye-capture";
+import { loadFaceModel, measureEye, type EyeMeasure } from "@/lib/eye-locate";
 import { QUALITY_LIMITS, type QualityReport } from "@/lib/photo-quality";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +32,10 @@ const BEST_WINDOW_MS = 1500;
 const AUTO_TICKS = 10;
 /** Lighting control: wait this long between automatic exposure steps. */
 const EXPOSURE_STEP_MS = 900;
+/** Live eye finding runs on every other check (about 4 times a second). */
+const EYE_EVERY = 2;
+/** Forget the live eye if it hasn't been seen for this long. */
+const EYE_STALE_MS = 900;
 
 type CapabilitiesPlus = MediaTrackCapabilities & {
   zoom?: { min: number; max: number; step?: number };
@@ -87,6 +92,11 @@ export function EyeCamera({
   const goodTicks = useRef(0);
   const best = useRef<Best | null>(null);
   const framesSeen = useRef<number[]>([]);
+  // The eye and pupil found in the live picture, in video pixels.
+  const [eye, setEye] = useState<LiveEye | null>(null);
+  const eyeRef = useRef<{ m: EyeMeasure; at: number } | null>(null);
+  const eyeScratch = useRef<HTMLCanvasElement | null>(null);
+  const tickCount = useRef(0);
   const [resolution, setResolution] = useState<string>("");
   const [attempt, setAttempt] = useState(0);
   // Front camera only: the screen around the oval turns white to light the face. It comes on by
@@ -132,6 +142,8 @@ export function EyeCamera({
         setZoom((settings as { zoom?: number }).zoom ?? caps.zoom?.min ?? 1);
         setResolution(settings.width && settings.height ? `${settings.width}×${settings.height}` : "");
         setStream(current);
+        // Start loading the eye-finding model while the person frames the photo.
+        loadFaceModel().catch(() => {});
       } catch (e) {
         const name = e instanceof DOMException ? e.name : "";
         setError(
@@ -230,7 +242,8 @@ export function EyeCamera({
     goodTicks.current = 0;
     setAutoHold(0);
     if (torchOn) void setTorch(false);
-    onCapture(photoFromFrame(frame, burst));
+    const seen = eyeRef.current && now - eyeRef.current.at < EYE_STALE_MS ? eyeRef.current.m.iris : null;
+    onCapture(photoFromFrame(frame, burst, seen));
   }, [mirrored, onCapture, setTorch, torchOn]);
 
   const capture = useCallback(() => {
@@ -257,6 +270,19 @@ export function EyeCamera({
       void _pixels;
       setLive({ ...quality, motion, steady });
 
+      // Where is the eye, and its pupil? Only an eye inside the guide counts.
+      if (++tickCount.current % EYE_EVERY === 0) {
+        eyeScratch.current ??= document.createElement("canvas");
+        const last = eyeRef.current && now - eyeRef.current.at < EYE_STALE_MS ? eyeRef.current.m.iris : null;
+        const m = measureEye(video, last, eyeScratch.current);
+        const g = viewToVideo(guideRect(view.clientWidth, view.clientHeight), view.clientWidth, view.clientHeight, video.videoWidth, video.videoHeight, mirrored);
+        const inside = m && m.iris.x > g.x && m.iris.x < g.x + g.w && m.iris.y > g.y && m.iris.y < g.y + g.h;
+        if (inside) eyeRef.current = { m, at: now };
+        else if (eyeRef.current && now - eyeRef.current.at > EYE_STALE_MS) eyeRef.current = null;
+        setEye(eyeRef.current ? { m: eyeRef.current.m, videoW: video.videoWidth, videoH: video.videoHeight, viewW: view.clientWidth, viewH: view.clientHeight } : null);
+      }
+      const eyeSeen = !!eyeRef.current && now - eyeRef.current.at < EYE_STALE_MS;
+
       // Keep the sharpest steady frame of the last moment, at full resolution.
       framesSeen.current = [...framesSeen.current.filter((t) => now - t < BEST_WINDOW_MS + BURST_MS), now];
       const score = quality.sharpness * (steady ? 1 : 0.5) * (quality.issues.includes("too_dark") || quality.issues.includes("glare") ? 0.6 : 1);
@@ -280,8 +306,8 @@ export function EyeCamera({
         setScreenLight(true);
       }
 
-      // Auto photo once everything is good and steady for a moment.
-      goodTicks.current = quality.ok && steady ? goodTicks.current + 1 : 0;
+      // Auto photo once the eye is found and everything is good and steady for a moment.
+      goodTicks.current = quality.ok && steady && eyeSeen ? goodTicks.current + 1 : 0;
       setAutoHold(auto ? Math.min(1, goodTicks.current / AUTO_TICKS) : 0);
       if (auto && !capturingRef.current && goodTicks.current >= AUTO_TICKS) capture();
     };
@@ -293,6 +319,8 @@ export function EyeCamera({
     setError(null);
     setTorchOn(false);
     setLive(null);
+    setEye(null);
+    eyeRef.current = null;
     setScreenLight(false);
     screenLightAuto.current = false;
     if (next === facing) setAttempt((a) => a + 1);
@@ -356,6 +384,9 @@ export function EyeCamera({
           className={cn("absolute inset-0 size-full object-cover", mirrored && "-scale-x-100")}
         />
 
+        {/* What the phone found: the iris, the pupil and the reflection, drawn on the live picture. */}
+        <EyeOverlay eye={eye} mirrored={mirrored} />
+
         {/* Framing guide: the area outside is dimmed; only the inside is sent. */}
         <div
           aria-hidden
@@ -415,6 +446,7 @@ export function EyeCamera({
         <div className="flex flex-wrap justify-center gap-2 text-xs" aria-live="polite">
           <Chip ok={live ? !live.issues.some((i) => i === "too_dark" || i === "too_bright" || i === "glare") : null}>{hint.light}</Chip>
           <Chip ok={live ? !live.issues.includes("blur") : null}>{hint.sharp}</Chip>
+          <Chip ok={live ? !!eye : null}>{eye ? (eye.m.pupilMm !== null ? `Pupil ${eye.m.pupilMm.toFixed(1)} mm` : "Eye found") : "Finding eye…"}</Chip>
           <Chip ok={live ? live.steady : null}>{live ? (live.steady ? "Steady" : "Moving") : "Steady …"}</Chip>
           <Chip ok={live ? !live.issues.includes("too_small") : null}>{hint.size}</Chip>
         </div>
@@ -430,7 +462,13 @@ export function EyeCamera({
           </div>
         </div>
         <p className="text-center text-xs text-white/70">
-          {capturing ? "Hold still, picking the sharpest frame…" : autoHold > 0 ? "Hold still, the photo takes itself…" : (focusNote ?? hint.tip)}
+          {capturing
+            ? "Hold still, picking the sharpest frame…"
+            : autoHold > 0
+              ? "Hold still, the photo takes itself…"
+              : live && !eye
+                ? `Put the ${eyeLabel} in the oval, wide open, so the phone can find the iris and pupil.`
+                : (focusNote ?? hint.tip)}
         </p>
 
         {controls.zoom && (
@@ -552,6 +590,36 @@ export function EyeCamera({
         </div>
       </div>
     </div>
+  );
+}
+
+/** Circles on the iris and pupil, and a dot on the reflection, mapped from video to screen pixels. */
+/** The live eye, with the video and view sizes it was found at (for drawing it on screen). */
+type LiveEye = { m: EyeMeasure; videoW: number; videoH: number; viewW: number; viewH: number };
+
+function EyeOverlay({ eye: live, mirrored }: { eye: LiveEye | null; mirrored: boolean }) {
+  if (!live) return null;
+  const { m: eye, viewW: vw, viewH: vh, videoW, videoH } = live;
+  // The preview fills the view like CSS object-fit: cover (and is mirrored for the front camera).
+  const scale = Math.max(vw / videoW, vh / videoH);
+  const ox = (vw - videoW * scale) / 2;
+  const oy = (vh - videoH * scale) / 2;
+  const at = (p: { x: number; y: number }) => {
+    const x = p.x * scale + ox;
+    return { x: mirrored ? vw - x : x, y: p.y * scale + oy };
+  };
+  const c = at(eye.iris);
+  const r = eye.iris.r * scale;
+  const g = eye.glint && at(eye.glint);
+  return (
+    <svg aria-hidden className="pointer-events-none absolute inset-0 z-10 size-full" viewBox={`0 0 ${vw} ${vh}`}>
+      <circle cx={c.x} cy={c.y} r={r} fill="none" stroke="white" strokeWidth={2} strokeOpacity={0.9} />
+      {eye.pupilR !== null && <circle cx={c.x} cy={c.y} r={eye.pupilR * scale} fill="none" stroke="#86efac" strokeWidth={2} />}
+      {g && <circle cx={g.x} cy={g.y} r={Math.max(3, r * 0.08)} fill="#bae6fd" />}
+      <text x={c.x} y={c.y - r - 8} textAnchor="middle" fill="white" fontSize={12} style={{ paintOrder: "stroke", stroke: "rgba(0,0,0,0.6)", strokeWidth: 3 }}>
+        {eye.method === "face-model" ? "Iris · face model" : "Iris"}
+      </text>
+    </svg>
   );
 }
 

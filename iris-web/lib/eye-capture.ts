@@ -1,4 +1,5 @@
 import { enhanceEyePhoto, type EnhanceReport } from "@/lib/eye-enhance";
+import { eyeSquare, measureEye, type EyeMeasure } from "@/lib/eye-locate";
 import { measureQuality, type QualityReport } from "@/lib/photo-quality";
 
 /**
@@ -53,6 +54,12 @@ export type CapturedPhoto = {
   enhance: EnhanceReport;
   /** Sharpest of how many video frames (anti-blur burst), 1 for a single frame. */
   burst: number;
+  /** The eye and pupil found and measured on the phone (lib/eye-locate.ts), in photo pixels. */
+  eye: EyeMeasure | null;
+  photoW: number;
+  photoH: number;
+  /** A small square around the eye for the photo match. */
+  eyeCanvas: HTMLCanvasElement | null;
   /** Crop size in real camera pixels, before any scaling down. */
   cropW: number;
   cropH: number;
@@ -63,8 +70,11 @@ export type CapturedPhoto = {
   quality: QualityReport;
 };
 
-/** A full-resolution copy of the guide region of one video frame. */
-export type GuideFrame = { canvas: HTMLCanvasElement; cropW: number; cropH: number; frameW: number; frameH: number };
+/**
+ * A full-resolution copy of the guide region of one video frame. `crop` is where it sits in the
+ * video frame and `scale` is canvas pixels per video pixel, to move points between the two.
+ */
+export type GuideFrame = { canvas: HTMLCanvasElement; cropW: number; cropH: number; frameW: number; frameH: number; crop: Rect; scale: number };
 
 /** Copies the guide region of the current video frame, at camera resolution (never enlarged). */
 export function grabGuide(video: HTMLVideoElement, viewW: number, viewH: number, mirrored: boolean, into?: HTMLCanvasElement): GuideFrame {
@@ -81,13 +91,13 @@ export function grabGuide(video: HTMLVideoElement, viewW: number, viewH: number,
   ctx.imageSmoothingQuality = "high";
   // The saved photo is never mirrored: it shows the eye as it really is.
   ctx.drawImage(video, crop.x, crop.y, crop.w, crop.h, 0, 0, outW, outH);
-  return { canvas, cropW: Math.round(crop.w), cropH: Math.round(crop.h), frameW, frameH };
+  return { canvas, cropW: Math.round(crop.w), cropH: Math.round(crop.h), frameW, frameH, crop, scale: outW / crop.w };
 }
 
 const bytesOf = (dataUrl: string) => Math.round(((dataUrl.length - dataUrl.indexOf(",") - 1) * 3) / 4);
 
 /** Turns a grabbed frame into the photo that gets reviewed: quality check, JPEG, enhanced copy. */
-export function photoFromFrame(frame: GuideFrame, burst = 1): CapturedPhoto {
+export function photoFromFrame(frame: GuideFrame, burst = 1, eyeHint: { x: number; y: number; r: number } | null = null): CapturedPhoto {
   const { canvas } = frame;
   const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
   const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -95,9 +105,16 @@ export function photoFromFrame(frame: GuideFrame, burst = 1): CapturedPhoto {
   const dataUrl = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
   const enhanced = enhanceEyePhoto(canvas);
   const enhancedUrl = enhanced.canvas.toDataURL("image/jpeg", JPEG_QUALITY);
+  // Where the eye is in this photo: the live preview's eye (moved into photo pixels) guides it.
+  const near = eyeHint && { x: (eyeHint.x - frame.crop.x) * frame.scale, y: (eyeHint.y - frame.crop.y) * frame.scale, r: eyeHint.r * frame.scale };
+  const eye = measureEye(canvas, near);
   return {
     dataUrl,
     enhancedUrl,
+    eye,
+    photoW: canvas.width,
+    photoH: canvas.height,
+    eyeCanvas: eye ? eyeSquare(canvas, eye.iris) : null,
     enhance: enhanced.report,
     burst,
     cropW: frame.cropW,

@@ -59,7 +59,10 @@ export function rateGlaucoma(m: ScanMetrics): CheckStatus {
 }
 
 export function rateCataract(m: ScanMetrics): CheckStatus {
-  const values = [m.hazeLeft, m.hazeRight].filter((v): v is number => v !== undefined && Number.isFinite(v));
+  // Haze is only meaningful if the pupil was really tracked. A real scan with 0% tracking
+  // measured "haze" on skin beside the eye, read it as a clear lens and said "typical".
+  const tracked = m.validFraction === undefined || m.validFraction >= MIN_VALID_FRACTION;
+  const values = (tracked ? [m.hazeLeft, m.hazeRight] : []).filter((v): v is number => v !== undefined && Number.isFinite(v));
   const haze: CheckStatus | null = values.length
     ? Math.max(...values) < HAZE.typical
       ? "typical"

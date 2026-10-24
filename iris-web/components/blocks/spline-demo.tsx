@@ -5,9 +5,8 @@ import { Card } from "@/components/ui/card"
 import { Spotlight } from "@/components/ui/spotlight"
 
 /**
- * Reference usage of the Spline block (the original robot scene). The live site
- * uses components/blocks/eye-showcase.tsx, which renders a code-built 3D eye. If
- * the team designs an eye in Spline, its scene URL can be passed to <SplineScene>.
+ * Reference usage of the Spline block (the original robot scene). If the team
+ * designs an eye in Spline, its scene URL can be passed to <SplineScene>.
  * (The demo's `fill` prop was removed: this Spotlight version doesn't take one.)
  */
 export function SplineSceneBasic() {
