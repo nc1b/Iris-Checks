@@ -1,6 +1,6 @@
 import "server-only";
 import model from "@/data/eye-photo-model.json";
-import type { EyePhotoMatch, PhotoCondition, PhotoLabel, PhotoNeighbor } from "@/lib/eye-photo";
+import { PHOTO_THRESHOLDS, type EyePhotoMatch, type PhotoCondition, type PhotoLabel, type PhotoNeighbor } from "@/lib/eye-photo";
 import { db } from "@/lib/server/db";
 
 /**
@@ -13,7 +13,8 @@ const LABELS = model.labels as PhotoLabel[];
 const DIM = model.embedder.dim;
 const weights = model.classifier.weights.map((row) => Float64Array.from(row));
 const bias = Float64Array.from(model.classifier.bias);
-const thresholds = model.thresholds as Record<PhotoCondition, number>;
+// The same flag lines the app shows (including the phone margin in lib/eye-photo.ts).
+const thresholds = PHOTO_THRESHOLDS;
 
 export const REFERENCE_COUNT = model.dataset.images;
 export const PHOTO_ACCURACY = Object.fromEntries(

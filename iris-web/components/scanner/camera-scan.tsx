@@ -150,6 +150,12 @@ export function CameraScan() {
   // Where the iris was last found, so it can be followed without the face model.
   const lockRef = useRef<(IrisFound & { at: number }) | null>(null);
   const greyRef = useRef<HTMLCanvasElement | null>(null);
+  // Frames in a row the other eye has looked visible (one stray frame shouldn't reset the hold).
+  const otherSeenRef = useRef(0);
+  // ?debug=1: show the magnified iris close-up the pupil is measured on, with what was found.
+  // (Read once on the client; it only changes what's drawn once the camera is open.)
+  const [debug] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).has("debug"));
+  const debugRef = useRef<HTMLCanvasElement>(null);
   // Screen light level (0–1). Set while lining up, then held steady through the recording.
   const screenRef = useRef(0);
   const [screen, setScreen] = useState(0);
@@ -372,6 +378,7 @@ export function CameraScan() {
       goodFramesRef.current = 0;
       prevCenterRef.current = null;
       lockRef.current = null;
+      otherSeenRef.current = 0;
       trackRef.current = [];
       pupilMmRef.current = null;
       setAlign(EMPTY_ALIGN);
@@ -510,6 +517,9 @@ export function CameraScan() {
         prevCenterRef.current = target ? { x: target.cx, y: target.cy } : null;
 
         const sharp = !!target && Number.isFinite(target.pupilR) && target.contrast >= CLOSE_UP.minContrast && target.coverage >= CLOSE_UP.minCoverage;
+        // The other eye counts as visible only if it really looks like an open eye with a pupil.
+        const otherVisible = !!other && other.ear >= 0.15 && Number.isFinite(other.pupilR) && other.contrast >= CLOSE_UP.minContrast && other.coverage >= CLOSE_UP.minCoverage;
+        otherSeenRef.current = otherVisible ? otherSeenRef.current + 1 : 0;
         trackRef.current.push(sharp);
         if (trackRef.current.length > TRACK_WINDOW) trackRef.current.shift();
         if (sharp && target) {
@@ -533,7 +543,7 @@ export function CameraScan() {
           open: (target?.ear ?? 0) > OPEN_EAR,
           sharp,
           // The other eye must be hidden: behind a hand, closed, or out of frame.
-          covered: !other || other.ear < 0.12 || !Number.isFinite(other.pupilR) || other.contrast < 8,
+          covered: otherSeenRef.current < CLOSE_UP.uncoveredFrames,
           steady: jitter <= CLOSE_UP.maxJitter,
           pupilMm: pupilMmRef.current,
           tracking: trackRef.current.filter(Boolean).length / Math.max(1, trackRef.current.length),
@@ -554,6 +564,7 @@ export function CameraScan() {
         goodFramesRef.current = good ? goodFramesRef.current + 1 : Math.max(0, goodFramesRef.current - 3);
         next.hold = Math.min(1, goodFramesRef.current / CLOSE_UP.holdFrames);
         drawOverlay(target, other, good, vw, vh);
+        if (debug && frameCountRef.current % 2 === 0) drawDebug(debugRef.current, target);
         // Refresh the panel every few frames so the numbers are readable.
         if (++frameCountRef.current % 3 === 0 || good !== (align.hold > 0)) {
           setAlign(next);
@@ -563,7 +574,7 @@ export function CameraScan() {
       }
     }
     loopRef.current = requestAnimationFrame(() => frameRef.current());
-  }, [align.hold, drawOverlay, finishEye, locateEye, readEye, startCountdown]);
+  }, [align.hold, debug, drawOverlay, finishEye, locateEye, readEye, startCountdown]);
 
   useEffect(() => {
     frameRef.current = frame;
@@ -687,6 +698,7 @@ export function CameraScan() {
             <video ref={videoRef} playsInline muted className="h-full w-full object-cover" />
             <canvas ref={overlayRef} className="pointer-events-none absolute inset-0 h-full w-full object-cover" />
           </div>
+          {debug && <canvas ref={debugRef} width={PRECISION_CROP} height={PRECISION_CROP + 28} className="absolute left-3 top-16 z-[70] w-40 rounded-lg border border-white/40" />}
           {/* Screen light: a white frame that lights the eye when the camera needs more light. */}
           <ScreenLight level={screen} />
           <div className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-black/70 to-transparent" />
@@ -790,6 +802,32 @@ export function CameraScan() {
       )}
     </div>
   );
+}
+
+/** Debug view: the iris close-up the pupil is measured on, with the iris (white) and pupil (green) found. */
+function drawDebug(canvas: HTMLCanvasElement | null, target: { crop: ImageData; pupilCropPx: number; contrast: number; coverage: number; light: number } | null) {
+  const ctx = canvas?.getContext("2d");
+  if (!canvas || !ctx) return;
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  if (!target) return;
+  ctx.putImageData(target.crop, 0, 0);
+  const c = PRECISION_CROP / 2;
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = "rgba(255,255,255,0.8)";
+  ctx.beginPath();
+  ctx.arc(c, c, c / CROP_SPAN, 0, Math.PI * 2);
+  ctx.stroke();
+  if (Number.isFinite(target.pupilCropPx)) {
+    ctx.strokeStyle = "#86efac";
+    ctx.beginPath();
+    ctx.arc(c, c, target.pupilCropPx, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.fillStyle = "#fff";
+  ctx.font = "12px monospace";
+  const ratio = Number.isFinite(target.pupilCropPx) ? (target.pupilCropPx / (c / CROP_SPAN)).toFixed(2) : "–";
+  ctx.fillText(`p/i ${ratio}  con ${target.contrast.toFixed(0)}  cov ${target.coverage.toFixed(2)}  lt ${target.light.toFixed(0)}`, 4, PRECISION_CROP + 18);
 }
 
 /**

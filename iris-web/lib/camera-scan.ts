@@ -48,8 +48,10 @@ export const CLOSE_UP = {
   maxIrisPx: 95,
   /** Pupil must be this much darker than the iris (0–255) to measure it. */
   minContrast: 14,
-  /** Share of a circle of rays that must find the pupil edge. */
-  minCoverage: 0.6,
+  /** Share of the rays that must agree on the pupil edge (lib/pupil.ts keeps only agreeing rays). */
+  minCoverage: 0.45,
+  /** The other eye must look visible this many frames in a row before it counts as uncovered. */
+  uncoveredFrames: 6,
   /** Eye centre may move at most this share of the iris radius between frames. */
   maxJitter: 0.12,
   /** Good frames in a row before the flash starts (~0.8 s). */

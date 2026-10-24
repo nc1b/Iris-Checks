@@ -11,8 +11,18 @@ import thresholds from "@/data/eye-photo-thresholds.json";
 export const PHOTO_LABELS = thresholds.labels as PhotoLabel[];
 export type PhotoLabel = "normal" | "cataract" | "conjunctivitis" | "uveitis" | "eyelid";
 export type PhotoCondition = Exclude<PhotoLabel, "normal">;
-/** Score at which each condition is flagged (tuned to catch at least 85% of cases). */
-export const PHOTO_THRESHOLDS = thresholds.thresholds as Record<PhotoCondition, number>;
+/**
+ * Phone close-ups look different from the web photos the model learned from. A healthy eye in
+ * a real phone scan scored 43% "inflammation inside the eye" (flag line 35%), the class the
+ * model is least precise on (57% of its flags were right in testing). So that flag needs 1.4×
+ * its tuned score from phone photos. Provisional: re-tune with labelled phone photos.
+ */
+const PHONE_MARGIN: Partial<Record<PhotoCondition, number>> = { uveitis: 1.4 };
+
+/** Score at which each condition is flagged (tuned to catch at least 85% of cases, then PHONE_MARGIN). */
+export const PHOTO_THRESHOLDS = Object.fromEntries(
+  Object.entries(thresholds.thresholds).map(([c, t]) => [c, Math.min(0.95, t * (PHONE_MARGIN[c as PhotoCondition] ?? 1))]),
+) as Record<PhotoCondition, number>;
 
 export const PHOTO_CONDITIONS: Record<PhotoCondition, { name: string; summary: string; nextStep: string }> = {
   cataract: { name: "Cataract", summary: "Cloudy lens behind the pupil", nextStep: "An eye exam" },

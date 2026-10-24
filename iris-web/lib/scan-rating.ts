@@ -71,9 +71,11 @@ export function rateCataract(m: ScanMetrics): CheckStatus {
         : "see_doctor"
     : null;
   // Photo match against the Iris database of eye photos: a match alone is "borderline";
-  // together with a hazy flash photo it becomes "see a doctor".
+  // together with a hazy flash photo it becomes "see a doctor". A score just under the flag
+  // line (a real scan read 27% against 29%) is too close to call, so it says nothing.
+  const t = PHOTO_THRESHOLDS.cataract;
   const photo: CheckStatus | null =
-    m.photoCataract === undefined ? null : m.photoCataract >= PHOTO_THRESHOLDS.cataract ? "borderline" : "typical";
+    m.photoCataract === undefined || (m.photoCataract < t && m.photoCataract >= t * 0.6) ? null : m.photoCataract >= t ? "borderline" : "typical";
   if (!haze && !photo) return "unclear";
   if (haze && photo && haze !== "typical" && photo === "borderline") return "see_doctor";
   return worse(haze ?? "typical", photo ?? "typical");

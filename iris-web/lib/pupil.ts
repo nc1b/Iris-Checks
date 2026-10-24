@@ -84,50 +84,104 @@ export function measurePupil(img: ImageData): PupilReading | null {
   const { pupilLevel, irisLevel, contrast } = useRed ? byRed : byLuma;
   const irisLight = percentile([...luma].sort((a, b) => a - b), 0.9) || 0;
 
-  const at = (x: number, y: number) => {
-    const xi = Math.min(width - 1, Math.max(0, Math.round(x)));
-    const yi = Math.min(height - 1, Math.max(0, Math.round(y)));
-    return lum[yi * width + xi];
-  };
-
   if (!Number.isFinite(contrast) || contrast < 6) {
     return { pupilPx: NaN, irisPx, contrast: Number.isFinite(contrast) ? contrast : 0, coverage: 0, irisLevel: irisLight };
   }
 
-  const threshold = pupilLevel + 0.5 * contrast;
-  const highlight = Math.max(200, irisLevel + 1.6 * contrast);
+  // Smooth twice (3×3) so sensor noise in a dark iris doesn't look like an edge.
+  const smooth = boxBlur(boxBlur(lum, width, height), width, height);
+  // Reflections of the screen or a lamp sit on the pupil and iris. Mask them, with a margin,
+  // so their blurred edges aren't mistaken for the pupil's edge.
+  const glare = new Uint8Array(width * height);
+  const bright = irisLevel + Math.max(25, contrast * 0.8);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (lum[y * width + x] <= bright) continue;
+      for (let yy = Math.max(0, y - GLARE_MARGIN); yy <= Math.min(height - 1, y + GLARE_MARGIN); yy++) {
+        for (let xx = Math.max(0, x - GLARE_MARGIN); xx <= Math.min(width - 1, x + GLARE_MARGIN); xx++) glare[yy * width + xx] = 1;
+      }
+    }
+  }
+  const sample = (x: number, y: number) => {
+    const xi = Math.min(width - 1, Math.max(0, Math.round(x)));
+    const yi = Math.min(height - 1, Math.max(0, Math.round(y)));
+    const i = yi * width + xi;
+    return glare[i] ? NaN : smooth[i];
+  };
 
+  // Along each ray, the pupil edge is where brightness rises the most (dark pupil → iris),
+  // not just the first pixel past a threshold, which noise in a dark iris trips straight away.
+  const rMin = Math.max(3, irisPx * 0.15);
+  const rMax = irisPx * 0.85;
+  const minStep = Math.max(2.5, contrast * 0.2);
+  const darkInside = pupilLevel + contrast * 0.65;
   const radii: number[] = [];
   let rays = 0;
-  const maxR = irisPx * 0.92;
-  // Angles within ±50° of horizontal, on both sides.
+  // Angles within ±60° of horizontal, on both sides (eyelids cover the top and bottom).
   for (const base of [0, Math.PI]) {
-    for (let a = -50; a <= 50; a += 10) {
+    for (let a = -60; a <= 60; a += 8) {
       rays++;
       const ang = base + (a * Math.PI) / 180;
       const dx = Math.cos(ang);
       const dy = Math.sin(ang);
-      let run = 0;
-      for (let r = 1; r < maxR; r += 0.5) {
-        const v = at(cx + dx * r, cy + dy * r);
-        // Specular highlights sit on the pupil: treat them as pupil, not as an edge.
-        if (v > threshold && v < highlight) {
-          run++;
-          if (run >= 3) {
-            radii.push(r - 1);
-            break;
-          }
-        } else {
-          run = 0;
+      const profile: number[] = [];
+      for (let r = 0; r <= rMax + 4; r++) profile.push(sample(cx + dx * r, cy + dy * r));
+      const meanOf = (from: number, to: number) => {
+        let s = 0;
+        let n = 0;
+        for (let k = from; k <= to; k++) {
+          if (!Number.isFinite(profile[k])) continue;
+          s += profile[k];
+          n++;
+        }
+        return n >= 2 ? s / n : NaN;
+      };
+      let best = -Infinity;
+      let bestR = NaN;
+      for (let r = Math.ceil(rMin); r <= rMax; r++) {
+        // Look 3 px either side; across a masked reflection, look up to 6 px.
+        const inside = Number.isFinite(meanOf(r - 3, r - 1)) ? meanOf(r - 3, r - 1) : meanOf(r - 6, r - 1);
+        const outside = Number.isFinite(meanOf(r + 1, r + 3)) ? meanOf(r + 1, r + 3) : meanOf(r + 1, r + 6);
+        const step = outside - inside;
+        if (Number.isFinite(step) && step > best && inside <= darkInside) {
+          best = step;
+          bestR = r;
         }
       }
+      if (best >= minStep) radii.push(bestR);
     }
   }
 
-  if (radii.length < rays * 0.4) {
-    return { pupilPx: NaN, irisPx, contrast, coverage: radii.length / rays, irisLevel: irisLight };
+  // Keep the rays that agree with the majority (within 20% of the median).
+  const mid = median(radii);
+  const agreeing = radii.filter((r) => Math.abs(r - mid) <= mid * 0.2);
+  const coverage = agreeing.length / rays;
+  const pupilPx = median(agreeing);
+  // Too few rays agree, or a size no real pupil has (under 15% or over 82% of the iris).
+  if (agreeing.length < rays * 0.35 || pupilPx < irisPx * 0.15 || pupilPx > irisPx * 0.82) return { pupilPx: NaN, irisPx, contrast, coverage, irisLevel: irisLight };
+  return { pupilPx, irisPx, contrast, coverage, irisLevel: irisLight };
+}
+
+/** Pixels around a reflection that are also ignored (its blurred edge). */
+const GLARE_MARGIN = 2;
+
+/** 3×3 box blur. */
+function boxBlur(src: Float32Array, w: number, h: number) {
+  const out = new Float32Array(src.length);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let s = 0;
+      let n = 0;
+      for (let yy = Math.max(0, y - 1); yy <= Math.min(h - 1, y + 1); yy++) {
+        for (let xx = Math.max(0, x - 1); xx <= Math.min(w - 1, x + 1); xx++) {
+          s += src[yy * w + xx];
+          n++;
+        }
+      }
+      out[y * w + x] = s / n;
+    }
   }
-  return { pupilPx: median(radii), irisPx, contrast, coverage: radii.length / rays, irisLevel: irisLight };
+  return out;
 }
 
 /** Eye aspect ratio from MediaPipe face mesh landmarks (blink detection). */
