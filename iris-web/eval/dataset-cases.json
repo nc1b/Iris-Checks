@@ -1,0 +1,302 @@
+[
+ {
+  "id": "cataract-0",
+  "kind": "dataset",
+  "label": "cataract",
+  "file": "Cataract/11.jpg",
+  "size": [
+   379,
+   227
+  ]
+ },
+ {
+  "id": "cataract-1",
+  "kind": "dataset",
+  "label": "cataract",
+  "file": "Cataract/727.jpg",
+  "size": [
+   235,
+   159
+  ]
+ },
+ {
+  "id": "cataract-2",
+  "kind": "dataset",
+  "label": "cataract",
+  "file": "Cataract/260.jpg",
+  "size": [
+   324,
+   280
+  ]
+ },
+ {
+  "id": "cataract-3",
+  "kind": "dataset",
+  "label": "cataract",
+  "file": "Cataract/217.jpg",
+  "size": [
+   191,
+   176
+  ]
+ },
+ {
+  "id": "cataract-4",
+  "kind": "dataset",
+  "label": "cataract",
+  "file": "Cataract/407.jpg",
+  "size": [
+   226,
+   205
+  ]
+ },
+ {
+  "id": "cataract-5",
+  "kind": "dataset",
+  "label": "cataract",
+  "file": "Cataract/321.jpg",
+  "size": [
+   306,
+   199
+  ]
+ },
+ {
+  "id": "conjunctivitis-6",
+  "kind": "dataset",
+  "label": "conjunctivitis",
+  "file": "Conjunctivitis/293.jpg",
+  "size": [
+   365,
+   274
+  ]
+ },
+ {
+  "id": "conjunctivitis-7",
+  "kind": "dataset",
+  "label": "conjunctivitis",
+  "file": "Conjunctivitis/45.jpg",
+  "size": [
+   436,
+   306
+  ]
+ },
+ {
+  "id": "conjunctivitis-8",
+  "kind": "dataset",
+  "label": "conjunctivitis",
+  "file": "Conjunctivitis/546.jpg",
+  "size": [
+   417,
+   307
+  ]
+ },
+ {
+  "id": "conjunctivitis-9",
+  "kind": "dataset",
+  "label": "conjunctivitis",
+  "file": "Conjunctivitis/376.jpg",
+  "size": [
+   344,
+   267
+  ]
+ },
+ {
+  "id": "conjunctivitis-10",
+  "kind": "dataset",
+  "label": "conjunctivitis",
+  "file": "Conjunctivitis/414.jpg",
+  "size": [
+   400,
+   243
+  ]
+ },
+ {
+  "id": "conjunctivitis-11",
+  "kind": "dataset",
+  "label": "conjunctivitis",
+  "file": "Conjunctivitis/402.jpg",
+  "size": [
+   352,
+   232
+  ]
+ },
+ {
+  "id": "uveitis-12",
+  "kind": "dataset",
+  "label": "uveitis",
+  "file": "Uveitis/874.jpg",
+  "size": [
+   266,
+   204
+  ]
+ },
+ {
+  "id": "uveitis-13",
+  "kind": "dataset",
+  "label": "uveitis",
+  "file": "Uveitis/148.jpg",
+  "size": [
+   612,
+   408
+  ]
+ },
+ {
+  "id": "uveitis-14",
+  "kind": "dataset",
+  "label": "uveitis",
+  "file": "Uveitis/158.jpg",
+  "size": [
+   233,
+   178
+  ]
+ },
+ {
+  "id": "uveitis-15",
+  "kind": "dataset",
+  "label": "uveitis",
+  "file": "Uveitis/62.jpeg",
+  "size": [
+   310,
+   163
+  ]
+ },
+ {
+  "id": "uveitis-16",
+  "kind": "dataset",
+  "label": "uveitis",
+  "file": "Uveitis/61.jpeg",
+  "size": [
+   286,
+   176
+  ]
+ },
+ {
+  "id": "uveitis-17",
+  "kind": "dataset",
+  "label": "uveitis",
+  "file": "Uveitis/123.jpg",
+  "size": [
+   612,
+   486
+  ]
+ },
+ {
+  "id": "eyelid-18",
+  "kind": "dataset",
+  "label": "eyelid",
+  "file": "Eyelid/539.jpeg",
+  "size": [
+   245,
+   205
+  ]
+ },
+ {
+  "id": "eyelid-19",
+  "kind": "dataset",
+  "label": "eyelid",
+  "file": "Eyelid/370.jpeg",
+  "size": [
+   283,
+   178
+  ]
+ },
+ {
+  "id": "eyelid-20",
+  "kind": "dataset",
+  "label": "eyelid",
+  "file": "Eyelid/918.jpeg",
+  "size": [
+   192,
+   183
+  ]
+ },
+ {
+  "id": "eyelid-21",
+  "kind": "dataset",
+  "label": "eyelid",
+  "file": "Eyelid/746.jpeg",
+  "size": [
+   193,
+   183
+  ]
+ },
+ {
+  "id": "eyelid-22",
+  "kind": "dataset",
+  "label": "eyelid",
+  "file": "Eyelid/143.jpeg",
+  "size": [
+   277,
+   182
+  ]
+ },
+ {
+  "id": "eyelid-23",
+  "kind": "dataset",
+  "label": "eyelid",
+  "file": "Eyelid/39.jpeg",
+  "size": [
+   185,
+   165
+  ]
+ },
+ {
+  "id": "normal-24",
+  "kind": "dataset",
+  "label": "normal",
+  "file": "Normal/662.jpg",
+  "size": [
+   80,
+   80
+  ]
+ },
+ {
+  "id": "normal-25",
+  "kind": "dataset",
+  "label": "normal",
+  "file": "Normal/199.jpg",
+  "size": [
+   79,
+   79
+  ]
+ },
+ {
+  "id": "normal-26",
+  "kind": "dataset",
+  "label": "normal",
+  "file": "Normal/177.jpg",
+  "size": [
+   77,
+   77
+  ]
+ },
+ {
+  "id": "normal-27",
+  "kind": "dataset",
+  "label": "normal",
+  "file": "Normal/623.jpg",
+  "size": [
+   72,
+   72
+  ]
+ },
+ {
+  "id": "normal-28",
+  "kind": "dataset",
+  "label": "normal",
+  "file": "Normal/293.jpg",
+  "size": [
+   70,
+   70
+  ]
+ },
+ {
+  "id": "normal-29",
+  "kind": "dataset",
+  "label": "normal",
+  "file": "Normal/319.jpg",
+  "size": [
+   70,
+   70
+  ]
+ }
+]

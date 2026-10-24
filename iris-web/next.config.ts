@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
+  // The model evaluation reads its photo fixtures from disk.
+  outputFileTracingIncludes: { "/api/admin/model-eval": ["./eval/fixtures/**"] },
   partialPrefetching: true,
   turbopack: {
     rules: {
