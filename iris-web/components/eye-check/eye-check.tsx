@@ -10,6 +10,7 @@ import { embedEyePhoto, loadEyeEmbedder, type PhotoMatchResponse } from "@/lib/e
 import type { Category, PhotoAnalysis, QualityProblem } from "@/lib/eye-check-types";
 import { CLINICAL_REVIEW, EMPTY_SYMPTOMS, RED_FLAGS, triage, type Symptoms, type Triage, type Urgency } from "@/lib/eye-symptoms";
 import { RETAKE, type QualityIssue } from "@/lib/photo-quality";
+import { coach } from "@/lib/eye-coach";
 import { cn } from "@/lib/utils";
 import { EyeCamera, type Facing } from "./eye-camera";
 import { AnnotatedPhoto, cataractSignals, ConditionCard, glaucomaVerdict, PhoneFindings, type MatchState } from "./phone-findings";
@@ -473,14 +474,30 @@ function Review({
   onAnalyse: () => void;
 }) {
   const q = photo.quality;
+  // The same coach as the live camera, run on the photo: would it have taken this one?
+  const advice = coach({
+    facing,
+    quality: q,
+    steady: true,
+    eye: photo.eye && { ...photo.eye.iris, openness: photo.eye.openness },
+    guide: { x: 0, y: 0, w: photo.photoW, h: photo.photoH },
+  });
+  const good = q.ok && advice.ready;
   return (
     <section className="mt-6" data-testid="review">
-      <h2 className="text-lg font-semibold">{q.ok ? "Photo looks usable" : "Let's retake this photo"}</h2>
+      <h2 className="text-lg font-semibold">{good ? "Photo looks good" : "Let's retake this photo"}</h2>
       <AnnotatedPhoto photo={photo} className="mt-3" />
       <p className="mt-2 text-xs text-muted-foreground">
         {photo.cropW}×{photo.cropH} camera pixels from a {photo.frameW}×{photo.frameH} frame · {Math.round(photo.bytes / 1024)} KB. Cropped from the original
         image; nothing is enlarged.{photo.burst > 1 ? ` Sharpest of ${photo.burst} frames.` : ""}
       </p>
+
+      {!advice.ready && (
+        <div className="mt-4 rounded-2xl border-2 border-foreground p-4 text-sm" data-testid="likely-unclear">
+          <p className="font-semibold">This photo will probably come back unclear</p>
+          <p className="mt-1 text-muted-foreground">{advice.text} Then retake it: the camera tells you when it&apos;s right and takes the photo itself.</p>
+        </div>
+      )}
 
       <PhoneFindings eye={photo.eye} />
 
@@ -517,7 +534,7 @@ function Review({
           disabled={busy}
           className={cn(
             "inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl text-sm font-semibold transition-opacity disabled:opacity-40",
-            q.ok ? "border" : "bg-foreground text-background",
+            good ? "border" : "bg-foreground text-background",
           )}
         >
           <RotateCcw className="size-4" /> Retake
@@ -528,11 +545,11 @@ function Review({
           disabled={busy}
           className={cn(
             "inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl text-sm font-semibold transition-opacity disabled:opacity-60",
-            q.ok ? "bg-foreground text-background" : "border",
+            good ? "bg-foreground text-background" : "border",
           )}
         >
           {busy ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
-          {busy ? "Looking at the photo…" : q.ok ? "Check this photo" : "Check it anyway"}
+          {busy ? "Looking at the photo…" : good ? "Check this photo" : "Check it anyway"}
         </button>
       </div>
     </section>

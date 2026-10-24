@@ -111,7 +111,10 @@ export function combineAnalyses(answers: PhotoAnalysis[]): PhotoAnalysis {
       if ((SEVERITY[a.observations[key]] ?? -1) > (SEVERITY[observations[key]] ?? -1)) (observations as Record<string, string>)[key] = a.observations[key];
     }
   }
-  const category = CATEGORY_PRIORITY.find((c) => usable.some((a) => a.category === c)) ?? "inconclusive";
+  let category = CATEGORY_PRIORITY.find((c) => usable.some((a) => a.category === c)) ?? "inconclusive";
+  // One model saw nothing of concern and was fairly sure, the other just couldn't tell: report
+  // the clear answer (with low confidence) instead of "can't tell". Any finding still wins.
+  if (category === "inconclusive" && usable.some((a) => a.category === "no_visible_concern" && a.confidence !== "low")) category = "no_visible_concern";
   const lead = usable.find((a) => a.category === category) ?? usable[0];
   const agree = usable.every((a) => a.category === category);
   const confidence = agree ? CONFIDENCE[Math.min(...usable.map((a) => CONFIDENCE.indexOf(a.confidence)))] : "low";

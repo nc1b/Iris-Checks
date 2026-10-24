@@ -1,8 +1,27 @@
 "use client";
 
-import { Camera, Flashlight, FlashlightOff, Loader2, RefreshCw, Sun, SunDim, SwitchCamera, X } from "lucide-react";
+import {
+  Camera,
+  Check,
+  Crosshair,
+  Eye,
+  Flashlight,
+  FlashlightOff,
+  Focus,
+  Hand,
+  Loader2,
+  Maximize2,
+  Minimize2,
+  RefreshCw,
+  ScanEye,
+  Sun,
+  SunDim,
+  SwitchCamera,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GUIDE, grabGuide, guideRect, motionBetween, photoFromFrame, sampleGuide, viewPointToVideo, viewToVideo, type CapturedPhoto, type GuideFrame } from "@/lib/eye-capture";
+import { coach as coachFor, type Coach, type CoachKey } from "@/lib/eye-coach";
 import { loadFaceModel, measureEye, type EyeMeasure } from "@/lib/eye-locate";
 import { QUALITY_LIMITS, type QualityReport } from "@/lib/photo-quality";
 import { cn } from "@/lib/utils";
@@ -97,6 +116,7 @@ export function EyeCamera({
   const eyeRef = useRef<{ m: EyeMeasure; at: number } | null>(null);
   const eyeScratch = useRef<HTMLCanvasElement | null>(null);
   const tickCount = useRef(0);
+  const [coach, setCoach] = useState<Coach | null>(null);
   const [resolution, setResolution] = useState<string>("");
   const [attempt, setAttempt] = useState(0);
   // Front camera only: the screen around the oval turns white to light the face. It comes on by
@@ -242,6 +262,7 @@ export function EyeCamera({
     goodTicks.current = 0;
     setAutoHold(0);
     if (torchOn) void setTorch(false);
+    navigator.vibrate?.(30);
     const seen = eyeRef.current && now - eyeRef.current.at < EYE_STALE_MS ? eyeRef.current.m.iris : null;
     onCapture(photoFromFrame(frame, burst, seen));
   }, [mirrored, onCapture, setTorch, torchOn]);
@@ -271,11 +292,11 @@ export function EyeCamera({
       setLive({ ...quality, motion, steady });
 
       // Where is the eye, and its pupil? Only an eye inside the guide counts.
+      const g = viewToVideo(guideRect(view.clientWidth, view.clientHeight), view.clientWidth, view.clientHeight, video.videoWidth, video.videoHeight, mirrored);
       if (++tickCount.current % EYE_EVERY === 0) {
         eyeScratch.current ??= document.createElement("canvas");
         const last = eyeRef.current && now - eyeRef.current.at < EYE_STALE_MS ? eyeRef.current.m.iris : null;
         const m = measureEye(video, last, eyeScratch.current);
-        const g = viewToVideo(guideRect(view.clientWidth, view.clientHeight), view.clientWidth, view.clientHeight, video.videoWidth, video.videoHeight, mirrored);
         const inside = m && m.iris.x > g.x && m.iris.x < g.x + g.w && m.iris.y > g.y && m.iris.y < g.y + g.h;
         if (inside) eyeRef.current = { m, at: now };
         else if (eyeRef.current && now - eyeRef.current.at > EYE_STALE_MS) eyeRef.current = null;
@@ -306,8 +327,13 @@ export function EyeCamera({
         setScreenLight(true);
       }
 
-      // Auto photo once the eye is found and everything is good and steady for a moment.
-      goodTicks.current = quality.ok && steady && eyeSeen ? goodTicks.current + 1 : 0;
+      // Coaching: one instruction at a time, from the eye's size, position and sharpness.
+      const seen = eyeSeen ? eyeRef.current!.m : null;
+      const advice = coachFor({ facing, quality, steady, eye: seen && { ...seen.iris, openness: seen.openness }, guide: g });
+      setCoach(advice);
+
+      // Auto photo once the coach is happy (eye found, right distance, centred, sharp, steady, lit) for a moment.
+      goodTicks.current = advice.ready ? goodTicks.current + 1 : 0;
       setAutoHold(auto ? Math.min(1, goodTicks.current / AUTO_TICKS) : 0);
       if (auto && !capturingRef.current && goodTicks.current >= AUTO_TICKS) capture();
     };
@@ -320,6 +346,7 @@ export function EyeCamera({
     setTorchOn(false);
     setLive(null);
     setEye(null);
+    setCoach(null);
     eyeRef.current = null;
     setScreenLight(false);
     screenLightAuto.current = false;
@@ -385,7 +412,22 @@ export function EyeCamera({
         />
 
         {/* What the phone found: the iris, the pupil and the reflection, drawn on the live picture. */}
-        <EyeOverlay eye={eye} mirrored={mirrored} />
+        <EyeOverlay eye={eye} mirrored={mirrored} arrow={!!coach?.offCenter} />
+
+        {/* The coach: one instruction at a time, big enough to read at arm's length. */}
+        {coach && !error && (
+          <div className="pointer-events-none absolute inset-x-4 bottom-4 z-20 flex justify-center" aria-live="polite" data-testid="coach">
+            <div
+              className={cn(
+                "flex max-w-sm items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold shadow-lg backdrop-blur",
+                coach.ready || capturing ? "bg-emerald-300 text-black" : "bg-black/70 text-white",
+              )}
+            >
+              <CoachIcon k={capturing ? "ready" : coach.key} />
+              <span>{capturing ? "Got it. Picking the sharpest frame…" : coach.text}</span>
+            </div>
+          </div>
+        )}
 
         {/* Framing guide: the area outside is dimmed; only the inside is sent. */}
         <div
@@ -448,8 +490,30 @@ export function EyeCamera({
           <Chip ok={live ? !live.issues.includes("blur") : null}>{hint.sharp}</Chip>
           <Chip ok={live ? !!eye : null}>{eye ? (eye.m.pupilMm !== null ? `Pupil ${eye.m.pupilMm.toFixed(1)} mm` : "Eye found") : "Finding eye…"}</Chip>
           <Chip ok={live ? live.steady : null}>{live ? (live.steady ? "Steady" : "Moving") : "Steady …"}</Chip>
-          <Chip ok={live ? !live.issues.includes("too_small") : null}>{hint.size}</Chip>
         </div>
+        {/* Distance: where the eye's size sits between too far and too close. */}
+        {coach?.distance && (
+          <div className="text-[11px] text-white/70" data-testid="distance-meter">
+            <div className="relative h-2 rounded-full bg-white/15">
+              <div
+                className="absolute inset-y-0 rounded-full bg-emerald-300/40"
+                style={{ left: `${coach.distance.okFrom * 100}%`, width: `${(coach.distance.okTo - coach.distance.okFrom) * 100}%` }}
+              />
+              <span
+                className={cn(
+                  "absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-black transition-[left]",
+                  coach.distance.value >= coach.distance.okFrom && coach.distance.value <= coach.distance.okTo ? "bg-emerald-300" : "bg-white",
+                )}
+                style={{ left: `${coach.distance.value * 100}%` }}
+              />
+            </div>
+            <div className="mt-1 flex justify-between">
+              <span>Too far</span>
+              <span>Good</span>
+              <span>Too close</span>
+            </div>
+          </div>
+        )}
         {/* Live sharpness: the bar fills as the picture gets sharper; the tick is the minimum. */}
         <div className="flex items-center gap-3 text-[11px] text-white/70">
           <span className="w-14 shrink-0">Sharpness</span>
@@ -462,13 +526,7 @@ export function EyeCamera({
           </div>
         </div>
         <p className="text-center text-xs text-white/70">
-          {capturing
-            ? "Hold still, picking the sharpest frame…"
-            : autoHold > 0
-              ? "Hold still, the photo takes itself…"
-              : live && !eye
-                ? `Put the ${eyeLabel} in the oval, wide open, so the phone can find the iris and pupil.`
-                : (focusNote ?? hint.tip)}
+          {autoHold > 0 && !capturing ? "The photo takes itself in a moment…" : (focusNote ?? (coach?.key === "too_dark" || coach?.key === "glare" ? hint.tip : `Fit the ${eyeLabel} in the oval, wide open.`))}
         </p>
 
         {controls.zoom && (
@@ -597,7 +655,7 @@ export function EyeCamera({
 /** The live eye, with the video and view sizes it was found at (for drawing it on screen). */
 type LiveEye = { m: EyeMeasure; videoW: number; videoH: number; viewW: number; viewH: number };
 
-function EyeOverlay({ eye: live, mirrored }: { eye: LiveEye | null; mirrored: boolean }) {
+function EyeOverlay({ eye: live, mirrored, arrow }: { eye: LiveEye | null; mirrored: boolean; arrow: boolean }) {
   if (!live) return null;
   const { m: eye, viewW: vw, viewH: vh, videoW, videoH } = live;
   // The preview fills the view like CSS object-fit: cover (and is mirrored for the front camera).
@@ -611,8 +669,22 @@ function EyeOverlay({ eye: live, mirrored }: { eye: LiveEye | null; mirrored: bo
   const c = at(eye.iris);
   const r = eye.iris.r * scale;
   const g = eye.glint && at(eye.glint);
+  // Arrow from the eye to the middle of the oval, when the eye is off to one side.
+  const target = { x: vw / 2, y: vh * GUIDE.centerY };
+  const len = Math.hypot(target.x - c.x, target.y - c.y);
+  const ux = len ? (target.x - c.x) / len : 0;
+  const uy = len ? (target.y - c.y) / len : 0;
+  const start = { x: c.x + ux * (r + 6), y: c.y + uy * (r + 6) };
+  const end = { x: target.x - ux * 6, y: target.y - uy * 6 };
+  const head = (side: number) => `${end.x - ux * 12 + side * uy * 8},${end.y - uy * 12 - side * ux * 8}`;
   return (
     <svg aria-hidden className="pointer-events-none absolute inset-0 z-10 size-full" viewBox={`0 0 ${vw} ${vh}`}>
+      {arrow && len > r + 24 && (
+        <g stroke="#86efac" strokeWidth={4} strokeLinecap="round" fill="#86efac">
+          <line x1={start.x} y1={start.y} x2={end.x} y2={end.y} />
+          <polygon points={`${end.x},${end.y} ${head(1)} ${head(-1)}`} />
+        </g>
+      )}
       <circle cx={c.x} cy={c.y} r={r} fill="none" stroke="white" strokeWidth={2} strokeOpacity={0.9} />
       {eye.pupilR !== null && <circle cx={c.x} cy={c.y} r={eye.pupilR * scale} fill="none" stroke="#86efac" strokeWidth={2} />}
       {g && <circle cx={g.x} cy={g.y} r={Math.max(3, r * 0.08)} fill="#bae6fd" />}
@@ -621,6 +693,26 @@ function EyeOverlay({ eye: live, mirrored }: { eye: LiveEye | null; mirrored: bo
       </text>
     </svg>
   );
+}
+
+const COACH_ICONS: Record<CoachKey, typeof Camera> = {
+  starting: Loader2,
+  too_dark: Sun,
+  glare: SunDim,
+  find_eye: ScanEye,
+  find_eye_blurry: Minimize2,
+  back_up: Minimize2,
+  closer: Maximize2,
+  center: Crosshair,
+  focus: Focus,
+  open_wider: Eye,
+  hold_still: Hand,
+  ready: Check,
+};
+
+function CoachIcon({ k }: { k: CoachKey }) {
+  const Icon = COACH_ICONS[k];
+  return <Icon className={cn("size-5 shrink-0", k === "starting" && "animate-spin")} aria-hidden />;
 }
 
 function Chip({ ok, children }: { ok: boolean | null; children: React.ReactNode }) {

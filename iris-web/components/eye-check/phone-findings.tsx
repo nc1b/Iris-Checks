@@ -170,7 +170,7 @@ export function cataractSignals(analysis: PhotoAnalysis, match: MatchState, eye:
       ? { level: "signs", title: "Signs of a cloudy lens", body: "More than one check saw a grey or cloudy pupil, which can be a cataract. Book an eye exam in the next few weeks, sooner if your vision changed suddenly." }
       : yes + maybe >= 1
         ? { level: "possible", title: "Possible cloudiness", body: "One check saw something. Lighting and reflections can cause this too. Retake the photo in even light, and mention it at your next eye exam." }
-        : no >= 2
+        : no >= 1
           ? { level: "none", title: "No sign of a cloudy lens", body: "The pupil looked clear. Early cataracts don't always show in a photo, so keep up regular eye exams." }
           : { level: "unknown", title: "Can't tell from this photo", body: "Too few checks could see the pupil clearly. Retake it closer, in even light." };
   return { signals, verdict };
@@ -206,7 +206,10 @@ export function ConditionCard({ name, verdict, signals, children }: { name: stri
 
 /** Glaucoma: what a photo can show (a sudden pressure attack), and where the slow kind is checked. */
 export function glaucomaVerdict(analysis: PhotoAnalysis): Verdict {
-  const ac = analysis.quality.usable ? analysis.observations.angle_closure : "cannot_assess";
+  const o = analysis.observations;
+  // A pressure attack always comes with a red eye, so a usable photo with no redness rules it out
+  // even when the model didn't answer that question directly.
+  const ac = !analysis.quality.usable ? "cannot_assess" : o.angle_closure === "cannot_assess" && o.redness === "none" ? "none" : o.angle_closure;
   if (ac === "possible")
     return {
       level: "signs",
