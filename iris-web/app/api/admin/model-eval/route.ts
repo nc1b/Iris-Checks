@@ -31,6 +31,62 @@ const QUALITY_CASES: Case[] = [
 
 const ALL_CASES: Case[] = [...(cases as Case[]), ...QUALITY_CASES];
 
+/** Categories that count as a correct description of each labelled condition's visible signs. */
+const EXPECTED: Record<string, string[]> = {
+  cataract: ["lens_cloudiness"],
+  conjunctivitis: ["redness", "inflammation_signs"],
+  // Uveitis can only show as redness (often around the iris) or a hazy pupil in a photo.
+  uveitis: ["inflammation_signs", "redness"],
+  eyelid: ["eyelid"],
+};
+
+type Row = {
+  id: string;
+  label: string;
+  ms?: number;
+  cost?: number;
+  error?: string;
+  unsupported?: boolean;
+  usable?: boolean;
+  problem?: string;
+  category?: string;
+  confidence?: string;
+};
+
+/** correct / abstained / wrong per case, plus totals, so models can be compared at a glance. */
+function score(rows: Row[]) {
+  const verdict = (r: Row) => {
+    if (r.error || r.category === undefined) return "error";
+    if (r.label.startsWith("unusable:")) return r.usable ? "wrong" : r.problem === r.label.slice(9) ? "correct" : "correct_other_reason";
+    if (r.label === "usable:normal") return r.usable ? (r.category === "no_visible_concern" ? "correct" : "false_alarm") : "abstained";
+    if (r.label === "normal") {
+      if (r.category === "no_visible_concern") return "correct";
+      return r.category === "inconclusive" ? "abstained" : "false_alarm";
+    }
+    if (EXPECTED[r.label]?.includes(r.category)) return "correct";
+    if (r.category === "inconclusive") return "abstained";
+    return r.category === "no_visible_concern" ? "missed" : "wrong";
+  };
+  const per = rows.map((r) => ({ ...r, verdict: verdict(r) }));
+  const tally = (filter: (r: (typeof per)[number]) => boolean) => {
+    const out: Record<string, number> = {};
+    for (const r of per.filter(filter)) out[r.verdict] = (out[r.verdict] ?? 0) + 1;
+    return out;
+  };
+  const ms = per.map((r) => r.ms ?? 0).filter(Boolean).sort((a, b) => a - b);
+  return {
+    disease: tally((r) => r.label in EXPECTED),
+    normal: tally((r) => r.label === "normal"),
+    quality: tally((r) => r.id.startsWith("q-")),
+    unsupported: per.filter((r) => r.unsupported).length,
+    errors: per.filter((r) => r.verdict === "error").length,
+    medianMs: ms[Math.floor(ms.length / 2)] ?? null,
+    p90Ms: ms[Math.floor(ms.length * 0.9)] ?? null,
+    costPer100: +(per.reduce((t, r) => t + (r.cost ?? 0), 0) * (100 / Math.max(1, per.length))).toFixed(3),
+    cases: per.map((r) => [r.id, r.verdict, r.category ?? r.error, r.problem, r.confidence, r.ms].join(" ")),
+  };
+}
+
 function authorised(request: Request) {
   const expected = process.env.IRIS_EVAL_TOKEN;
   const given = new URL(request.url).searchParams.get("token") ?? "";
@@ -78,6 +134,7 @@ export async function GET(request: Request) {
   const selected = ALL_CASES.filter((c) => !only || only.includes(c.id));
 
   const results: unknown[] = [];
+  const rows: Row[] = [];
   const queue = [...selected];
   // A few requests at a time keeps latency numbers realistic without hitting rate limits.
   await Promise.all(
@@ -85,6 +142,19 @@ export async function GET(request: Request) {
       for (let c = queue.shift(); c; c = queue.shift()) {
         try {
           const call = await analysePhoto(model, await imageDataUrl(c), { reasoning });
+          const cost = call.usage?.cost || (call.usage as { cost_details?: { upstream_inference_cost?: number } } | null)?.cost_details?.upstream_inference_cost;
+          rows.push({
+            id: c.id,
+            label: c.label,
+            ms: call.latencyMs,
+            cost,
+            error: call.error ?? (call.analysis ? undefined : `unparsed: ${call.raw.slice(0, 80)}`),
+            unsupported: UNSUPPORTED_CLAIMS.test(`${call.analysis?.summary ?? ""} ${call.analysis?.quality.explanation ?? ""}`),
+            usable: call.analysis?.quality.usable,
+            problem: call.analysis?.quality.problem,
+            category: call.analysis?.category,
+            confidence: call.analysis?.confidence,
+          });
           results.push({
             id: c.id,
             label: c.label,
@@ -103,10 +173,13 @@ export async function GET(request: Request) {
             raw: call.analysis ? undefined : call.raw.slice(0, 300),
           });
         } catch (e) {
-          results.push({ id: c.id, label: c.label, error: e instanceof Error ? e.message : "failed" });
+          const error = e instanceof Error ? e.message : "failed";
+          results.push({ id: c.id, label: c.label, error });
+          rows.push({ id: c.id, label: c.label, error });
         }
       }
     }),
   );
+  if (params.get("format") === "score") return Response.json({ model, reasoning, n: rows.length, ...score(rows) });
   return Response.json({ model, reasoning, n: results.length, results });
 }
