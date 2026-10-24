@@ -1,5 +1,5 @@
 import { CLINICAL_REVIEW, EMPTY_SYMPTOMS, symptomContext, triage, type Symptoms } from "@/lib/eye-symptoms";
-import { analysePhoto, UNSUPPORTED_CLAIMS } from "@/lib/server/eye-photo-ai";
+import { analysePhoto, combineAnalyses, stripUnsupported } from "@/lib/server/eye-photo-ai";
 import { getSessionUserId } from "@/lib/server/session";
 
 /**
@@ -11,15 +11,28 @@ import { getSessionUserId } from "@/lib/server/session";
  * scripts/eye-photos/MODEL-EVAL.md and can be changed with IRIS_EYE_MODELS.
  */
 
-export const maxDuration = 60;
+// The models think carefully before answering, so allow up to 5 minutes in total.
+export const maxDuration = 300;
 
-const MODELS = (process.env.IRIS_EYE_MODELS ?? "anthropic/claude-opus-5.5,anthropic/claude-sonnet-5.5")
-  .split(",")
-  .map((m) => m.trim())
-  .filter(Boolean);
+const list = (value: string) =>
+  value
+    .split(",")
+    .map((m) => m.trim())
+    .filter(Boolean);
+
+/**
+ * The panel: the most capable image models, asked at the same time with careful (high)
+ * reasoning, and their answers combined cautiously (see combineAnalyses). If none answers,
+ * the fallback models are tried one by one.
+ */
+const PANEL = list(process.env.IRIS_EYE_MODELS ?? "anthropic/claude-fable-5.1,anthropic/claude-opus-5.5");
+const FALLBACK = list(process.env.IRIS_EYE_FALLBACK_MODELS ?? "anthropic/claude-sonnet-5.5");
 
 /** About 2.7 MB of JPEG. The app sends at most ~1536 px at quality 0.9, well under this. */
 const MAX_DATA_URL = 3_600_000;
+const PANEL_TIMEOUT_MS = 170_000;
+const FALLBACK_TIMEOUT_MS = 60_000;
+const DATA_URL = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/;
 
 function cleanSymptoms(raw: unknown): Symptoms {
   const s = { ...EMPTY_SYMPTOMS, ...(typeof raw === "object" && raw ? raw : {}) } as Record<string, unknown>;
@@ -42,33 +55,43 @@ export async function POST(request: Request) {
   const userId = await getSessionUserId(request);
   if (!userId) return Response.json({ error: "Please sign in." }, { status: 401 });
 
-  const body = (await request.json().catch(() => ({}))) as { image?: unknown; symptoms?: unknown };
+  const body = (await request.json().catch(() => ({}))) as { image?: unknown; enhanced?: unknown; symptoms?: unknown };
   const image = typeof body.image === "string" ? body.image : "";
-  if (!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(image)) {
+  if (!DATA_URL.test(image)) {
     return Response.json({ error: "Send one JPEG, PNG or WebP photo." }, { status: 400 });
   }
   if (image.length > MAX_DATA_URL) return Response.json({ error: "That photo is too large. Please retake it." }, { status: 413 });
+  // Optional: the same photo brightened and sharpened on the phone.
+  const enhanced = typeof body.enhanced === "string" && DATA_URL.test(body.enhanced) && body.enhanced.length <= MAX_DATA_URL ? body.enhanced : undefined;
 
   const symptoms = cleanSymptoms(body.symptoms);
   const advice = triage(symptoms);
 
-  let lastError = "";
-  for (const [i, model] of MODELS.entries()) {
-    // Both attempts must fit inside maxDuration: the fallback gets what's left.
-    const call = await analysePhoto(model, image, { context: symptomContext(symptoms), timeoutMs: i === 0 ? 35_000 : 20_000 });
-    if (!call.analysis) {
-      lastError = call.error ?? "unreadable reply";
-      continue;
-    }
-    const analysis = call.analysis;
-    // Belt and braces: never pass on a summary that names something a photo can't show.
-    if (UNSUPPORTED_CLAIMS.test(`${analysis.summary} ${analysis.quality.explanation}`)) {
-      analysis.summary = "The photo was reviewed, but the description couldn't be shown. Please treat this result as inconclusive.";
-      analysis.category = "inconclusive";
-    }
-    return Response.json({ analysis, triage: advice, model, latencyMs: call.latencyMs, clinicalReview: CLINICAL_REVIEW });
+  const context = symptomContext(symptoms);
+  const started = Date.now();
+  const panel = await Promise.all(PANEL.map((model) => analysePhoto(model, image, { context, enhancedDataUrl: enhanced, reasoning: "high", timeoutMs: PANEL_TIMEOUT_MS }).then((call) => ({ model, call }))));
+  let answered = panel.filter((p) => p.call.analysis);
+  const errors = panel.filter((p) => !p.call.analysis).map((p) => `${p.model}: ${p.call.error ?? "unreadable reply"}`);
+  for (const model of FALLBACK) {
+    if (answered.length) break;
+    const call = await analysePhoto(model, image, { context, enhancedDataUrl: enhanced, reasoning: "low", timeoutMs: FALLBACK_TIMEOUT_MS });
+    if (call.analysis) answered = [{ model, call }];
+    else errors.push(`${model}: ${call.error ?? "unreadable reply"}`);
   }
-  console.error("eye-check: all models failed", lastError);
+  if (errors.length) console.error("eye-check: some models failed", errors.join("; "));
+
+  if (answered.length) {
+    const analysis = combineAnalyses(answered.map((p) => p.call.analysis!));
+    const model = answered.map((p) => p.model).join(" + ");
+    const latencyMs = Date.now() - started;
+    // Belt and braces: never pass on a sentence that names something a photo can't show.
+    analysis.summary = stripUnsupported(analysis.summary);
+    analysis.quality.explanation = stripUnsupported(analysis.quality.explanation);
+    // The emergency category must agree with its observation, and the reverse.
+    if (analysis.category === "angle_closure_signs" && analysis.observations.angle_closure !== "possible") analysis.category = "inconclusive";
+    if (analysis.quality.usable && analysis.observations.angle_closure === "possible") analysis.category = "angle_closure_signs";
+    return Response.json({ analysis, triage: advice, model, latencyMs, clinicalReview: CLINICAL_REVIEW });
+  }
   return Response.json(
     { error: "The photo couldn't be reviewed right now. Please try again in a minute.", triage: advice },
     { status: 502 },

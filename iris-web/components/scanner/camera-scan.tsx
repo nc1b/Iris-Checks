@@ -39,6 +39,7 @@ import type { Scan, ScanMetrics } from "@/lib/dashboard-types";
 import { CROP_SPAN, eyeAspectRatio, LANDMARKS, measurePupil } from "@/lib/pupil";
 import { IRIS_DIAMETER_MM } from "@/lib/reference";
 import { rateScan } from "@/lib/scan-rating";
+import { findIris, greyFrame, type IrisFound, type IrisGuess } from "@/lib/eye-search";
 import { cn } from "@/lib/utils";
 
 const MEDIAPIPE_VERSION = "1.1.1";
@@ -51,7 +52,12 @@ const MANUAL_START_MS = 6000; // offer a manual start if cover detection doesn't
 const TRACK_WINDOW = 30; // frames used for the live tracking percentage
 // The target ring on screen: centre as a share of screen width/height, radius as a share of
 // width. Keeping the eye here keeps it fully in view and close to the camera lens.
-const RING = { x: 0.5, y: 0.36, radius: 0.2 };
+// High enough to stay clear of the instructions panel, and close to the front camera.
+const RING = { x: 0.5, y: 0.22, radius: 0.18 };
+/** An eye that fills the ring has an iris about this share of the ring's radius. */
+const IRIS_IN_RING = 0.4;
+/** Keep following the last lock this long when the eye briefly can't be found (blinks). */
+const LOCK_MS = 1500;
 
 type Phase = "intro" | "loading" | "align" | "countdown" | "recording" | "results";
 
@@ -142,11 +148,14 @@ export function CameraScan() {
   const prevCenterRef = useRef<{ x: number; y: number } | null>(null);
   const trackRef = useRef<boolean[]>([]);
   const pupilMmRef = useRef<number | null>(null);
+  // Where the iris was last found, so it can be followed without the face model.
+  const lockRef = useRef<(IrisFound & { at: number }) | null>(null);
+  const greyRef = useRef<HTMLCanvasElement | null>(null);
   // Screen light level (0–1). Set while lining up, then held steady through the recording.
   const screenRef = useRef(0);
   const [screen, setScreen] = useState(0);
   const frameCountRef = useRef(0);
-  const recordingRef = useRef<{ start: number; eye: PersonEye; rec: EyeRecording } | null>(null);
+  const recordingRef = useRef<{ start: number; eye: PersonEye; rec: EyeRecording; restPupilCropPx: number | null } | null>(null);
   const recordingsRef = useRef<Record<PersonEye, EyeRecording | null>>({ right: null, left: null });
   const frameRef = useRef<() => void>(() => {});
   const timersRef = useRef<number[]>([]);
@@ -203,14 +212,12 @@ export function CameraScan() {
 
   // ---------- Measuring one eye in one frame ----------
 
-  const readEye = useCallback((lm: { x: number; y: number }[], side: ImageSide, vw: number, vh: number, withGlint = true): EyeReading | null => {
+  /** Measures the pupil in a close-up of the iris at (cx, cy, irisR). `lm` adds blink detection when the face model agrees. */
+  const readEye = useCallback((iris: IrisGuess, lm: { x: number; y: number }[] | null, side: ImageSide, vw: number, vh: number, withGlint = true): EyeReading | null => {
     const video = videoRef.current;
     if (!video) return null;
     const L = LANDMARKS[side];
-    const c = lm[L.irisCenter];
-    const cx = c.x * vw;
-    const cy = c.y * vh;
-    const irisR = L.iris.reduce((s, i) => s + Math.hypot((lm[i].x - c.x) * vw, (lm[i].y - c.y) * vh), 0) / L.iris.length;
+    const { x: cx, y: cy, r: irisR } = iris;
     if (!Number.isFinite(irisR) || irisR < 3) return null;
     if (!cropRef.current) {
       cropRef.current = document.createElement("canvas");
@@ -226,7 +233,10 @@ export function CameraScan() {
     if (!reading) return null;
     const scale = irisR / reading.irisPx; // crop px → video px
     const glint = withGlint ? findGlint(crop, reading.irisPx) : null;
-    const eyeWidth = Math.hypot((lm[L.inner].x - lm[L.outer].x) * vw, (lm[L.inner].y - lm[L.outer].y) * vh);
+    // Without the face model: an eye is about 2.6 iris diameters wide, and a pupil that can be
+    // measured means the eye is open.
+    const eyeWidth = lm ? Math.hypot((lm[L.inner].x - lm[L.outer].x) * vw, (lm[L.inner].y - lm[L.outer].y) * vh) : irisR * 5.2;
+    const pupilSeen = Number.isFinite(reading.pupilPx) && reading.contrast >= CLOSE_UP.minContrast;
     return {
       eyeWidth,
       cx,
@@ -236,12 +246,65 @@ export function CameraScan() {
       contrast: reading.contrast,
       coverage: reading.coverage,
       light: reading.irisLevel,
-      ear: eyeAspectRatio(lm, L.upper, L.lower, L.inner, L.outer, vw / vh),
+      ear: lm ? eyeAspectRatio(lm, L.upper, L.lower, L.inner, L.outer, vw / vh) : pupilSeen ? 0.3 : 0,
       crop,
       pupilCropPx: reading.pupilPx,
       glint: glint && { x: cx + (glint.x - PRECISION_CROP / 2) * scale, y: cy + (glint.y - PRECISION_CROP / 2) * scale },
     };
   }, []);
+
+  /** The face model's iris for one side, in video pixels. */
+  const landmarkIris = (lm: { x: number; y: number }[], side: ImageSide, vw: number, vh: number): IrisGuess => {
+    const L = LANDMARKS[side];
+    const c = lm[L.irisCenter];
+    const r = L.iris.reduce((s, i) => s + Math.hypot((lm[i].x - c.x) * vw, (lm[i].y - c.y) * vh), 0) / L.iris.length;
+    return { x: c.x * vw, y: c.y * vh, r };
+  };
+
+  /**
+   * Finds the target eye's iris: near the face model's guess, near the last lock, or, with
+   * neither, inside the on-screen ring. Close up the face model often misses the face or puts
+   * the eye beside the real one, so its guess is only a starting point.
+   */
+  const locateEye = useCallback(
+    (lm: { x: number; y: number }[] | null, side: ImageSide, vw: number, vh: number, ts: number, recording: boolean): EyeReading | null => {
+      const video = videoRef.current;
+      if (!video) return null;
+      greyRef.current ??= document.createElement("canvas");
+      const grey = greyFrame(video, greyRef.current);
+      const model = lm ? landmarkIris(lm, side, vw, vh) : null;
+      const last = lockRef.current && ts - lockRef.current.at < LOCK_MS ? lockRef.current : null;
+      const searches: { guess: IrisGuess; reach: number; radii?: number[] }[] = [];
+      if (model && model.r >= 3) searches.push({ guess: model, reach: model.r * 1.5 });
+      if (last) searches.push({ guess: last, reach: last.r * (recording ? 0.6 : 1.2) });
+      if (!searches.length) {
+        const view = overlayRef.current;
+        const sw = view?.clientWidth || vw;
+        const sh = view?.clientHeight || vh;
+        const scale = Math.max(sw / vw, sh / vh);
+        const ringR = (sw * RING.radius) / scale;
+        searches.push({
+          guess: { x: vw / 2 - (sw * RING.x - sw / 2) / scale, y: vh / 2 + (sh * RING.y - sh / 2) / scale, r: ringR * IRIS_IN_RING },
+          reach: ringR,
+          radii: [0.5, 0.7, 0.9, 1.1, 1.4, 1.8],
+        });
+      }
+      let found: IrisFound | null = null;
+      if (grey) {
+        for (const s of searches) {
+          const f = findIris(grey, s.guess, s.reach, s.radii);
+          if (f && (!found || f.score > found.score)) found = f;
+        }
+      }
+      if (!found && model && model.r >= 3) found = { ...model, score: 0 };
+      if (!found) return null;
+      lockRef.current = { ...found, at: ts };
+      // Use the face model for blinks only when it points at the same eye.
+      const agrees = !!model && Math.hypot(model.x - found.x, model.y - found.y) < found.r * 0.8;
+      return readEye(found, agrees ? lm : null, side, vw, vh, !recording);
+    },
+    [readEye],
+  );
 
   // Rings on the iris and pupil, a crosshair on the centre, and a dot on the screen's reflection.
   const drawOverlay = useCallback((target: EyeReading | null, other: EyeReading | null, locked: boolean, vw: number, vh: number) => {
@@ -309,6 +372,7 @@ export function CameraScan() {
       clearTimers();
       goodFramesRef.current = 0;
       prevCenterRef.current = null;
+      lockRef.current = null;
       trackRef.current = [];
       pupilMmRef.current = null;
       setAlign(EMPTY_ALIGN);
@@ -389,7 +453,7 @@ export function CameraScan() {
     [2, 1].forEach((n, i) => timersRef.current.push(window.setTimeout(() => setCountdown(n), (i + 1) * 1000)));
     timersRef.current.push(
       window.setTimeout(() => {
-        recordingRef.current = { start: performance.now(), eye: eyeRef.current, rec: { samples: [], haze: [] } };
+        recordingRef.current = { start: performance.now(), eye: eyeRef.current, rec: { samples: [], haze: [] }, restPupilCropPx: null };
         setProgress(0);
         phaseRef.current = "recording";
         setPhase("recording");
@@ -412,9 +476,9 @@ export function CameraScan() {
       const current = phaseRef.current;
       const targetEye = recordingRef.current?.eye ?? eyeRef.current;
       const targetSide = IMAGE_SIDE[targetEye];
-      const has = lm && lm.length >= 478;
+      const has = !!lm && lm.length >= 478;
       // During a recording, skip the glint search to keep the frame rate up.
-      const target = has ? readEye(lm, targetSide, vw, vh, current !== "recording") : null;
+      const target = current === "recording" || current === "align" ? locateEye(has ? lm : null, targetSide, vw, vh, ts, current === "recording") : null;
 
       const rec = recordingRef.current;
       if (current === "recording" && rec) {
@@ -427,14 +491,21 @@ export function CameraScan() {
         if (target && Number.isFinite(target.pupilR)) sample[targetSide] = { pupilPx: target.pupilR, irisPx: target.irisR, contrast: target.contrast };
         if (target && open) sample.light = target.light;
         rec.rec.samples.push(sample);
-        // Flash photos for the cataract check, once the camera has adjusted to the flash.
+        // Resting pupil size (crop pixels), for the haze check when the flash hides the pupil edge.
+        if (!stim && target && Number.isFinite(target.pupilCropPx)) {
+          rec.restPupilCropPx = rec.restPupilCropPx === null ? target.pupilCropPx : rec.restPupilCropPx * 0.8 + target.pupilCropPx * 0.2;
+        }
+        // Flash photos for the cataract check, once the camera has adjusted to the flash. The pupil
+        // only shrinks under the flash, so 60% of its resting size stays inside it.
         if (stim && t >= stim.onset + 0.35 && target && open) {
-          const haze = measureHaze(target.crop, target.pupilCropPx);
+          const radius = Number.isFinite(target.pupilCropPx) ? target.pupilCropPx : rec.restPupilCropPx !== null ? rec.restPupilCropPx * 0.6 : NaN;
+          const haze = measureHaze(target.crop, radius);
           if (haze !== null) rec.rec.haze.push(haze);
         }
         if (t >= EYE_PROTOCOL.duration) finishEye();
       } else if (current === "align") {
-        const other = has ? readEye(lm, IMAGE_SIDE[OTHER_EYE[targetEye]], vw, vh, false) : null;
+        const otherSide = IMAGE_SIDE[OTHER_EYE[targetEye]];
+        const other = has ? readEye(landmarkIris(lm, otherSide, vw, vh), lm, otherSide, vw, vh, false) : null;
         const prev = prevCenterRef.current;
         const jitter = target && prev ? Math.hypot(target.cx - prev.x, target.cy - prev.y) / target.irisR : 1;
         prevCenterRef.current = target ? { x: target.cx, y: target.cy } : null;
@@ -493,7 +564,7 @@ export function CameraScan() {
       }
     }
     loopRef.current = requestAnimationFrame(() => frameRef.current());
-  }, [align.hold, drawOverlay, finishEye, readEye, startCountdown]);
+  }, [align.hold, drawOverlay, finishEye, locateEye, readEye, startCountdown]);
 
   useEffect(() => {
     frameRef.current = frame;

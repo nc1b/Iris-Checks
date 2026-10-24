@@ -8,6 +8,7 @@ export type Category =
   | "lens_cloudiness"
   | "eyelid"
   | "inflammation_signs"
+  | "angle_closure_signs"
   | "inconclusive";
 
 export type Finding<T extends string> = T | "cannot_assess";
@@ -21,6 +22,8 @@ export type PhotoAnalysis = {
     eyelid: Finding<"normal" | "swelling_or_lump" | "drooping">;
     discharge: Finding<"none" | "present">;
     yellow_whites: Finding<"none" | "possible">;
+    /** Signs of a sudden pressure attack (acute angle-closure glaucoma): the one glaucoma emergency a photo can show. */
+    angle_closure: Finding<"none" | "possible">;
   };
   category: Category;
   confidence: "low" | "medium" | "high";
@@ -28,4 +31,4 @@ export type PhotoAnalysis = {
 };
 
 export const QUALITY_PROBLEMS: QualityProblem[] = ["none", "no_eye", "blur", "too_dark", "glare", "too_far", "eye_closed", "cropped", "other"];
-export const CATEGORIES: Category[] = ["no_visible_concern", "redness", "lens_cloudiness", "eyelid", "inflammation_signs", "inconclusive"];
+export const CATEGORIES: Category[] = ["no_visible_concern", "redness", "lens_cloudiness", "eyelid", "inflammation_signs", "angle_closure_signs", "inconclusive"];

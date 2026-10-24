@@ -57,11 +57,11 @@ export const CLOSE_UP = {
 };
 
 /**
- * Eye lighting, as the iris ring's brightness (0–255) in the camera frame. A front camera in a
- * dim room sees an almost black eye, so the pupil can't be told apart from the iris.
- * Team-set from test phones; `target` is where the screen light aims.
+ * Eye lighting: brightness (0–255) of the bright parts of the eye close-up (white of the eye,
+ * lids), from lib/pupil.ts. A front camera in a dim room sees an almost black eye, so the pupil
+ * can't be told apart from the iris. Team-set; `target` is where the screen light aims.
  */
-export const LIGHT = { dark: 40, target: 70, bright: 215 };
+export const LIGHT = { dark: 70, target: 115, bright: 250 };
 
 /**
  * Screen light: a white frame around the camera view that lights the eye from 15 cm away.
@@ -76,8 +76,9 @@ export const PRECISION_CROP = 192;
 /**
  * Lens haze from the pupil in a flash frame (cataract check), 0 = clear and dark, 1 = white.
  * A clear lens keeps the pupil dark even under the screen flash; a cloudy lens scatters the
- * light back, so the pupil looks grey or white. The brightest 15% of pupil pixels are left
- * out because the screen's reflection on the cornea sits on the pupil.
+ * light back, so the pupil looks grey or white. The brightest 30% of pupil pixels are left
+ * out because the screen's reflection on the cornea sits on the pupil, and from 15 cm the
+ * whole screen reflects there, not just a dot.
  * Team-set and provisional: the scale needs calibrating against eye-exam results.
  */
 export const HAZE_SCALE = { dark: 20, white: 180 };
@@ -101,7 +102,7 @@ export function measureHaze(img: ImageData, pupilRadiusPx: number): number | nul
   }
   if (values.length < 12) return null;
   values.sort((a, b) => a - b);
-  const kept = values.slice(0, Math.max(1, Math.floor(values.length * 0.85)));
+  const kept = values.slice(0, Math.max(1, Math.floor(values.length * 0.7)));
   const median = kept[kept.length >> 1];
   return Math.min(1, Math.max(0, (median - HAZE_SCALE.dark) / (HAZE_SCALE.white - HAZE_SCALE.dark)));
 }

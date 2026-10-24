@@ -20,7 +20,10 @@ export type PupilReading = {
   contrast: number;
   /** Fraction of rays that found an edge. */
   coverage: number;
-  /** Brightness of the iris ring (0–255). Low = the eye is too dark for the camera. */
+  /**
+   * How well lit the eye area is (0–255): the brightness of its brighter parts (white of the
+   * eye, lids). Not the iris itself, which is naturally dark in brown eyes.
+   */
   irisLevel: number;
 };
 
@@ -79,7 +82,7 @@ export function measurePupil(img: ImageData): PupilReading | null {
   const useRed = Number.isFinite(byRed.contrast) && byRed.contrast > (Number.isFinite(byLuma.contrast) ? byLuma.contrast * 1.15 : 0);
   const lum = useRed ? red : luma;
   const { pupilLevel, irisLevel, contrast } = useRed ? byRed : byLuma;
-  const irisLight = Number.isFinite(byLuma.irisLevel) ? byLuma.irisLevel : 0;
+  const irisLight = percentile([...luma].sort((a, b) => a - b), 0.9) || 0;
 
   const at = (x: number, y: number) => {
     const xi = Math.min(width - 1, Math.max(0, Math.round(x)));

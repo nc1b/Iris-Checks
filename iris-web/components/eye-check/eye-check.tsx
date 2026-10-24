@@ -45,6 +45,11 @@ const CATEGORY_TEXT: Record<Category, { title: string; body: string; urgency: Ur
     body: "Redness concentrated around the iris, or a hazy-looking pupil with redness, can be a sign of inflammation that needs an eye doctor promptly, especially with pain, light sensitivity or blurry vision.",
     urgency: "same_day",
   },
+  angle_closure_signs: {
+    title: "Possible signs of a sudden eye-pressure attack",
+    body: "Redness around the coloured part of the eye, a hazy-looking front of the eye and an oddly shaped or mid-sized pupil can together be signs of acute angle-closure glaucoma, a sudden rise in eye pressure that can damage sight within hours. Go to an emergency room or an eye doctor now, especially with eye pain, headache, nausea or halos around lights.",
+    urgency: "emergency",
+  },
   inconclusive: {
     title: "The photo can't support a clear answer",
     body: "The photo was good enough to look at, but it doesn't show enough to describe the eye with confidence. That's not a bad result. You can retake it in brighter, even light, or see an eye doctor if you are worried.",
@@ -93,8 +98,9 @@ export function EyeCheck() {
       const res = await fetch("/api/eye-check", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ image: photo.dataUrl, symptoms }),
-        signal: AbortSignal.timeout(90_000),
+        body: JSON.stringify({ image: photo.dataUrl, enhanced: photo.enhancedUrl, symptoms }),
+        // The models take their time to look carefully (the server allows up to 5 minutes).
+        signal: AbortSignal.timeout(300_000),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error ?? "The photo couldn't be reviewed. Please try again.");
@@ -506,6 +512,7 @@ const OBSERVATION_LABELS: Record<keyof PhotoAnalysis["observations"], string> = 
   eyelid: "Eyelids",
   discharge: "Discharge or crusting",
   yellow_whites: "Yellow tint to the white",
+  angle_closure: "Signs of a sudden pressure attack",
 };
 
 const OBSERVATION_VALUES: Record<string, string> = {
@@ -575,10 +582,29 @@ function Result({ result, photo, onRetake }: { result: CheckResponse; photo: Cap
 
       <TriageCard urgency={urgency} reasons={reasons} />
 
+      <GlaucomaNote />
+
       <button type="button" onClick={onRetake} className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border text-sm font-medium">
         <RotateCcw className="size-4" /> Take another photo
       </button>
     </section>
+  );
+}
+
+/** A photo can only catch a sudden pressure attack; the slow, common glaucoma needs other checks. */
+function GlaucomaNote() {
+  return (
+    <div className="mt-4 rounded-2xl border p-4 text-sm" data-testid="glaucoma-note">
+      <p className="font-medium">What about glaucoma?</p>
+      <p className="mt-1 text-muted-foreground">
+        This photo was checked for signs of a sudden eye-pressure attack (acute angle-closure glaucoma). The common, slow kind of glaucoma doesn&apos;t show
+        in a photo. For that, the{" "}
+        <Link href="/dashboard/scan" className="font-medium text-foreground underline underline-offset-4">
+          pupil reflex test
+        </Link>{" "}
+        compares how your two pupils react to light, and an eye exam measures eye pressure and looks at the optic nerve.
+      </p>
+    </div>
   );
 }
 
@@ -616,12 +642,13 @@ function CanCannot() {
             <li>Eyelid swelling, lumps or drooping</li>
             <li>Discharge or crusting</li>
             <li>A yellow tint to the white of the eye</li>
+            <li>Signs of a sudden eye-pressure attack (acute angle-closure glaucoma)</li>
           </ul>
         </div>
         <div>
           <p className="font-medium">Can&apos;t show</p>
           <ul className="mt-1 list-disc space-y-1 pl-5 text-muted-foreground">
-            <li>Glaucoma or eye pressure</li>
+            <li>The common, slow kind of glaucoma, or eye pressure (a photo can only show signs of a sudden pressure attack)</li>
             <li>Diabetic eye disease, or retina and macula problems</li>
             <li>Optic nerve problems</li>
             <li>How well you see</li>

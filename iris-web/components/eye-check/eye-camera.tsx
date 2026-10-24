@@ -2,7 +2,7 @@
 
 import { Camera, Flashlight, FlashlightOff, Loader2, RefreshCw, Sun, SunDim, SwitchCamera, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { captureGuide, GUIDE, sampleGuide, viewPointToVideo, type CapturedPhoto } from "@/lib/eye-capture";
+import { GUIDE, grabGuide, motionBetween, photoFromFrame, sampleGuide, viewPointToVideo, type CapturedPhoto, type GuideFrame } from "@/lib/eye-capture";
 import { QUALITY_LIMITS, type QualityReport } from "@/lib/photo-quality";
 import { cn } from "@/lib/utils";
 
@@ -13,17 +13,37 @@ type Controls = {
   zoom: { min: number; max: number; step: number } | null;
   focus: boolean;
   torch: boolean;
+  /** Exposure compensation in EV, where the browser allows it (mostly Chrome on Android). */
+  exposure: { min: number; max: number; step: number } | null;
 };
 
-const NO_CONTROLS: Controls = { zoom: null, focus: false, torch: false };
+const NO_CONTROLS: Controls = { zoom: null, focus: false, torch: false, exposure: null };
 const TORCH_AUTO_OFF_MS = 30_000;
+
+/** Live processing: how often the guide region is checked, in ms (about 8 times a second). */
+const TICK_MS = 120;
+/** Mean pixel change between checks above which the picture is moving (smears the photo). */
+const MAX_MOTION = 6;
+/** Anti-blur: on capture, keep sampling this long and send the sharpest frame from this window. */
+const BURST_MS = 700;
+const BEST_WINDOW_MS = 1500;
+/** Auto photo: this many good, steady checks in a row (about 1.2 s). */
+const AUTO_TICKS = 10;
+/** Lighting control: wait this long between automatic exposure steps. */
+const EXPOSURE_STEP_MS = 900;
 
 type CapabilitiesPlus = MediaTrackCapabilities & {
   zoom?: { min: number; max: number; step?: number };
   torch?: boolean;
   focusMode?: string[];
   pointsOfInterest?: unknown;
+  exposureCompensation?: { min: number; max: number; step?: number };
+  exposureMode?: string[];
+  whiteBalanceMode?: string[];
 };
+
+type Live = QualityReport & { motion: number | null; steady: boolean };
+type Best = { frame: GuideFrame; score: number; at: number };
 
 export function EyeCamera({
   facing,
@@ -55,7 +75,18 @@ export function EyeCamera({
   const [torchAsk, setTorchAsk] = useState(false);
   const [focusAt, setFocusAt] = useState<{ x: number; y: number; ok: boolean } | null>(null);
   const [focusNote, setFocusNote] = useState<string | null>(null);
-  const [live, setLive] = useState<QualityReport | null>(null);
+  const [live, setLive] = useState<Live | null>(null);
+  const [exposure, setExposure] = useState(0);
+  const exposureManual = useRef(false);
+  const exposureAt = useRef(0);
+  const [auto, setAuto] = useState(true);
+  const [autoHold, setAutoHold] = useState(0);
+  const [capturing, setCapturing] = useState(false);
+  const capturingRef = useRef(false);
+  const prevPixels = useRef<Uint8ClampedArray | null>(null);
+  const goodTicks = useRef(0);
+  const best = useRef<Best | null>(null);
+  const framesSeen = useRef<number[]>([]);
   const [resolution, setResolution] = useState<string>("");
   const [attempt, setAttempt] = useState(0);
   // Front camera only: the screen around the oval turns white to light the face. It comes on by
@@ -84,11 +115,20 @@ export function EyeCamera({
         const track = current.getVideoTracks()[0];
         const caps = (track.getCapabilities?.() ?? {}) as CapabilitiesPlus;
         const settings = track.getSettings();
+        const ev = caps.exposureCompensation;
         setControls({
           zoom: caps.zoom && caps.zoom.max > caps.zoom.min ? { min: caps.zoom.min, max: caps.zoom.max, step: caps.zoom.step || 0.1 } : null,
           focus: Boolean(caps.pointsOfInterest) || Boolean(caps.focusMode?.some((m) => m === "single-shot" || m === "manual")),
           torch: caps.torch === true,
+          exposure: ev && ev.max > ev.min ? { min: ev.min, max: ev.max, step: ev.step || 0.1 } : null,
         });
+        setExposure((settings as { exposureCompensation?: number }).exposureCompensation ?? 0);
+        // Let the camera keep adjusting exposure, focus and colour by itself while framing.
+        const keepAdjusting: Record<string, string> = {};
+        if (caps.exposureMode?.includes("continuous")) keepAdjusting.exposureMode = "continuous";
+        if (caps.focusMode?.includes("continuous")) keepAdjusting.focusMode = "continuous";
+        if (caps.whiteBalanceMode?.includes("continuous")) keepAdjusting.whiteBalanceMode = "continuous";
+        if (Object.keys(keepAdjusting).length) await track.applyConstraints({ advanced: [keepAdjusting as MediaTrackConstraintSet] }).catch(() => {});
         setZoom((settings as { zoom?: number }).zoom ?? caps.zoom?.min ?? 1);
         setResolution(settings.width && settings.height ? `${settings.width}×${settings.height}` : "");
         setStream(current);
@@ -121,25 +161,36 @@ export function EyeCamera({
     video.play().catch(() => {});
   }, [stream]);
 
-  // Live light and sharpness hints, twice a second.
+  // Real-time processing, about 8 times a second: light, sharpness and motion of the guide
+  // region, the sharpest recent frame (for the anti-blur capture), and the auto photo.
+  const tickRef = useRef<() => void>(() => {});
   useEffect(() => {
     if (!stream) return;
-    const id = window.setInterval(() => {
-      const video = videoRef.current;
-      const view = viewRef.current;
-      if (!video || !view) return;
-      sampleCanvas.current ??= document.createElement("canvas");
-      const report = sampleGuide(video, view.clientWidth, view.clientHeight, mirrored, sampleCanvas.current);
-      setLive(report);
-      if (mirrored && report?.issues.includes("too_dark") && !screenLightAuto.current) {
-        screenLightAuto.current = true;
-        setScreenLight(true);
-      }
-    }, 500);
-    return () => window.clearInterval(id);
-  }, [stream, mirrored]);
+    let id = 0;
+    const loop = () => {
+      tickRef.current();
+      id = window.setTimeout(loop, TICK_MS);
+    };
+    id = window.setTimeout(loop, TICK_MS);
+    return () => {
+      window.clearTimeout(id);
+      prevPixels.current = null;
+      best.current = null;
+      goodTicks.current = 0;
+    };
+  }, [stream]);
+
+  async function changeExposure(value: number) {
+    setExposure(value);
+    try {
+      await stream?.getVideoTracks()[0]?.applyConstraints({ advanced: [{ exposureCompensation: value } as MediaTrackConstraintSet] });
+    } catch {
+      /* not every step is accepted; the camera keeps its own exposure */
+    }
+  }
 
   const track = () => stream?.getVideoTracks()[0];
+
 
   const setTorch = useCallback(
     async (on: boolean) => {
@@ -163,6 +214,78 @@ export function EyeCamera({
     },
     [stream],
   );
+
+  /** Sends the sharpest frame from the last moment, or the current frame if none was kept. */
+  const finishCapture = useCallback(() => {
+    const video = videoRef.current;
+    const view = viewRef.current;
+    capturingRef.current = false;
+    setCapturing(false);
+    if (!video?.videoWidth || !view) return;
+    const now = performance.now();
+    const kept = best.current && now - best.current.at < BEST_WINDOW_MS + BURST_MS ? best.current : null;
+    const frame = kept?.frame ?? grabGuide(video, view.clientWidth, view.clientHeight, mirrored);
+    const burst = framesSeen.current.filter((t) => now - t < BEST_WINDOW_MS + BURST_MS).length || 1;
+    best.current = null;
+    goodTicks.current = 0;
+    setAutoHold(0);
+    if (torchOn) void setTorch(false);
+    onCapture(photoFromFrame(frame, burst));
+  }, [mirrored, onCapture, setTorch, torchOn]);
+
+  const capture = useCallback(() => {
+    if (capturingRef.current || !videoRef.current?.videoWidth) return;
+    capturingRef.current = true;
+    setCapturing(true);
+    // Keep watching a moment longer so a sharper frame can still win (anti-blur).
+    window.setTimeout(finishCapture, BURST_MS);
+  }, [finishCapture]);
+
+  useEffect(() => {
+    tickRef.current = () => {
+      const video = videoRef.current;
+      const view = viewRef.current;
+      if (!video?.videoWidth || !view) return;
+      sampleCanvas.current ??= document.createElement("canvas");
+      const report = sampleGuide(video, view.clientWidth, view.clientHeight, mirrored, sampleCanvas.current);
+      if (!report) return;
+      const now = performance.now();
+      const motion = motionBetween(prevPixels.current, report.pixels);
+      prevPixels.current = report.pixels;
+      const steady = motion !== null && motion < MAX_MOTION;
+      const { pixels: _pixels, ...quality } = report;
+      void _pixels;
+      setLive({ ...quality, motion, steady });
+
+      // Keep the sharpest steady frame of the last moment, at full resolution.
+      framesSeen.current = [...framesSeen.current.filter((t) => now - t < BEST_WINDOW_MS + BURST_MS), now];
+      const score = quality.sharpness * (steady ? 1 : 0.5) * (quality.issues.includes("too_dark") || quality.issues.includes("glare") ? 0.6 : 1);
+      const kept = best.current;
+      if (!kept || now - kept.at > BEST_WINDOW_MS || score > kept.score) {
+        best.current = { frame: grabGuide(video, view.clientWidth, view.clientHeight, mirrored), score, at: now };
+      }
+
+      // Lighting control: brighter exposure when the eye is too dark, darker when washed out.
+      if (controls.exposure && !exposureManual.current && now - exposureAt.current > EXPOSURE_STEP_MS) {
+        const { min, max, step } = controls.exposure;
+        const delta = quality.issues.includes("too_dark") ? Math.max(step, 0.3) : quality.issues.includes("too_bright") || quality.issues.includes("glare") ? -Math.max(step, 0.3) : 0;
+        if (delta) {
+          exposureAt.current = now;
+          const next = Math.min(max, Math.max(min, exposure + delta));
+          if (next !== exposure) void changeExposure(next);
+        }
+      }
+      if (mirrored && quality.issues.includes("too_dark") && !screenLightAuto.current) {
+        screenLightAuto.current = true;
+        setScreenLight(true);
+      }
+
+      // Auto photo once everything is good and steady for a moment.
+      goodTicks.current = quality.ok && steady ? goodTicks.current + 1 : 0;
+      setAutoHold(auto ? Math.min(1, goodTicks.current / AUTO_TICKS) : 0);
+      if (auto && !capturingRef.current && goodTicks.current >= AUTO_TICKS) capture();
+    };
+  });
 
   /** Restarts the camera (switching sides or retrying) from a clean state. */
   function restart(next: Facing) {
@@ -217,15 +340,6 @@ export function EyeCamera({
       }
     }
     window.setTimeout(() => setFocusAt(null), 900);
-  }
-
-  function capture() {
-    const video = videoRef.current;
-    const view = viewRef.current;
-    if (!video?.videoWidth || !view) return;
-    const photo = captureGuide(video, view.clientWidth, view.clientHeight, mirrored);
-    if (torchOn) void setTorch(false);
-    onCapture(photo);
   }
 
   const hint = liveHint(live, { facing, torch: controls.torch && !avoidTorch, screenLight });
@@ -301,9 +415,23 @@ export function EyeCamera({
         <div className="flex flex-wrap justify-center gap-2 text-xs" aria-live="polite">
           <Chip ok={live ? !live.issues.some((i) => i === "too_dark" || i === "too_bright" || i === "glare") : null}>{hint.light}</Chip>
           <Chip ok={live ? !live.issues.includes("blur") : null}>{hint.sharp}</Chip>
+          <Chip ok={live ? live.steady : null}>{live ? (live.steady ? "Steady" : "Moving") : "Steady …"}</Chip>
           <Chip ok={live ? !live.issues.includes("too_small") : null}>{hint.size}</Chip>
         </div>
-        <p className="text-center text-xs text-white/70">{focusNote ?? hint.tip}</p>
+        {/* Live sharpness: the bar fills as the picture gets sharper; the tick is the minimum. */}
+        <div className="flex items-center gap-3 text-[11px] text-white/70">
+          <span className="w-14 shrink-0">Sharpness</span>
+          <div className="relative h-1.5 flex-1 rounded-full bg-white/15" aria-label="Live sharpness">
+            <div
+              className={cn("h-full rounded-full transition-[width]", live && !live.issues.includes("blur") ? "bg-white" : "bg-white/50")}
+              style={{ width: `${Math.min(100, ((live?.sharpness ?? 0) / (QUALITY_LIMITS.minSharpness * 3)) * 100)}%` }}
+            />
+            <span className="absolute -top-0.5 h-2.5 w-0.5 rounded bg-white/80" style={{ left: `${100 / 3}%` }} />
+          </div>
+        </div>
+        <p className="text-center text-xs text-white/70">
+          {capturing ? "Hold still, picking the sharpest frame…" : autoHold > 0 ? "Hold still, the photo takes itself…" : (focusNote ?? hint.tip)}
+        </p>
 
         {controls.zoom && (
           <label className="flex items-center gap-3 text-xs">
@@ -320,6 +448,25 @@ export function EyeCamera({
             />
           </label>
         )}
+        {controls.exposure && (
+          <label className="flex items-center gap-3 text-xs">
+            <span className="w-14 shrink-0 tabular-nums">Light {exposure > 0 ? "+" : ""}{exposure.toFixed(1)}</span>
+            <input
+              type="range"
+              min={controls.exposure.min}
+              max={controls.exposure.max}
+              step={controls.exposure.step}
+              value={exposure}
+              onChange={(e) => {
+                exposureManual.current = true;
+                void changeExposure(Number(e.target.value));
+              }}
+              className="flex-1 accent-white"
+              aria-label="Camera brightness"
+            />
+          </label>
+        )}
+
         {controls.zoom && zoom > controls.zoom.min + 0.05 && (
           <p className="text-center text-[11px] text-white/60">
             Zoom past your phone&apos;s optical lens is digital: the eye looks bigger but gains no detail. Moving closer (10–15 cm) is better.
@@ -354,15 +501,29 @@ export function EyeCamera({
         )}
 
         <div className="flex items-center justify-between">
-          <div className="w-16 text-[10px] text-white/50">{resolution}</div>
+          <div className="flex w-16 flex-col items-start gap-1 text-[10px] text-white/50">
+            <button
+              type="button"
+              onClick={() => setAuto((a) => !a)}
+              aria-pressed={auto}
+              className={cn("rounded-full px-2 py-1 text-[11px] font-medium", auto ? "bg-white text-black" : "bg-white/15 text-white")}
+            >
+              Auto {auto ? "on" : "off"}
+            </button>
+            <span>{resolution}</span>
+          </div>
           <button
             type="button"
             onClick={capture}
-            disabled={!stream}
+            disabled={!stream || capturing}
             aria-label="Take photo"
-            className="flex size-[72px] items-center justify-center rounded-full border-4 border-white bg-white/20 transition active:scale-95 disabled:opacity-40"
+            className="relative flex size-[72px] items-center justify-center rounded-full border-4 border-white/40 bg-white/20 transition active:scale-95 disabled:opacity-60"
           >
-            <Camera className="size-7" />
+            {/* Fills while the auto photo is about to take itself. */}
+            <svg className="absolute inset-[-4px] -rotate-90" viewBox="0 0 72 72" aria-hidden>
+              <circle cx="36" cy="36" r="34" fill="none" stroke="white" strokeWidth="4" strokeDasharray={2 * Math.PI * 34} strokeDashoffset={2 * Math.PI * 34 * (1 - (capturing ? 1 : autoHold))} />
+            </svg>
+            {capturing ? <Loader2 className="size-7 animate-spin" /> : <Camera className="size-7" />}
           </button>
           <div className="flex w-16 justify-end">
             {mirrored && (
@@ -404,6 +565,7 @@ function liveHint(q: QualityReport | null, opts: { facing: Facing; torch: boolea
   if (!q) return { good: false, light: "Light …", sharp: "Focus …", size: "Size …", tip: "Tap the eye on screen to focus." };
   const light = q.issues.includes("too_dark") ? "Too dark" : q.issues.includes("too_bright") ? "Too bright" : q.issues.includes("glare") ? "Glare" : "Light good";
   const sharp = q.issues.includes("blur") ? "Blurry" : "Sharp";
+  // QualityReport only: motion is shown in its own chip.
   const size = q.side < QUALITY_LIMITS.minSide ? "Low detail" : "Detail good";
   const tip = q.issues.includes("too_dark")
     ? opts.facing === "environment" && opts.torch
