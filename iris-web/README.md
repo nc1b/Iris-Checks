@@ -25,7 +25,11 @@ Create `.env.local` (never commit it):
 
 ```
 HACKCLUB_API_KEY=your-key
+HACKCLUB_API_KEY_BACKUP=optional-second-key
 IRIS_AI_MODEL=anthropic/claude-haiku-5.5
 ```
+
+`HACKCLUB_API_KEY_BACKUP` is tried when the main key runs out or is limited (402, 429, 401, 403);
+see `lib/server/hackclub.ts`.
 
 The camera needs HTTPS or `localhost`. Use the demo mode (`/scan?demo=1`) on computers without a camera.

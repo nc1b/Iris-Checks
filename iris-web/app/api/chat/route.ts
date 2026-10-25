@@ -1,4 +1,5 @@
 import { KNOWLEDGE } from "@/lib/knowledge";
+import { aiConfigured, aiFetch } from "@/lib/server/hackclub";
 
 /**
  * Project Q&A for the corner chat, through the Hack Club AI proxy.
@@ -11,13 +12,13 @@ import { KNOWLEDGE } from "@/lib/knowledge";
  *
  * Env:
  *   HACKCLUB_API_KEY  – required (without it the widget gets a "not connected yet" reply)
+ *   HACKCLUB_API_KEY_BACKUP – optional, used when the main key runs out (lib/server/hackclub)
  *   IRIS_CHAT_MODELS  – optional comma-separated model list, tried in order
  *   IRIS_EMBED_MODEL  – optional embedding model
  *
  * Message text is never logged.
  */
 
-const BASE = "https://ai.hackclub.com/proxy/v1";
 const EMBED_MODEL = process.env.IRIS_EMBED_MODEL || "nvidia/nemotron-3.5-embed-1b:free";
 const CHAT_MODELS = (process.env.IRIS_CHAT_MODELS || "nvidia/nemotron-3.5-lightning:free,nvidia/nemotron-3.5-super-vl:free,anthropic/claude-haiku-5.5")
   .split(",")
@@ -66,13 +67,8 @@ function clean(body: unknown): Msg[] | null {
   return msgs;
 }
 
-async function embed(key: string, input: string[]): Promise<number[][]> {
-  const res = await fetch(`${BASE}/embeddings`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: EMBED_MODEL, input }),
-    signal: AbortSignal.timeout(10_000),
-  });
+async function embed(input: string[]): Promise<number[][]> {
+  const res = await aiFetch("/embeddings", { model: EMBED_MODEL, input }, 10_000);
   if (!res.ok) throw new Error(`embeddings ${res.status}`);
   const json = (await res.json()) as { data?: { embedding: number[]; index: number }[] };
   if (!json.data?.length) throw new Error("embeddings empty");
@@ -94,13 +90,13 @@ function cosine(a: number[], b: number[]) {
 // Knowledge embeddings are computed once per server instance and reused.
 let knowledgeVectors: Promise<number[][]> | null = null;
 
-async function relevantFacts(key: string, question: string): Promise<{ facts: string[]; retrieval: "embeddings" | "all" }> {
+async function relevantFacts(question: string): Promise<{ facts: string[]; retrieval: "embeddings" | "all" }> {
   try {
-    knowledgeVectors ??= embed(key, KNOWLEDGE).catch((e) => {
+    knowledgeVectors ??= embed(KNOWLEDGE).catch((e) => {
       knowledgeVectors = null;
       throw e;
     });
-    const [vectors, [q]] = await Promise.all([knowledgeVectors, embed(key, [question])]);
+    const [vectors, [q]] = await Promise.all([knowledgeVectors, embed([question])]);
     const ranked = vectors
       .map((v, i) => ({ i, score: cosine(v, q) }))
       .sort((a, b) => b.score - a.score)
@@ -115,13 +111,8 @@ async function relevantFacts(key: string, question: string): Promise<{ facts: st
   }
 }
 
-async function complete(key: string, model: string, messages: { role: string; content: string }[]) {
-  const res = await fetch(`${BASE}/chat/completions`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model, max_tokens: 700, temperature: 0.4, reasoning: { enabled: false }, messages }),
-    signal: AbortSignal.timeout(20_000),
-  });
+async function complete(model: string, messages: { role: string; content: string }[]) {
+  const res = await aiFetch("/chat/completions", { model, max_tokens: 700, temperature: 0.4, reasoning: { enabled: false }, messages }, 20_000);
   if (!res.ok) throw new Error(`${model} returned ${res.status}`);
   const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
   const text = json.choices?.[0]?.message?.content?.trim();
@@ -144,8 +135,7 @@ export async function POST(request: Request) {
     return Response.json({ text: "You're sending messages quickly. Please wait a minute and try again." }, { status: 429 });
   }
 
-  const key = process.env.HACKCLUB_API_KEY;
-  if (!key) {
+  if (!aiConfigured()) {
     return Response.json({
       text: "The Iris assistant isn't connected yet. In the meantime, you can read about the project on this page and on the Research page.",
       source: "fallback",
@@ -153,12 +143,12 @@ export async function POST(request: Request) {
   }
 
   const question = messages[messages.length - 1].content;
-  const { facts, retrieval } = await relevantFacts(key, question);
+  const { facts, retrieval } = await relevantFacts(question);
   const system = `${RULES}\n\nFacts about Iris:\n${facts.map((f) => `- ${f}`).join("\n")}`;
 
   for (const model of CHAT_MODELS) {
     try {
-      const text = await complete(key, model, [{ role: "system", content: system }, ...messages]);
+      const text = await complete(model, [{ role: "system", content: system }, ...messages]);
       return Response.json({ text, source: "ai", model, retrieval });
     } catch (e) {
       console.error("chat: model failed, trying next", e instanceof Error ? e.message : "unknown error");

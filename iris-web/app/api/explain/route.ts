@@ -1,4 +1,5 @@
 import { STUDIES, THRESHOLDS } from "@/lib/reference";
+import { aiConfigured, aiFetch } from "@/lib/server/hackclub";
 
 /**
  * Turns the scan's numbers into a plain-language explanation using the
@@ -6,10 +7,10 @@ import { STUDIES, THRESHOLDS } from "@/lib/reference";
  *
  * Env:
  *   HACKCLUB_API_KEY  – required for AI text (falls back to a built-in explanation)
+ *   HACKCLUB_API_KEY_BACKUP – optional, used when the main key runs out (lib/server/hackclub)
  *   IRIS_AI_MODEL     – optional, defaults to anthropic/claude-haiku-5.5
  */
 
-const ENDPOINT = "https://ai.hackclub.com/proxy/v1/chat/completions";
 const DEFAULT_MODEL = "anthropic/claude-haiku-5.5";
 
 type Body = {
@@ -89,8 +90,7 @@ export async function POST(request: Request) {
   }
   const data = clean(body);
 
-  const key = process.env.HACKCLUB_API_KEY;
-  if (!key) return Response.json({ text: fallback(data), source: "fallback" });
+  if (!aiConfigured()) return Response.json({ text: fallback(data), source: "fallback" });
 
   const research = STUDIES.map((s) => `- ${s.short}: ${s.finding}`).join("\n");
   const ranges = THRESHOLDS.map(
@@ -115,10 +115,9 @@ Iris starter thresholds (provisional, team-set):
 ${ranges}`;
 
   try {
-    const res = await fetch(ENDPOINT, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
+    const res = await aiFetch(
+      "/chat/completions",
+      {
         model: process.env.IRIS_AI_MODEL || DEFAULT_MODEL,
         // Some models spend tokens on hidden reasoning before answering; leave room and turn it off where supported.
         max_tokens: 1200,
@@ -128,9 +127,9 @@ ${ranges}`;
           { role: "system", content: system },
           { role: "user", content: `Scan result as JSON:\n${JSON.stringify(data)}\n\nExplain this result.` },
         ],
-      }),
-      signal: AbortSignal.timeout(25_000),
-    });
+      },
+      25_000,
+    );
     if (!res.ok) throw new Error(`AI proxy returned ${res.status}`);
     const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
     const text = json.choices?.[0]?.message?.content?.trim();

@@ -1,5 +1,6 @@
 import "server-only";
 import { CATEGORIES, QUALITY_PROBLEMS, type PhotoAnalysis } from "@/lib/eye-check-types";
+import { aiConfigured, aiFetch } from "@/lib/server/hackclub";
 
 /**
  * Asks an image-capable model, through the Hack Club AI proxy, to describe one phone photo of
@@ -8,7 +9,7 @@ import { CATEGORIES, QUALITY_PROBLEMS, type PhotoAnalysis } from "@/lib/eye-chec
  * in scripts/eye-photos/MODEL-EVAL.md.
  */
 
-export const AI_BASE = "https://ai.hackclub.com/proxy/v1";
+export { AI_BASE } from "@/lib/server/hackclub";
 
 export const SYSTEM_PROMPT = `You review one phone photo of the front of a person's eye for an educational eye-health app made by students. You are not diagnosing. Describe only what is visible. Take your time and look closely before answering.
 
@@ -158,15 +159,12 @@ export async function analysePhoto(
     timeoutMs = 60_000,
   }: { context?: string; enhancedDataUrl?: string; reasoning?: Reasoning; timeoutMs?: number } = {},
 ): Promise<ModelCall> {
-  const key = process.env.HACKCLUB_API_KEY;
-  if (!key) return { analysis: null, raw: "", latencyMs: 0, usage: null, error: "not_configured" };
+  if (!aiConfigured()) return { analysis: null, raw: "", latencyMs: 0, usage: null, error: "not_configured" };
   const started = Date.now();
   try {
-    const res = await fetch(`${AI_BASE}/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      signal: AbortSignal.timeout(timeoutMs),
-      body: JSON.stringify({
+    const res = await aiFetch(
+      "/chat/completions",
+      {
         model,
         temperature: 0,
         // Leaves room for thinking before the JSON answer. The proxy reserves the cost of
@@ -185,8 +183,9 @@ export async function analysePhoto(
             ],
           },
         ],
-      }),
-    });
+      },
+      timeoutMs,
+    );
     const json = (await res.json().catch(() => ({}))) as {
       choices?: { message?: { content?: string } }[];
       usage?: ModelCall["usage"];
