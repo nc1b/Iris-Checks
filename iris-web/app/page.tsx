@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BookOpen, ShieldCheck, Smartphone, Users } from "lucide-react";
 import TestimonialsBlock from "@/components/ui/testimonials-2";
 import { HeroSection } from "@/components/blocks/hero-section-6";
+import { TrailerSection } from "@/components/blocks/trailer-section";
 import { SiteFooter } from "@/components/blocks/site-footer";
 import { Reveal } from "@/components/motion/reveal";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,8 @@ export default function Home() {
   return (
     <HeroSection>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} />
+      <TrailerSection />
+
       <ChecksSection />
 
       <section id="how-it-works" className="scroll-mt-24 border-t">

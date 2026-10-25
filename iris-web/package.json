@@ -23,6 +23,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^14.4.0",
+    "hls.js": "^1.7.3",
     "jose": "^6.2.13",
     "lucide-react": "^1.60.0",
     "next": "16.4.2",
