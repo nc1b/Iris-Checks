@@ -21,15 +21,17 @@ const list = (value: string) =>
     .filter(Boolean);
 
 /**
- * The panel: image models asked at the same time, their answers combined cautiously (see
- * combineAnalyses). If none answers, the fallback models are tried one by one.
+ * The panel: image models asked at the same time, with careful (high) reasoning, their answers
+ * combined cautiously (see combineAnalyses). If none answers, the fallback models are tried one
+ * by one with low reasoning.
  *
- * Sonnet 5.5 and Haiku 5.5 are the cheaper models from scripts/eye-photos/MODEL-EVAL.md (about
- * $0.42 and $0.03 per 100 photos) and fit the Hack Club AI key's spending limit; Fable 5.1 and
- * Opus 5.5 hit it (402). Set IRIS_EYE_MODELS to change the panel.
+ * Claude Opus 5.5 reviews the photo: in scripts/eye-photos/MODEL-EVAL.md it never gave a wrong
+ * category and said so when unsure. Sonnet 5.5 and Haiku 5.5 are the cheaper backups, so the check
+ * still answers if Opus fails or the Hack Club AI key's spending limit is reached (402).
+ * Set IRIS_EYE_MODELS / IRIS_EYE_FALLBACK_MODELS to change them.
  */
-const PANEL = list(process.env.IRIS_EYE_MODELS ?? "anthropic/claude-sonnet-5.5,anthropic/claude-haiku-5.5");
-const FALLBACK = list(process.env.IRIS_EYE_FALLBACK_MODELS ?? "");
+const PANEL = list(process.env.IRIS_EYE_MODELS ?? "anthropic/claude-opus-5.5");
+const FALLBACK = list(process.env.IRIS_EYE_FALLBACK_MODELS ?? "anthropic/claude-sonnet-5.5,anthropic/claude-haiku-5.5");
 
 /** About 2.7 MB of JPEG. The app sends at most ~1536 px at quality 0.9, well under this. */
 const MAX_DATA_URL = 3_600_000;
@@ -72,8 +74,7 @@ export async function POST(request: Request) {
 
   const context = symptomContext(symptoms);
   const started = Date.now();
-  // Low reasoning keeps each request's up-front cost reservation small (see analysePhoto).
-  const panel = await Promise.all(PANEL.map((model) => analysePhoto(model, image, { context, enhancedDataUrl: enhanced, reasoning: "low", timeoutMs: PANEL_TIMEOUT_MS }).then((call) => ({ model, call }))));
+  const panel = await Promise.all(PANEL.map((model) => analysePhoto(model, image, { context, enhancedDataUrl: enhanced, reasoning: "high", timeoutMs: PANEL_TIMEOUT_MS }).then((call) => ({ model, call }))));
   let answered = panel.filter((p) => p.call.analysis);
   const errors = panel.filter((p) => !p.call.analysis).map((p) => `${p.model}: ${p.call.error ?? "unreadable reply"}`);
   for (const model of FALLBACK) {
