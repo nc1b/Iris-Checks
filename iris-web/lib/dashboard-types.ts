@@ -27,7 +27,7 @@ export type ScanMetrics = {
   leftLitAmplitude?: number; // %
   rightLitAmplitude?: number; // %
   reflexBalance?: number; // 0-1, weaker eye / stronger eye
-  /** Cataract check (lens haze in the flash photo) */
+  /** Cataract check (lens haze: the pupil's grey as a share of the white of the eye) */
   hazeLeft?: number; // 0-1
   hazeRight?: number; // 0-1
   /** Capture quality */

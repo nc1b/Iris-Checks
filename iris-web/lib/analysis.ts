@@ -76,6 +76,8 @@ export type Analysis = {
 };
 
 const FPS = 30;
+/** Least pupil-to-iris contrast (0–255) between flashes for a trustworthy pupil size. */
+const MIN_REST_CONTRAST = 18;
 /** Below this many processed frames per second the reflex can't be timed reliably. */
 const MIN_FPS = 8;
 
@@ -86,12 +88,27 @@ function median(values: number[]) {
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 }
 
+/**
+ * Pupil size as a share of the iris, frame by frame. Each frame is compared with the iris size
+ * around that moment (the median of the nearest 15 frames), not one size for the whole
+ * recording: a hand-held phone drifts closer and further, which changes both sizes together.
+ * Frames without an iris size use the recording's median.
+ */
 function eyeRatios(samples: Sample[], eye: "left" | "right") {
-  const irisMedian = median(samples.map((s) => s[eye]?.irisPx ?? NaN));
-  return samples.map((s) => {
+  const iris = samples.map((s) => s[eye]?.irisPx ?? NaN);
+  const irisMedian = median(iris);
+  // Frames where the pupil hardly stood out compared with the rest of this recording (the dark
+  // frames right after a flash, while the camera's exposure catches up) are left out: there the
+  // edge drowns in noise and reads too small, which would exaggerate the reflex.
+  const contrastMedian = median(samples.map((s) => (s[eye] && Number.isFinite(s[eye]!.pupilPx) ? s[eye]!.contrast : NaN)));
+  return samples.map((s, i) => {
     const e = s[eye];
-    if (!s.open || !e || !Number.isFinite(e.pupilPx) || !Number.isFinite(irisMedian)) return NaN;
-    const r = e.pupilPx / irisMedian;
+    if (!s.open || !e || !Number.isFinite(e.pupilPx)) return NaN;
+    if (Number.isFinite(contrastMedian) && e.contrast < contrastMedian * 0.45) return NaN;
+    const local = median(iris.slice(Math.max(0, i - 7), i + 8));
+    const size = Number.isFinite(local) ? local : irisMedian;
+    if (!Number.isFinite(size)) return NaN;
+    const r = e.pupilPx / size;
     return r > 0.08 && r < 0.92 ? r : NaN;
   });
 }
@@ -142,19 +159,32 @@ function analyseStimulus(series: { t: number; r: number }[], s: Stimulus): Stimu
   for (const p of window) if (p.r < minP.r) minP = p;
   const amplitude = Math.max(0, ((baseline - minP.r) / baseline) * 100);
 
+  // The reaction's delay and speed need its start to have been seen: readings through most of
+  // the flash's first half second. In a washed-out flash frame the screen's reflection can hide
+  // a shrinking pupil; then the first smaller reading comes late, which would look like a slow
+  // reflex. The amplitude is still fine: the smallest size is reached after the flash too.
+  const early = series.filter((p) => p.t >= s.onset && p.t <= s.onset + 0.5).length;
+  const sawStart = early >= 0.5 * FPS * 0.6;
   let latency: number | null = null;
   const drop = baseline - minP.r;
-  if (drop > 0) {
+  if (drop > 0 && sawStart) {
     const start = window.find((p) => p.r < baseline - 0.1 * drop && p.t <= minP.t);
     if (start) latency = Math.max(0, start.t - s.onset);
   }
 
+  // Fastest shrinking: the steepest straight-line fit over 0.2 s windows (7 points at 30 per
+  // second). A slope between neighbouring points mostly measures frame-to-frame noise.
   let velocity: number | null = null;
-  const constricting = series.filter((p) => p.t >= s.onset && p.t <= minP.t);
-  for (let i = 1; i < constricting.length - 1; i++) {
-    const dt = constricting[i + 1].t - constricting[i - 1].t;
-    if (dt <= 0) continue;
-    const v = (-(constricting[i + 1].r - constricting[i - 1].r) / dt) * IRIS_DIAMETER_MM;
+  const constricting = sawStart ? series.filter((p) => p.t >= s.onset && p.t <= minP.t + 0.1) : [];
+  for (let i = 3; i < constricting.length - 3; i++) {
+    const w = constricting.slice(i - 3, i + 4);
+    if (w[w.length - 1].t - w[0].t > 0.3) continue; // a gap
+    const mt = w.reduce((a, p) => a + p.t, 0) / w.length;
+    const mr = w.reduce((a, p) => a + p.r, 0) / w.length;
+    const num = w.reduce((a, p) => a + (p.t - mt) * (p.r - mr), 0);
+    const den = w.reduce((a, p) => a + (p.t - mt) ** 2, 0);
+    if (den <= 0) continue;
+    const v = (-num / den) * IRIS_DIAMETER_MM;
     if (velocity === null || v > velocity) velocity = v;
   }
   if (velocity !== null) velocity = Math.max(0, velocity);
@@ -167,6 +197,21 @@ function analyseStimulus(series: { t: number; r: number }[], s: Stimulus): Stimu
   return { color: s.color, baseline, minimum: minP.r, amplitude, latency, velocity, recovery3s, pipr6s };
 }
 
+/**
+ * Drops single readings far from their neighbours (a lid edge or a reflection taken for the
+ * pupil for a frame): more than 3 robust spreads from the median of the 5 readings either side.
+ * A real pupil can't jump like that between frames; a real reflex moves the neighbours too.
+ */
+function dropOutliers(points: { t: number; r: number }[]) {
+  return points.filter((p, i) => {
+    const near = points.slice(Math.max(0, i - 5), i + 6).filter((q) => Math.abs(q.t - p.t) <= 0.35);
+    if (near.length < 5) return true;
+    const m = median(near.map((q) => q.r));
+    const spread = median(near.map((q) => Math.abs(q.r - m))) * 1.4826;
+    return Math.abs(p.r - m) <= 3 * spread + 0.01;
+  });
+}
+
 export function analyse(samples: Sample[], protocol: Protocol): Analysis {
   const left = eyeRatios(samples, "left");
   const right = eyeRatios(samples, "right");
@@ -176,7 +221,7 @@ export function analyse(samples: Sample[], protocol: Protocol): Analysis {
     if (vals.length) raw.push({ t: s.t, r: vals.reduce((a, b) => a + b, 0) / vals.length });
   });
 
-  const series = smooth(resample(raw, protocol.duration));
+  const series = smooth(resample(dropOutliers(raw), protocol.duration));
   const perStimulus = protocol.stimuli
     .map((s) => analyseStimulus(series, s))
     .filter((m): m is StimulusMetrics => m !== null);
@@ -203,11 +248,17 @@ export function analyse(samples: Sample[], protocol: Protocol): Analysis {
   const fps = samples.length / protocol.duration;
   const contrasts = samples.flatMap((s) => [s.left?.contrast, s.right?.contrast]).filter((c): c is number => c != null);
   const meanContrast = contrasts.length ? contrasts.reduce((a, b) => a + b, 0) / contrasts.length : 0;
+  // How clearly the pupil stood out between flashes (during a flash it always stands out more).
+  const between = (t: number) => !protocol.stimuli.some((st) => t >= st.onset && t < st.offset + 0.5);
+  const restContrast = median(samples.filter((s) => between(s.t)).flatMap((s) => [s.left?.contrast ?? NaN, s.right?.contrast ?? NaN]));
 
   const reasons: string[] = [];
   if (validFraction < 0.5) reasons.push("The pupil was only tracked in part of the recording (blinks, movement, or poor lighting).");
   if (fps < MIN_FPS) reasons.push("This phone processed too few frames to time the reflex. Close other apps and try again.");
-  if (meanContrast < 15) reasons.push("The pupil was hard to see against the iris. Turn your screen brightness all the way up, avoid a pitch-dark room, and hold the phone closer.");
+  // Below this the pupil's edge drowns in camera noise and its size can't be trusted (bench:
+  // very dark eyes in a dim room read the reflex 25% too big).
+  if (!(restContrast >= MIN_REST_CONTRAST))
+    reasons.push("The pupil was hard to see against the iris (common with dark eyes). Turn your screen brightness all the way up, use a brighter room (but not sunlight), and hold the phone closer.");
   if (!main) reasons.push("No clear response to the flash was recorded.");
   const ok = reasons.length === 0;
 

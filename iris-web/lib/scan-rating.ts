@@ -9,8 +9,12 @@ import { THRESHOLDS, rateMetric, rateReflexBalance, rateSizeDifference, type Eye
  * provisional; see lib/reference.ts.
  */
 
-/** Haze score in the flash photo: 0 = clear dark pupil, 1 = fully white. Team-set, provisional. */
-export const HAZE = { typical: 0.2, borderline: 0.35 };
+/**
+ * Haze: how grey the middle of the pupil is as a share of the white of the eye (lib/pupil-fit),
+ * 0 = black. A clear lens reads about 0.03. Team-set and provisional: the scale needs checking
+ * against eye-exam results.
+ */
+export const HAZE = { typical: 0.12, borderline: 0.2 };
 
 /** Below this share of usable frames, the recording is too patchy to rate. */
 export const MIN_VALID_FRACTION = 0.5;
@@ -59,10 +63,9 @@ export function rateGlaucoma(m: ScanMetrics): CheckStatus {
 }
 
 export function rateCataract(m: ScanMetrics): CheckStatus {
-  // Haze is only meaningful if the pupil was really tracked. A real scan with 0% tracking
-  // measured "haze" on skin beside the eye, read it as a clear lens and said "typical".
-  const tracked = m.validFraction === undefined || m.validFraction >= MIN_VALID_FRACTION;
-  const values = (tracked ? [m.hazeLeft, m.hazeRight] : []).filter((v): v is number => v !== undefined && Number.isFinite(v));
+  // Haze doesn't need the pupil tracked (a cloudy pupil often can't be): it's only measured on
+  // frames where the iris edge was found, so never on skin beside the eye (lib/pupil-fit).
+  const values = [m.hazeLeft, m.hazeRight].filter((v): v is number => v !== undefined && Number.isFinite(v));
   const haze: CheckStatus | null = values.length
     ? Math.max(...values) < HAZE.typical
       ? "typical"
@@ -71,7 +74,7 @@ export function rateCataract(m: ScanMetrics): CheckStatus {
         : "see_doctor"
     : null;
   // Photo match against the Iris database of eye photos: a match alone is "borderline";
-  // together with a hazy flash photo it becomes "see a doctor". A score just under the flag
+  // together with a hazy pupil it becomes "see a doctor". A score just under the flag
   // line (a real scan read 27% against 29%) is too close to call, so it says nothing.
   const t = PHOTO_THRESHOLDS.cataract;
   const photo: CheckStatus | null =

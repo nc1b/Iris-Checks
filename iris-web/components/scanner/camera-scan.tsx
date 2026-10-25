@@ -7,23 +7,30 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CHECK_VIEWS, StatusBadge } from "@/components/dashboard/status";
-import type { Sample, StimulusColor } from "@/lib/analysis";
+import type { StimulusColor } from "@/lib/analysis";
 import {
   CLOSE_UP,
   combineEyes,
   EYE_ORDER,
   EYE_PROTOCOL,
-  findGlint,
+  FLASH_DARK_TOP,
+  frameChecks,
   IMAGE_SIDE,
   LIGHT,
-  measureHaze,
+  LineUpHold,
+  MATCH_DISTANCE,
+  nextScreenLight,
   OTHER_EYE,
   PRECISION_CROP,
+  recordedIrisPx,
+  recordFrame,
   SCREEN_LIGHT,
+  Steadiness,
   type CameraScanResult,
   type EyeRecording,
   type ImageSide,
   type PersonEye,
+  type RecordingState,
 } from "@/lib/camera-scan";
 import { SCAN_STEPS } from "@/lib/checks";
 import {
@@ -34,10 +41,11 @@ import {
   type PhotoMatchResponse,
 } from "@/lib/eye-photo";
 import type { Scan, ScanMetrics } from "@/lib/dashboard-types";
-import { CROP_SPAN, eyeAspectRatio, LANDMARKS, measurePupil } from "@/lib/pupil";
+import { eyeAspectRatio, LANDMARKS } from "@/lib/pupil";
 import { IRIS_DIAMETER_MM } from "@/lib/reference";
 import { rateScan } from "@/lib/scan-rating";
-import { findIris, greyFrame, type IrisFound, type IrisGuess } from "@/lib/eye-search";
+import { greyFrame, type IrisGuess } from "@/lib/eye-search";
+import { EyeTracker, readEye, type EyeReading, type FaceEye, type FrameSource } from "@/lib/eye-tracker";
 import { cn } from "@/lib/utils";
 import { PhotoMatch, type PhotoState } from "./photo-match";
 
@@ -45,7 +53,6 @@ const MEDIAPIPE_VERSION = "1.1.1";
 const WASM_URL = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MEDIAPIPE_VERSION}/wasm`;
 const MODEL_URL = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
 
-const OPEN_EAR = 0.18; // eye aspect ratio above this = eye open
 const FAR_IRIS_PX = 11; // iris radius at arm's length, where the closeness meter starts
 const MANUAL_START_MS = 6000; // offer a manual start if cover detection doesn't settle
 const TRACK_WINDOW = 30; // frames used for the live tracking percentage
@@ -55,8 +62,6 @@ const TRACK_WINDOW = 30; // frames used for the live tracking percentage
 const RING = { x: 0.5, y: 0.22, radius: 0.18 };
 /** An eye that fills the ring has an iris about this share of the ring's radius. */
 const IRIS_IN_RING = 0.4;
-/** Keep following the last lock this long when the eye briefly can't be found (blinks). */
-const LOCK_MS = 1500;
 
 type Phase = "intro" | "loading" | "align" | "countdown" | "recording" | "results";
 
@@ -65,6 +70,10 @@ type Align = {
   /** Eye centre inside the on-screen target ring. */
   centered: boolean;
   distance: "far" | "close" | "ok" | null;
+  /** Lining up the second eye at the first eye's distance. */
+  matching: boolean;
+  /** Everything else is lined up but the pupil can't be made out: starting without it. */
+  pupilUnseen: boolean;
   closeness: number;
   open: boolean;
   sharp: boolean;
@@ -83,6 +92,8 @@ const EMPTY_ALIGN: Align = {
   found: false,
   centered: false,
   distance: null,
+  matching: false,
+  pupilUnseen: false,
   closeness: 0,
   open: false,
   sharp: false,
@@ -93,23 +104,6 @@ const EMPTY_ALIGN: Align = {
   hold: 0,
   light: null,
   screen: 0,
-};
-
-type EyeReading = {
-  /** Corner-to-corner width of the eye, in video pixels. */
-  eyeWidth: number;
-  cx: number;
-  cy: number;
-  irisR: number;
-  pupilR: number;
-  contrast: number;
-  coverage: number;
-  /** Iris brightness (0–255): how well lit the eye is. */
-  light: number;
-  ear: number;
-  crop: ImageData;
-  pupilCropPx: number;
-  glint: { x: number; y: number } | null;
 };
 
 const STIM_BG: Record<StimulusColor, string> = { white: "#ffffff", red: "#ff0000", blue: "#0000ff" };
@@ -143,12 +137,12 @@ export function CameraScan() {
   const lastTsRef = useRef(0);
   const phaseRef = useRef<Phase>("intro");
   const eyeRef = useRef<PersonEye>("right");
-  const goodFramesRef = useRef(0);
-  const prevCenterRef = useRef<{ x: number; y: number } | null>(null);
+  const holdRef = useRef(new LineUpHold());
+  const steadyRef = useRef(new Steadiness());
   const trackRef = useRef<boolean[]>([]);
   const pupilMmRef = useRef<number | null>(null);
-  // Where the iris was last found, so it can be followed without the face model.
-  const lockRef = useRef<(IrisFound & { at: number }) | null>(null);
+  // Follows the eye from frame to frame, also without the face model.
+  const trackerRef = useRef(new EyeTracker());
   const greyRef = useRef<HTMLCanvasElement | null>(null);
   // Frames in a row the other eye has looked visible (one stray frame shouldn't reset the hold).
   const otherSeenRef = useRef(0);
@@ -158,9 +152,11 @@ export function CameraScan() {
   const debugRef = useRef<HTMLCanvasElement>(null);
   // Screen light level (0–1). Set while lining up, then held steady through the recording.
   const screenRef = useRef(0);
+  // The first eye's size in the camera, which the second eye is matched to.
+  const firstEyeRef = useRef<{ irisR: number } | null>(null);
   const [screen, setScreen] = useState(0);
   const frameCountRef = useRef(0);
-  const recordingRef = useRef<{ start: number; eye: PersonEye; rec: EyeRecording; restPupilCropPx: number | null } | null>(null);
+  const recordingRef = useRef<RecordingState | null>(null);
   const recordingsRef = useRef<Record<PersonEye, EyeRecording | null>>({ right: null, left: null });
   const frameRef = useRef<() => void>(() => {});
   const timersRef = useRef<number[]>([]);
@@ -218,98 +214,28 @@ export function CameraScan() {
   // ---------- Measuring one eye in one frame ----------
 
   /** Measures the pupil in a close-up of the iris at (cx, cy, irisR). `lm` adds blink detection when the face model agrees. */
-  const readEye = useCallback((iris: IrisGuess, lm: { x: number; y: number }[] | null, side: ImageSide, vw: number, vh: number, withGlint = true): EyeReading | null => {
-    const video = videoRef.current;
-    if (!video) return null;
-    const L = LANDMARKS[side];
-    const { x: cx, y: cy, r: irisR } = iris;
-    if (!Number.isFinite(irisR) || irisR < 3) return null;
-    if (!cropRef.current) {
-      cropRef.current = document.createElement("canvas");
-      cropRef.current.width = PRECISION_CROP;
-      cropRef.current.height = PRECISION_CROP;
-    }
-    const ctx = cropRef.current.getContext("2d", { willReadFrequently: true });
-    if (!ctx) return null;
-    const half = irisR * CROP_SPAN;
-    ctx.drawImage(video, cx - half, cy - half, half * 2, half * 2, 0, 0, PRECISION_CROP, PRECISION_CROP);
-    const crop = ctx.getImageData(0, 0, PRECISION_CROP, PRECISION_CROP);
-    const reading = measurePupil(crop);
-    if (!reading) return null;
-    const scale = irisR / reading.irisPx; // crop px → video px
-    const glint = withGlint ? findGlint(crop, reading.irisPx) : null;
-    // Without the face model: an eye is about 2.6 iris diameters wide, and a pupil that can be
-    // measured means the eye is open.
-    const eyeWidth = lm ? Math.hypot((lm[L.inner].x - lm[L.outer].x) * vw, (lm[L.inner].y - lm[L.outer].y) * vh) : irisR * 5.2;
-    const pupilSeen = Number.isFinite(reading.pupilPx) && reading.contrast >= CLOSE_UP.minContrast;
+  /** The current camera frame, as lib/eye-tracker reads it. */
+  const frameSource = useCallback((video: HTMLVideoElement): FrameSource => {
+    cropRef.current ??= document.createElement("canvas");
+    greyRef.current ??= document.createElement("canvas");
+    const crop = cropRef.current;
+    const grey = greyRef.current;
     return {
-      eyeWidth,
-      cx,
-      cy,
-      irisR,
-      pupilR: reading.pupilPx * scale,
-      contrast: reading.contrast,
-      coverage: reading.coverage,
-      light: reading.irisLevel,
-      ear: lm ? eyeAspectRatio(lm, L.upper, L.lower, L.inner, L.outer, vw / vh) : pupilSeen ? 0.3 : 0,
-      crop,
-      pupilCropPx: reading.pupilPx,
-      glint: glint && { x: cx + (glint.x - PRECISION_CROP / 2) * scale, y: cy + (glint.y - PRECISION_CROP / 2) * scale },
+      width: video.videoWidth,
+      height: video.videoHeight,
+      grey: () => greyFrame(video, grey),
+      crop: (cx, cy, half, size) => {
+        if (crop.width !== size || crop.height !== size) {
+          crop.width = size;
+          crop.height = size;
+        }
+        const ctx = crop.getContext("2d", { willReadFrequently: true });
+        if (!ctx) return null;
+        ctx.drawImage(video, cx - half, cy - half, half * 2, half * 2, 0, 0, size, size);
+        return ctx.getImageData(0, 0, size, size);
+      },
     };
   }, []);
-
-  /** The face model's iris for one side, in video pixels. */
-  const landmarkIris = (lm: { x: number; y: number }[], side: ImageSide, vw: number, vh: number): IrisGuess => {
-    const L = LANDMARKS[side];
-    const c = lm[L.irisCenter];
-    const r = L.iris.reduce((s, i) => s + Math.hypot((lm[i].x - c.x) * vw, (lm[i].y - c.y) * vh), 0) / L.iris.length;
-    return { x: c.x * vw, y: c.y * vh, r };
-  };
-
-  /**
-   * Finds the target eye's iris: near the face model's guess, near the last lock, or, with
-   * neither, inside the on-screen ring. Close up the face model often misses the face or puts
-   * the eye beside the real one, so its guess is only a starting point.
-   */
-  const locateEye = useCallback(
-    (lm: { x: number; y: number }[] | null, side: ImageSide, vw: number, vh: number, ts: number, recording: boolean): EyeReading | null => {
-      const video = videoRef.current;
-      if (!video) return null;
-      greyRef.current ??= document.createElement("canvas");
-      const grey = greyFrame(video, greyRef.current);
-      const model = lm ? landmarkIris(lm, side, vw, vh) : null;
-      const last = lockRef.current && ts - lockRef.current.at < LOCK_MS ? lockRef.current : null;
-      const searches: { guess: IrisGuess; reach: number; radii?: number[] }[] = [];
-      if (model && model.r >= 3) searches.push({ guess: model, reach: model.r * 1.5 });
-      if (last) searches.push({ guess: last, reach: last.r * (recording ? 0.6 : 1.2) });
-      if (!searches.length) {
-        const view = overlayRef.current;
-        const sw = view?.clientWidth || vw;
-        const sh = view?.clientHeight || vh;
-        const scale = Math.max(sw / vw, sh / vh);
-        const ringR = (sw * RING.radius) / scale;
-        searches.push({
-          guess: { x: vw / 2 - (sw * RING.x - sw / 2) / scale, y: vh / 2 + (sh * RING.y - sh / 2) / scale, r: ringR * IRIS_IN_RING },
-          reach: ringR,
-          radii: [0.5, 0.7, 0.9, 1.1, 1.4, 1.8],
-        });
-      }
-      let found: IrisFound | null = null;
-      if (grey) {
-        for (const s of searches) {
-          const f = findIris(grey, s.guess, s.reach, s.radii);
-          if (f && (!found || f.score > found.score)) found = f;
-        }
-      }
-      if (!found && model && model.r >= 3) found = { ...model, score: 0 };
-      if (!found) return null;
-      lockRef.current = { ...found, at: ts };
-      // Use the face model for blinks only when it points at the same eye.
-      const agrees = !!model && Math.hypot(model.x - found.x, model.y - found.y) < found.r * 0.8;
-      return readEye(found, agrees ? lm : null, side, vw, vh, !recording);
-    },
-    [readEye],
-  );
 
   // Rings on the iris and pupil, a crosshair on the centre, and a dot on the screen's reflection.
   const drawOverlay = useCallback((target: EyeReading | null, other: EyeReading | null, locked: boolean, vw: number, vh: number) => {
@@ -375,9 +301,9 @@ export function CameraScan() {
   const enterAlign = useCallback(
     (next: PersonEye) => {
       clearTimers();
-      goodFramesRef.current = 0;
-      prevCenterRef.current = null;
-      lockRef.current = null;
+      holdRef.current.reset();
+      steadyRef.current.reset();
+      trackerRef.current.reset();
       otherSeenRef.current = 0;
       trackRef.current = [];
       pupilMmRef.current = null;
@@ -434,7 +360,11 @@ export function CameraScan() {
     recordingRef.current = null;
     setFlash(null);
     if (!current) return;
+    current.rec.screen = screenRef.current;
     recordingsRef.current[current.eye] = current.rec;
+    // The second eye is lined up at the same distance, so both get the same flash.
+    const size = recordedIrisPx(current.rec, IMAGE_SIDE[current.eye]);
+    if (current.eye === EYE_ORDER[0]) firstEyeRef.current = size === null ? null : { irisR: size };
     const next = EYE_ORDER[EYE_ORDER.indexOf(current.eye) + 1];
     if (next) {
       enterAlign(next);
@@ -459,7 +389,7 @@ export function CameraScan() {
     [2, 1].forEach((n, i) => timersRef.current.push(window.setTimeout(() => setCountdown(n), (i + 1) * 1000)));
     timersRef.current.push(
       window.setTimeout(() => {
-        recordingRef.current = { start: performance.now(), eye: eyeRef.current, rec: { samples: [], haze: [] }, restPupilCropPx: null };
+        recordingRef.current = { start: performance.now(), eye: eyeRef.current, rec: { samples: [], haze: [] } };
         setProgress(0);
         phaseRef.current = "recording";
         setPhase("recording");
@@ -483,8 +413,18 @@ export function CameraScan() {
       const targetEye = recordingRef.current?.eye ?? eyeRef.current;
       const targetSide = IMAGE_SIDE[targetEye];
       const has = !!lm && lm.length >= 478;
-      // During a recording, skip the glint search to keep the frame rate up.
-      const target = current === "recording" || current === "align" ? locateEye(has ? lm : null, targetSide, vw, vh, ts, current === "recording") : null;
+      const src = frameSource(video);
+      // Tracked through the countdown too, so the lock is fresh when the recording starts.
+      const target =
+        current === "recording" || current === "align" || current === "countdown"
+          ? trackerRef.current.track(src, {
+              model: has ? landmarkIris(lm, targetSide, vw, vh) : null,
+              face: has ? faceEye(lm, targetSide, vw, vh) : null,
+              ring: ringSearch(vw, vh, overlayRef.current),
+              ts,
+              recording: current !== "align",
+            })
+          : null;
 
       const rec = recordingRef.current;
       if (current === "recording" && rec) {
@@ -492,31 +432,17 @@ export function CameraScan() {
         const stim = EYE_PROTOCOL.stimuli.find((s) => t >= s.onset && t < s.offset);
         setFlash(stim ? stim.color : null);
         setProgress(Math.min(1, t / EYE_PROTOCOL.duration));
-        const open = (target?.ear ?? 0) > OPEN_EAR;
-        const sample: Sample = { t, open };
-        if (target && Number.isFinite(target.pupilR)) sample[targetSide] = { pupilPx: target.pupilR, irisPx: target.irisR, contrast: target.contrast };
-        if (target && open) sample.light = target.light;
-        rec.rec.samples.push(sample);
-        // Resting pupil size (crop pixels), for the haze check when the flash hides the pupil edge.
-        if (!stim && target && Number.isFinite(target.pupilCropPx) && target.contrast >= CLOSE_UP.minContrast) {
-          rec.restPupilCropPx = rec.restPupilCropPx === null ? target.pupilCropPx : rec.restPupilCropPx * 0.8 + target.pupilCropPx * 0.2;
-        }
-        // Flash photos for the cataract check, once the camera has adjusted to the flash. The pupil
-        // only shrinks under the flash, so 60% of its resting size stays inside it.
-        if (stim && t >= stim.onset + 0.35 && target && open) {
-          const radius = Number.isFinite(target.pupilCropPx) ? target.pupilCropPx : rec.restPupilCropPx !== null ? rec.restPupilCropPx * 0.6 : NaN;
-          const haze = measureHaze(target.crop, radius);
-          if (haze !== null) rec.rec.haze.push(haze);
-        }
+        recordFrame(rec, t, target, targetSide);
         if (t >= EYE_PROTOCOL.duration) finishEye();
       } else if (current === "align") {
         const otherSide = IMAGE_SIDE[OTHER_EYE[targetEye]];
-        const other = has ? readEye(landmarkIris(lm, otherSide, vw, vh), lm, otherSide, vw, vh, false) : null;
-        const prev = prevCenterRef.current;
-        const jitter = target && prev ? Math.hypot(target.cx - prev.x, target.cy - prev.y) / target.irisR : 1;
-        prevCenterRef.current = target ? { x: target.cx, y: target.cy } : null;
-
-        const sharp = !!target && Number.isFinite(target.pupilR) && target.contrast >= CLOSE_UP.minContrast && target.coverage >= CLOSE_UP.minCoverage;
+        const other = has ? readEye(src, landmarkIris(lm, otherSide, vw, vh), faceEye(lm, otherSide, vw, vh), false) : null;
+        // The second eye: same distance and same screen light as the first.
+        const second = targetEye !== EYE_ORDER[0];
+        const match = second ? (firstEyeRef.current?.irisR ?? null) : null;
+        const checks = frameChecks(target, match);
+        const steady = steadyRef.current.update(ts / 1000, target);
+        const { sharp } = checks;
         // The other eye counts as visible only if it really looks like an open eye with a pupil.
         const otherVisible = !!other && other.ear >= 0.15 && Number.isFinite(other.pupilR) && other.contrast >= CLOSE_UP.minContrast && other.coverage >= CLOSE_UP.minCoverage;
         otherSeenRef.current = otherVisible ? otherSeenRef.current + 1 : 0;
@@ -530,39 +456,41 @@ export function CameraScan() {
         // Light the eye with the screen when the camera sees it too dark, and back off when it's bright.
         // With no eye found at all the room may simply be too dark, so the light comes up too.
         const lightLevel = target?.light ?? null;
-        const s0 = screenRef.current;
-        if (lightLevel === null || lightLevel < LIGHT.target) screenRef.current = Math.min(SCREEN_LIGHT.max, s0 + SCREEN_LIGHT.step);
-        else if (lightLevel > LIGHT.target * 1.8) screenRef.current = Math.max(0, s0 - SCREEN_LIGHT.step);
+        screenRef.current = nextScreenLight(screenRef.current, lightLevel, second);
 
         const irisR = target?.irisR ?? 0;
+        const nearEnough = match ? match * (1 - MATCH_DISTANCE) : CLOSE_UP.minIrisPx;
         const next: Align = {
           found: !!target,
           centered: !!target && inRing(target, vw, vh, overlayRef.current),
-          distance: !target ? null : irisR < CLOSE_UP.minIrisPx ? "far" : irisR > CLOSE_UP.maxIrisPx ? "close" : "ok",
-          closeness: Math.min(1, Math.max(0, (irisR - FAR_IRIS_PX) / (CLOSE_UP.minIrisPx - FAR_IRIS_PX))),
-          open: (target?.ear ?? 0) > OPEN_EAR,
+          distance: checks.distance,
+          matching: match !== null,
+          pupilUnseen: false,
+          closeness: Math.min(1, Math.max(0, (irisR - FAR_IRIS_PX) / (nearEnough - FAR_IRIS_PX))),
+          open: checks.open,
           sharp,
           // The other eye must be hidden: behind a hand, closed, or out of frame.
           covered: otherSeenRef.current < CLOSE_UP.uncoveredFrames,
-          steady: jitter <= CLOSE_UP.maxJitter,
+          steady,
           pupilMm: pupilMmRef.current,
           tracking: trackRef.current.filter(Boolean).length / Math.max(1, trackRef.current.length),
           hold: 0,
           light: lightLevel === null ? null : lightLevel < LIGHT.dark ? "dark" : lightLevel > LIGHT.bright ? "bright" : "ok",
           screen: screenRef.current,
         };
-        const good = next.found && next.centered && next.distance === "ok" && next.open && next.sharp && next.steady && next.covered;
-        // Keep the sharpest framed close-up of this eye (checked at most 5 times a second).
-        if (target && next.centered && next.distance === "ok" && next.open && next.sharp && next.steady) {
-          const score = target.contrast * target.coverage;
+        const good = holdRef.current.update(ts / 1000, next);
+        next.pupilUnseen = holdRef.current.pupilUnseen();
+        // Keep the sharpest framed close-up of this eye (checked at most 5 times a second). A pupil
+        // too cloudy to make out still gets its photo: that's the eye the photo match matters most for.
+        if (target && next.centered && next.distance === "ok" && next.open && (next.sharp || next.pupilUnseen) && next.steady) {
+          const score = next.sharp ? target.contrast * target.coverage : 1;
           const kept = eyePhotosRef.current[targetEye];
           if ((!kept || score > kept.score) && ts - (kept?.at ?? 0) > 200) {
             const canvas = captureEyePhoto(video, target.cx, target.cy, target.eyeWidth * 1.1);
             if (canvas) eyePhotosRef.current[targetEye] = { canvas, score, at: ts };
           }
         }
-        goodFramesRef.current = good ? goodFramesRef.current + 1 : Math.max(0, goodFramesRef.current - 3);
-        next.hold = Math.min(1, goodFramesRef.current / CLOSE_UP.holdFrames);
+        next.hold = Math.min(1, holdRef.current.frames / CLOSE_UP.holdFrames);
         drawOverlay(target, other, good, vw, vh);
         if (debug && frameCountRef.current % 2 === 0) drawDebug(debugRef.current, target);
         // Refresh the panel every few frames so the numbers are readable.
@@ -570,11 +498,11 @@ export function CameraScan() {
           setAlign(next);
           setScreen(screenRef.current);
         }
-        if (goodFramesRef.current >= CLOSE_UP.holdFrames) startCountdown();
+        if (holdRef.current.done) startCountdown();
       }
     }
     loopRef.current = requestAnimationFrame(() => frameRef.current());
-  }, [align.hold, debug, drawOverlay, finishEye, locateEye, readEye, startCountdown]);
+  }, [align.hold, debug, drawOverlay, finishEye, frameSource, startCountdown]);
 
   useEffect(() => {
     frameRef.current = frame;
@@ -585,6 +513,7 @@ export function CameraScan() {
     setPhase("loading");
     recordingsRef.current = { right: null, left: null };
     eyePhotosRef.current = { right: null, left: null };
+    firstEyeRef.current = null;
     screenRef.current = 0;
     setScreen(0);
     setPhoto({ status: "none" });
@@ -734,14 +663,18 @@ export function CameraScan() {
           {phase === "align" && (
             <BottomSheet
               eyebrow={`${cap(eye)} eye · ${EYE_ORDER.indexOf(eye) + 1} of 2`}
-              title={align.distance === "ok" ? `Hold still on your ${eye} eye` : `Get close to your ${eye} eye`}
-              body={`Cover your ${other} eye with your hand. Bring the phone about 15 cm (6 in) from your ${eye} eye, until it fills the ring.`}
+              title={align.distance === "ok" ? `Hold still on your ${eye} eye` : align.matching ? `Same distance as your ${other} eye` : `Get close to your ${eye} eye`}
+              body={
+                align.matching
+                  ? `Cover your ${other} eye with your hand. Hold the phone as close to your ${eye} eye as it was to your ${other} eye, so both get the same flash.`
+                  : `Cover your ${other} eye with your hand. Bring the phone about 15 cm (6 in) from your ${eye} eye, until it fills the ring.`
+              }
               icon={<Hand className="size-5" />}
             >
               <div>
                 <div className="flex justify-between text-[11px] text-white/60">
                   <span>{align.distance === "close" ? "Too close, move back a little" : "Closer"}</span>
-                  <span>Close enough</span>
+                  <span>{align.matching ? "Same distance" : "Close enough"}</span>
                 </div>
                 <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/15">
                   <div className={cn("h-full rounded-full transition-all", align.distance === "ok" ? "bg-emerald-300" : "bg-white/70")} style={{ width: `${align.closeness * 100}%` }} />
@@ -749,8 +682,8 @@ export function CameraScan() {
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <Chip ok={align.found && align.centered} label={align.found ? `${cap(eye)} eye in the ring` : `Looking for your ${eye} eye`} />
-                <Chip ok={align.distance === "ok"} label={align.distance === "close" ? "Move back a little" : "Close enough"} />
-                <Chip ok={align.sharp} label={pupilLabel(align)} />
+                <Chip ok={align.distance === "ok"} label={align.distance === "close" ? "Move back a little" : align.matching ? (align.distance === "far" ? "A little closer" : "Same distance") : "Close enough"} />
+                <Chip ok={align.sharp || align.pupilUnseen} label={pupilLabel(align)} />
                 <Chip ok={align.open} label="Eye open" />
                 <Chip ok={align.covered} label={`${cap(other)} eye covered`} />
                 <Chip ok={align.steady} label="Steady" />
@@ -776,11 +709,15 @@ export function CameraScan() {
           )}
 
           {(phase === "countdown" || phase === "recording") && (
-            <div className="fixed inset-0 z-50 flex flex-col items-center" style={{ background: flash ? STIM_BG[flash] : "#000" }}>
+            <div
+              className="fixed inset-0 z-50 flex flex-col items-center"
+              // The top of the screen, by the camera, stays black (no red-eye; see FLASH_DARK_TOP).
+              style={{ background: flash ? `linear-gradient(#000 ${FLASH_DARK_TOP * 100}%, ${STIM_BG[flash]} ${FLASH_DARK_TOP * 100}%)` : "#000" }}
+            >
               {/* The same screen light as while lining up, so the only change in light is the flash. */}
               {!flash && <ScreenLight level={screen} />}
               {/* Keep the eye near the camera: the dot sits at the top of the screen. */}
-              <div className={cn("mt-[10vh] size-3 rounded-full transition-colors", flash ? "bg-black/70" : "bg-white/80")} />
+              <div className="mt-[10vh] size-3 rounded-full bg-white/80" />
               {phase === "countdown" ? (
                 <div className="mb-auto mt-auto text-center">
                   <p className="text-xs font-medium uppercase tracking-widest text-white/60">{cap(eye)} eye</p>
@@ -804,30 +741,58 @@ export function CameraScan() {
   );
 }
 
-/** Debug view: the iris close-up the pupil is measured on, with the iris (white) and pupil (green) found. */
-function drawDebug(canvas: HTMLCanvasElement | null, target: { crop: ImageData; pupilCropPx: number; contrast: number; coverage: number; light: number } | null) {
+/** Debug view: the close-up the eye is measured on, with the fitted iris (white) and pupil (green). */
+function drawDebug(canvas: HTMLCanvasElement | null, target: EyeReading | null) {
   const ctx = canvas?.getContext("2d");
   if (!canvas || !ctx) return;
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   if (!target) return;
   ctx.putImageData(target.crop, 0, 0);
-  const c = PRECISION_CROP / 2;
-  ctx.lineWidth = 1.5;
-  ctx.strokeStyle = "rgba(255,255,255,0.8)";
-  ctx.beginPath();
-  ctx.arc(c, c, c / CROP_SPAN, 0, Math.PI * 2);
-  ctx.stroke();
-  if (Number.isFinite(target.pupilCropPx)) {
-    ctx.strokeStyle = "#86efac";
+  const ring = (c: { x: number; y: number; r: number }, color: string) => {
+    ctx.strokeStyle = color;
     ctx.beginPath();
-    ctx.arc(c, c, target.pupilCropPx, 0, Math.PI * 2);
+    ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
     ctx.stroke();
-  }
+  };
+  ctx.lineWidth = 1.5;
+  ring(target.cropIris, target.irisFitted ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.35)");
+  if (target.cropPupil) ring(target.cropPupil, "#86efac");
   ctx.fillStyle = "#fff";
   ctx.font = "12px monospace";
-  const ratio = Number.isFinite(target.pupilCropPx) ? (target.pupilCropPx / (c / CROP_SPAN)).toFixed(2) : "–";
-  ctx.fillText(`p/i ${ratio}  con ${target.contrast.toFixed(0)}  cov ${target.coverage.toFixed(2)}  lt ${target.light.toFixed(0)}`, 4, PRECISION_CROP + 18);
+  const ratio = target.cropPupil ? (target.cropPupil.r / target.cropIris.r).toFixed(2) : "–";
+  const haze = target.haze === null ? "–" : target.haze.toFixed(2);
+  ctx.fillText(`p/i ${ratio} con ${target.contrast.toFixed(0)} cov ${target.coverage.toFixed(2)} lt ${target.light.toFixed(0)} hz ${haze}`, 4, PRECISION_CROP + 18);
+}
+
+/** The face model's iris for one side, in video pixels. */
+function landmarkIris(lm: { x: number; y: number }[], side: ImageSide, vw: number, vh: number): IrisGuess {
+  const L = LANDMARKS[side];
+  const c = lm[L.irisCenter];
+  const r = L.iris.reduce((s, i) => s + Math.hypot((lm[i].x - c.x) * vw, (lm[i].y - c.y) * vh), 0) / L.iris.length;
+  return { x: c.x * vw, y: c.y * vh, r };
+}
+
+/** Eye width and openness from the face model, for one side. */
+function faceEye(lm: { x: number; y: number }[], side: ImageSide, vw: number, vh: number): FaceEye {
+  const L = LANDMARKS[side];
+  return {
+    eyeWidth: Math.hypot((lm[L.inner].x - lm[L.outer].x) * vw, (lm[L.inner].y - lm[L.outer].y) * vh),
+    ear: eyeAspectRatio(lm, L.upper, L.lower, L.inner, L.outer, vw / vh),
+  };
+}
+
+/** Where to look for the eye when nothing else is known: inside the on-screen ring, in camera pixels. */
+function ringSearch(vw: number, vh: number, view: HTMLElement | null) {
+  const sw = view?.clientWidth || vw;
+  const sh = view?.clientHeight || vh;
+  const scale = Math.max(sw / vw, sh / vh);
+  const ringR = (sw * RING.radius) / scale;
+  return {
+    guess: { x: vw / 2 - (sw * RING.x - sw / 2) / scale, y: vh / 2 + (sh * RING.y - sh / 2) / scale, r: ringR * IRIS_IN_RING },
+    reach: ringR,
+    radii: [0.5, 0.7, 0.9, 1.1, 1.4, 1.8],
+  };
 }
 
 /**
@@ -858,14 +823,15 @@ async function sharpenCamera(track: MediaStreamTrack | undefined) {
   }
 }
 
-/** The white frame around the screen that lights the eye. */
+/** The white frame along the sides and bottom of the screen that lights the eye. */
 function ScreenLight({ level }: { level: number }) {
   if (level <= 0) return null;
   return (
     <div
       aria-hidden
       className="pointer-events-none absolute inset-0"
-      style={{ boxShadow: `inset 0 0 0 ${SCREEN_LIGHT.frame} rgba(255,255,255,${level.toFixed(3)})` }}
+      // Sides and bottom only: no light next to the camera (see SCREEN_LIGHT).
+      style={{ borderStyle: "solid", borderColor: `rgba(255,255,255,${level.toFixed(3)})`, borderWidth: `0 ${SCREEN_LIGHT.frame} ${SCREEN_LIGHT.frame}` }}
     />
   );
 }
@@ -873,6 +839,7 @@ function ScreenLight({ level }: { level: number }) {
 /** The pupil chip: says what's wrong with the light before blaming the focus. */
 function pupilLabel(align: Align) {
   if (align.sharp) return "Pupil sharp";
+  if (align.pupilUnseen) return "Pupil hard to see, going ahead";
   if (align.light === "bright") return "Too bright, dim the room";
   if (align.light === "dark" || (align.light === null && align.screen > 0))
     return align.screen >= SCREEN_LIGHT.max ? "Too dark, add soft light" : "Lighting your eye…";
@@ -939,8 +906,8 @@ function Intro({
       </h1>
       <p className="mt-2 text-muted-foreground">About 30 seconds, one eye at a time. Your screen flashes once for each eye, then you get your three results.</p>
       <p className="mt-3 rounded-2xl border p-3 text-sm text-muted-foreground">
-        Measuring the pupil with an ordinary phone camera is unreliable, especially with dark eyes, so many results come back &quot;unclear&quot;. For a
-        description of how the eye looks, use the{" "}
+        Measuring the pupil with an ordinary phone camera is hard, especially with dark eyes. When Iris can&apos;t measure clearly, it says
+        &quot;unclear&quot; rather than guess. For a description of how the eye looks, use the{" "}
         <Link href="/dashboard/eye-check" className="font-medium text-foreground underline underline-offset-4">
           eye photo check
         </Link>{" "}

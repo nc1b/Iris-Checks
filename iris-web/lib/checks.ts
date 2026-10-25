@@ -53,9 +53,9 @@ export const CHECKS: Check[] = [
     name: "Cataracts",
     icon: ScanEye,
     signal: "Lens cloudiness",
-    measures: "Whether the pupil looks hazy, gray or patchy in the flash photo instead of clear and dark.",
+    measures: "Whether the pupil looks hazy or gray in the close-up instead of clear and dark.",
     why: "Cataracts are very common with age and the leading cause of blindness worldwide, and surgery can fix them.",
-    evidence: "Several phone + AI studies matched eye doctors about 90% of the time, mostly with controlled lighting. Iris would reuse the same flash photos.",
+    evidence: "Several phone + AI studies matched eye doctors about 90% of the time, mostly with controlled lighting. Iris reuses the same close-ups as the other two checks.",
     stage: "Best studied",
     limits: "Works best for advanced cataracts; glare and lighting can look like haze, and early ones may be missed.",
     nextStep: "An eye exam",
@@ -66,7 +66,7 @@ export const CHECKS: Check[] = [
 /** The planned scan, in order (also shown on the app preview). */
 export const SCAN_STEPS = [
   { title: "Get close", body: "Soft light, screen brightness up. Cover one eye and bring the phone close to the other.", icon: ScanEye },
-  { title: "Right eye, one flash", body: "Iris locks onto your pupil, records its reflex and takes flash photos.", icon: Activity },
+  { title: "Right eye, one flash", body: "Iris locks onto your eye and records how your pupil reacts to the flash.", icon: Activity },
   { title: "Left eye, one flash", body: "The same for your other eye, so the two can be compared.", icon: Eye },
   { title: "Three results", body: "Each check says “looks typical” or “see a doctor”, in plain words.", icon: Droplet },
 ] as const;

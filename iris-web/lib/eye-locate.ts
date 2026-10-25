@@ -2,9 +2,11 @@ import type { FaceLandmarker } from "@mediapipe/tasks-vision";
 import { findGlint, measureHaze, PRECISION_CROP } from "@/lib/camera-scan";
 import { enhanceEyePhoto } from "@/lib/eye-enhance";
 import type { IrisGuess } from "@/lib/eye-search";
+import { SCAN_CROP_SPAN } from "@/lib/eye-tracker";
 import { findEyeCircles, findLimbus, toGrey, type Circle } from "@/lib/limbus";
 import { measureQuality } from "@/lib/photo-quality";
 import { CROP_SPAN, eyeAspectRatio, LANDMARKS, measurePupil } from "@/lib/pupil";
+import { fitEye } from "@/lib/pupil-fit";
 import { IRIS_DIAMETER_MM } from "@/lib/reference";
 
 /**
@@ -232,6 +234,22 @@ export function measureEye(source: Source, opts: FindOptions = {}): EyeMeasure |
       }
     }
   }
+  // No edge found that way (common with dark brown eyes): try the camera scan's circle fit
+  // (lib/pupil-fit), which also copes with reflections over the pupil. Size only; the darkness
+  // above stays as measured, since its bands were set on that measurement.
+  let fittedPupilR: number | null = null;
+  if (!pupilFound) {
+    const wide = document.createElement("canvas");
+    wide.width = wide.height = PRECISION_CROP;
+    const wctx = wide.getContext("2d", { willReadFrequently: true });
+    const wideHalf = r * SCAN_CROP_SPAN;
+    if (wctx) {
+      wctx.drawImage(source, cx - wideHalf, cy - wideHalf, wideHalf * 2, wideHalf * 2, 0, 0, PRECISION_CROP, PRECISION_CROP);
+      const mid = PRECISION_CROP / 2;
+      const fit = fitEye(wctx.getImageData(0, 0, PRECISION_CROP, PRECISION_CROP), { x: mid, y: mid, r: mid / SCAN_CROP_SPAN });
+      if (fit.pupil && fit.polarity === 1 && fit.coverage >= 0.5) fittedPupilR = fit.pupil.r * ((wideHalf * 2) / PRECISION_CROP);
+    }
+  }
   const glint = reading ? findGlint(pixels, reading.irisPx) : null;
   const sharpness = measureQuality(pixels.data, PRECISION_CROP, PRECISION_CROP).sharpness;
 
@@ -262,8 +280,12 @@ export function measureEye(source: Source, opts: FindOptions = {}): EyeMeasure |
 
   return {
     ...eye,
-    pupilR: pupilFound ? reading!.pupilPx * toSource : null,
-    pupilMm: pupilFound ? Math.round(((reading!.pupilPx * toSource) / r) * IRIS_DIAMETER_MM * 10) / 10 : null,
+    pupilR: pupilFound ? reading!.pupilPx * toSource : fittedPupilR,
+    pupilMm: pupilFound
+      ? Math.round(((reading!.pupilPx * toSource) / r) * IRIS_DIAMETER_MM * 10) / 10
+      : fittedPupilR !== null
+        ? Math.round((fittedPupilR / r) * IRIS_DIAMETER_MM * 10) / 10
+        : null,
     pupilDarkness: haze === null || dark ? null : Math.round(haze * 100),
     contrast: reading?.contrast ?? 0,
     glint: glint && { x: cx + (glint.x - PRECISION_CROP / 2) * toSource, y: cy + (glint.y - PRECISION_CROP / 2) * toSource },
