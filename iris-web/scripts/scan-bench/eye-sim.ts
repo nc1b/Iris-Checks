@@ -2,23 +2,9 @@ import type { GreyFrame } from "@/lib/eye-search";
 import { SEARCH_WIDTH } from "@/lib/eye-search";
 import type { FrameSource } from "@/lib/eye-tracker";
 
-/**
- * A simulated phone front camera looking at one eye from about 15 cm, for the scan test bench.
- *
- * The eye is drawn from a model in millimetres: skin, eyebrow, eyelids and lashes, the white of
- * the eye, a textured iris (11.7 mm across) and a pupil whose size follows a light reflex with
- * known amplitude, delay and speed. A cataract adds haze to the pupil. The phone screen reflects
- * on the cornea where a real screen would (a tall band below the pupil's centre: see README).
- * The camera adds auto-exposure that lags behind the flash, sensor noise that grows in the dark,
- * defocus blur, hand tremor and blinks.
- *
- * Every frame is reproducible from its seed and time, so a failing case can be looked at again.
- */
-
 export type Rgb = [number, number, number];
 export type Eye = "left" | "right";
 
-/** Iris colours (as the camera sees them in good light, where the white of the eye is ~205). */
 export const IRIS_COLOURS = {
   "dark-brown": [50, 33, 25] as Rgb,
   brown: [86, 55, 36] as Rgb,
@@ -35,74 +21,50 @@ export type Person = {
   iris: Rgb;
   skin: Rgb;
   sclera: Rgb;
-  /** Iris texture contrast (0–0.5). */
   texture: number;
-  /** Pupil diameter before the flash, in the scan's light (mm). */
   restMm: number;
-  /** Share of the diameter lost when this eye is lit with the standard flash. Lower in one eye = a relative afferent defect. */
   amp: Record<Eye, number>;
-  /** Reflex delay (s), constriction and recovery time constants (s). */
   latency: number;
   tauC: number;
   tauR: number;
-  /** Lens haze, 0 = clear, 1 = dense white cataract. */
   haze: Record<Eye, number>;
-  /** Pupil centre offset from the iris centre (mm). */
   pupilOffset: [number, number];
-  /** Where the eyelid edges cross the iris centre line (mm above / below the centre). */
   lidUpper: number;
   lidLower: number;
-  /** A room light reflected on the cornea, relative to the iris centre (mm), or null. */
   windowGlint: [number, number] | null;
   seed: number;
 };
 
 export type Conditions = {
-  /** Camera frame size (portrait phone). */
   frameW: number;
   frameH: number;
   fps: number;
-  /** Frame pixels per mm on the eye (iris radius = 5.85 × this). */
   pxPerMm: number;
-  /** Sensor noise (8-bit standard deviation) at normal exposure. */
   noise: number;
-  /** Defocus: width of a blurred edge (mm). */
   blurMm: number;
-  /** Room light on the eye, relative to normal indoor light. */
   ambient: number;
-  /** Light the white screen adds at 15 cm, relative to normal indoor light (screen brightness). */
   flashGain: number;
-  /** Auto-exposure time constant (s). */
   aeTau: number;
-  /** Hand tremor amplitude and slow drift (frame px). */
   tremorPx: number;
   driftPx: number;
-  /** Expected blinks per recording, and the chance of blinking at the flash. */
   blinks: number;
   flashBlink: number;
 };
 
-/** What the scene looks like at one moment. */
 export type EyeState = {
   t: number;
   frame: number;
-  /** Iris centre in frame pixels, and pixels per mm. */
   cx: number;
   cy: number;
   ppm: number;
   pupilMm: number;
-  /** 0 = open, 1 = closed. */
   blink: number;
-  /** Light on the eye and the camera's exposure gain. */
   light: number;
   gain: number;
   flash: boolean;
-  /** The screen's light frame around the camera view (0–1). */
   frameLight: number;
   haze: number;
 };
-
-// ---------- Small helpers ----------
 
 function hash(a: number, b: number, c: number) {
   let h = Math.imul(a | 0, 374761393) ^ Math.imul(b | 0, 668265263) ^ Math.imul(c | 0, 1274126177);
@@ -111,7 +73,6 @@ function hash(a: number, b: number, c: number) {
   return (h >>> 0) / 4294967296;
 }
 
-/** About normal (mean 0, sd 1), from three hashes. */
 function gauss(a: number, b: number, c: number) {
   return (hash(a, b, c) + hash(a + 7919, b, c) + hash(a, b + 104729, c) - 1.5) * 2;
 }
@@ -130,7 +91,6 @@ function valueNoise(x: number, y: number, seed: number) {
   return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
 }
 
-/** 0 below `edge - w`, 1 above `edge + w`, smooth in between. */
 function step(edge: number, w: number, x: number) {
   const k = (x - edge + w) / (2 * w);
   if (k <= 0) return 0;
@@ -148,20 +108,11 @@ export function mulberry32(seed: number) {
   };
 }
 
-// ---------- The pupil's light reflex ----------
-
-/**
- * How strongly a flash drives the reflex, relative to the standard flash (twice the room light
- * on the eye). The pupil responds to light roughly logarithmically, so a dim screen or a bright
- * room gives a smaller reaction.
- */
 export function stimulusFactor(flashLight: number, restLight: number) {
   const s = Math.log(1 + flashLight / Math.max(0.05, restLight)) / Math.log(3);
-  // The reflex saturates: a much stronger flash adds less and less.
   return s <= 1 ? s : 1 + 0.5 * Math.tanh((s - 1) / 0.5);
 }
 
-/** Pupil diameter (mm) at time t for one flash [onset, offset], with constriction share `amp`. */
 export function pupilDiameter(p: Person, amp: number, t: number, onset: number, offset: number) {
   const t0 = onset + p.latency;
   const t1 = offset + p.latency;
@@ -172,18 +123,14 @@ export function pupilDiameter(p: Person, amp: number, t: number, onset: number, 
     const c1 = during(t1);
     c = c1 * (0.15 + 0.85 * Math.exp(-(t - t1) / p.tauR));
   }
-  // Hippus: the small, slow wobble every pupil has.
   const wobble = 0.035 * Math.sin(2 * Math.PI * 0.45 * t + p.seed) + 0.02 * Math.sin(2 * Math.PI * 1.3 * t + p.seed * 2);
   return p.restMm * (1 - Math.min(0.6, amp) * c) + wobble;
 }
 
-// ---------- The camera ----------
-
-const W_EYE = 14.5; // half-width of the eye opening (mm)
+const W_EYE = 14.5;
 const BROW: Rgb = [40, 30, 24];
 const PUPIL: Rgb = [7, 6, 6];
 const HAZE: Rgb = [190, 180, 155];
-/** The phone screen's reflection on the cornea, relative to the pupil centre (mm, y down). */
 export const SCREEN_REFLECTION = { x: 0.88, top: -1.2, bottom: 1.7, frame: 0.14 };
 
 export class EyeCamera implements FrameSource {
@@ -195,7 +142,6 @@ export class EyeCamera implements FrameSource {
   private tex: { p1: number; p2: number; seed: number };
   private region: { x0: number; y0: number; w: number; h: number; r: Float32Array; g: Float32Array; b: Float32Array } | null = null;
 
-  // (Plain fields rather than constructor parameter properties, so Node can run this file as is.)
   constructor(person: Person, cond: Conditions) {
     this.person = person;
     this.cond = cond;
@@ -209,10 +155,6 @@ export class EyeCamera implements FrameSource {
     this.region = null;
   }
 
-  /**
-   * Colour at a point on the eye (mm from the iris centre), before exposure and noise, plus the
-   * screen and room reflections. `soft` widens edges (blur, or a larger pixel).
-   */
   private shade(u: number, v: number, soft: number, out: Float32Array) {
     const p = this.person;
     const s = this.state;
@@ -220,7 +162,6 @@ export class EyeCamera implements FrameSource {
     let r = p.skin[0] * (1 - 0.006 * v);
     let g = p.skin[1] * (1 - 0.006 * v);
     let b = p.skin[2] * (1 - 0.006 * v);
-    // Eyebrow.
     if (v > -16 && v < -9.5 && u > -18 && u < 16) {
       const a = 0.75 * step(-15, 0.8, v) * (1 - step(-10.5, 0.8, v));
       r += (BROW[0] - r) * a;
@@ -234,7 +175,6 @@ export class EyeCamera implements FrameSource {
       const close = s.blink;
       const up = -(p.lidUpper * (1 - close) - p.lidLower * 0.92 * close) * shape;
       const lo = p.lidLower * shape;
-      // Lashes along the upper lid.
       if (v < up && v > up - 1.1) {
         const a = 0.7 * (1 - (up - v) / 1.1);
         r *= 1 - a;
@@ -277,7 +217,6 @@ export class EyeCamera implements FrameSource {
           eg += (ig - eg) * inIris;
           eb += (ib - eb) * inIris;
         }
-        // The upper lid shades the top of the eyeball.
         const shadow = 1 - 0.3 * Math.exp(-(v - up) / 0.9);
         er *= shadow;
         eg *= shadow;
@@ -285,7 +224,6 @@ export class EyeCamera implements FrameSource {
         r += (er - r) * open;
         g += (eg - g) * open;
         b += (eb - b) * open;
-        // Reflections on the cornea.
         if (rho < 6.2) {
           const du = u - p.pupilOffset[0];
           const dv = v - p.pupilOffset[1];
@@ -311,7 +249,6 @@ export class EyeCamera implements FrameSource {
     out[3] = spec;
   }
 
-  /** Renders frame pixels [x0, x0+w) × [y0, y0+h) with noise, into the region cache. */
   private renderRegion(x0: number, y0: number, w: number, h: number) {
     const s = this.state;
     const n = w * h;
@@ -338,7 +275,6 @@ export class EyeCamera implements FrameSource {
     this.region = { x0, y0, w, h, r: R, g: G, b: B };
   }
 
-  /** The small greyscale copy the eye search runs on (like lib/eye-search greyFrame). */
   grey(): GreyFrame {
     const s = this.state;
     const scale = SEARCH_WIDTH / this.width;
@@ -346,7 +282,7 @@ export class EyeCamera implements FrameSource {
     const h = Math.max(1, Math.round(this.height * scale));
     const sum = new Float64Array((w + 1) * (h + 1));
     const px = new Float32Array(4);
-    const pix = 1 / scale; // frame pixels per grey pixel
+    const pix = 1 / scale;
     const soft = (0.5 * pix) / s.ppm;
     const k = s.light * s.gain;
     const sigma = (this.cond.noise * Math.sqrt(s.gain)) / pix;
@@ -358,7 +294,6 @@ export class EyeCamera implements FrameSource {
       for (let x = 0; x < w; x++) {
         const fx = (x + 0.5) * pix;
         const u = (fx - s.cx) / s.ppm;
-        // Far from the eye and eyebrow there is only skin: skip the full model.
         if (Math.abs(u) > 19 || vMm < -17 || vMm > 9) {
           px[0] = skinLuma * (1 - 0.006 * vMm);
           px[1] = px[0];
@@ -374,7 +309,6 @@ export class EyeCamera implements FrameSource {
     return { w, h, scale, sum };
   }
 
-  /** Like drawing the video into a size×size canvas: bilinear samples of the frame pixels. */
   crop(cx: number, cy: number, half: number, size: number): ImageData {
     const x0 = Math.floor(cx - half) - 1;
     const y0 = Math.floor(cy - half) - 1;

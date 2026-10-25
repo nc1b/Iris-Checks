@@ -12,20 +12,17 @@ export interface IPhoneMockupProps {
   orientation?: Orientation;
   scale?: number;
 
-  // Frame
-  bezel?: number;             // bezel thickness (px)
-  radius?: number;            // inner corner radius (screen, px)
-  shadow?: boolean | string;  // outer drop shadow
+  bezel?: number;
+  radius?: number;
+  shadow?: boolean | string;
 
-  // Screen + content
-  screenBg?: string;          // base screen color under wallpaper
-  wallpaper?: string;         // image URL
+  screenBg?: string;
+  wallpaper?: string;
   wallpaperFit?: WallpaperFit;
   wallpaperPosition?: string;
 
-  // Cutouts
-  showDynamicIsland?: boolean; // override model default
-  showNotch?: boolean;         // override model default
+  showDynamicIsland?: boolean;
+  showNotch?: boolean;
   islandWidth?: number;
   islandHeight?: number;
   islandRadius?: number;
@@ -33,15 +30,12 @@ export interface IPhoneMockupProps {
   notchHeight?: number;
   notchRadius?: number;
 
-  // Safe area insets
   safeArea?: boolean;
   safeAreaOverrides?: Partial<{ top: number; bottom: number; left: number; right: number }>;
 
-  // Details
   showHomeIndicator?: boolean;
   innerShadow?: boolean;
 
-  // Custom styling hooks
   style?: CSSProperties;
   className?: string;
   frameStyle?: CSSProperties;
@@ -50,44 +44,37 @@ export interface IPhoneMockupProps {
   children?: ReactNode;
 }
 
-/* Device specs (logical pixels) */
 const DEVICE_SPECS: Record<IPhoneModel, {
   w: number; h: number; radius: number; bezel: number;
   topSafe: number; bottomSafe: number;
   notch?: { w: number; h: number; r: number };
   island?: { w: number; h: number; r: number };
 }> = {
-  // iPhone X/11/12/13/14 style notch
   x: {
     w: 375, h: 812, radius: 50, bezel: 12,
     topSafe: 47, bottomSafe: 34,
     notch: { w: 210, h: 35, r: 18 }
   },
-  // iPhone 14 (notch)
   '14': {
     w: 390, h: 844, radius: 56, bezel: 12,
     topSafe: 47, bottomSafe: 34,
     notch: { w: 225, h: 33, r: 18 }
   },
-  // iPhone 14 Pro (dynamic island)
   '14-pro': {
     w: 393, h: 852, radius: 56, bezel: 12,
     topSafe: 59, bottomSafe: 34,
     island: { w: 126, h: 37, r: 20 }
   },
-  // iPhone 15 (now has island)
   '15': {
     w: 393, h: 852, radius: 56, bezel: 12,
     topSafe: 59, bottomSafe: 34,
     island: { w: 126, h: 37, r: 20 }
   },
-  // iPhone 15 Pro
   '15-pro': {
     w: 393, h: 852, radius: 56, bezel: 12,
     topSafe: 59, bottomSafe: 34,
     island: { w: 126, h: 37, r: 20 }
   },
-  // Plain rounded rectangle, no cutouts
   plain: {
     w: 390, h: 844, radius: 56, bezel: 12,
     topSafe: 16, bottomSafe: 16
@@ -110,7 +97,6 @@ const PRESET_COLORS: Record<string, string> = {
 };
 
 function shade(hex: string, pct: number): string {
-  // pct in [-100..100]
   const h = hex.trim();
   const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(h);
   if (!m) return hex;
@@ -193,7 +179,6 @@ export const IPhoneMockup: React.FC<IPhoneMockupProps> = ({
     ? 'inset 0 0 0 1px rgba(255,255,255,0.03), inset 0 10px 20px rgba(0,0,0,0.35), inset 0 -8px 16px rgba(0,0,0,0.28)'
     : 'none';
 
-  // Cutout sizes (if not overridden)
   const notchSpec = spec.notch;
   const islandSpec = spec.island;
 
@@ -205,7 +190,6 @@ export const IPhoneMockup: React.FC<IPhoneMockupProps> = ({
   const finalIslandH = islandHeight ?? islandSpec?.h ?? 0;
   const finalIslandR = islandRadius ?? islandSpec?.r ?? 0;
 
-  // Safe areas
   const insets = {
     top: safeAreaOverrides?.top ?? spec.topSafe,
     bottom: safeAreaOverrides?.bottom ?? spec.bottomSafe,
@@ -309,7 +293,6 @@ export const IPhoneMockup: React.FC<IPhoneMockupProps> = ({
         <div style={screenBoxStyle}>
           {wallpaper && <div aria-hidden style={wallpaperStyle} />}
 
-          {/* Dynamic Island */}
           {useIsland && finalIslandW > 0 && finalIslandH > 0 && (
             <div
               aria-hidden
@@ -323,7 +306,6 @@ export const IPhoneMockup: React.FC<IPhoneMockupProps> = ({
             />
           )}
 
-          {/* Notch */}
           {!useIsland && useNotch && finalNotchW > 0 && finalNotchH > 0 && (
             <div
               aria-hidden
@@ -337,12 +319,10 @@ export const IPhoneMockup: React.FC<IPhoneMockupProps> = ({
             />
           )}
 
-          {/* Screen content */}
           <div style={contentStyle}>
             {children}
           </div>
 
-          {/* Home indicator (for modern gesture phones) */}
           {showHomeIndicator && (
             <div aria-hidden style={homeIndicatorStyle} />
           )}
@@ -352,5 +332,4 @@ export const IPhoneMockup: React.FC<IPhoneMockupProps> = ({
   );
 };
 
-// Default export
 export default IPhoneMockup;

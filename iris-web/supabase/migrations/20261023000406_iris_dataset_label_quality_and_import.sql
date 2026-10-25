@@ -1,8 +1,3 @@
--- Some datasets list the same image under two labels. Keep one row per image with every
--- label it was given, and say how trustworthy the label is:
---   clean              one consistent label
---   severity_conflict  same disease, different severity levels (severity left empty)
---   condition_conflict different diagnoses (kept out of train/val/test: split is null)
 alter table iris.dataset_images
   add column all_labels text[] not null default '{}',
   add column label_quality text not null default 'clean'
@@ -25,7 +20,6 @@ from iris.datasets d
 join iris.dataset_images i on i.dataset_id = d.id
 group by d.id, d.name, d.license, i.image_type, i.condition;
 
--- Bulk import from a local script, gated by the server secret like the dashboard functions.
 create function public.iris_import_dataset_images(p_secret text, p_rows jsonb)
 returns integer
 language plpgsql

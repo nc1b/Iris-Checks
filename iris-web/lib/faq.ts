@@ -3,7 +3,6 @@ export interface FAQItem {
   answer: string;
 }
 
-/** Shared by the FAQ and the project assistant so both describe the same scope. */
 export const IRIS_FAQS: FAQItem[] = [
   {
     question: "What are the three checks Iris is working on?",

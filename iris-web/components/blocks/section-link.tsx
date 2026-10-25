@@ -3,12 +3,6 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 
-/**
- * Links to sections of the home page without putting "#section" in the URL bar.
- * On the home page it smooth-scrolls; from other pages it goes home first and
- * then scrolls (the target is passed through sessionStorage).
- */
-
 const PENDING_KEY = 'iris:scroll-target'
 
 export function scrollToSection(section: string) {
@@ -30,7 +24,6 @@ export function useSectionNavigation() {
         try {
             sessionStorage.setItem(PENDING_KEY, section)
         } catch {
-            // ignore
         }
         router.push('/')
     }
@@ -68,7 +61,6 @@ export function SectionLink({
     )
 }
 
-/** Smooth-scrolls to an element on the current page without adding "#id" to the URL. */
 export function InPageLink({ target, className, children }: { target: string; className?: string; children: React.ReactNode }) {
     return (
         <a
@@ -83,10 +75,6 @@ export function InPageLink({ target, className, children }: { target: string; cl
     )
 }
 
-/**
- * Mounted on the home page: scrolls to a section requested from another page,
- * and cleans old "#section" links out of the URL bar.
- */
 export function PendingSectionScroll() {
     useEffect(() => {
         let target: string | null = null
@@ -94,7 +82,6 @@ export function PendingSectionScroll() {
             target = sessionStorage.getItem(PENDING_KEY)
             sessionStorage.removeItem(PENDING_KEY)
         } catch {
-            // ignore
         }
         if (!target && window.location.hash) target = decodeURIComponent(window.location.hash.slice(1))
         if (window.location.hash) history.replaceState(null, '', window.location.pathname + window.location.search)

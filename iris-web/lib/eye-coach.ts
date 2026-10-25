@@ -1,20 +1,10 @@
 import type { QualityReport } from "@/lib/photo-quality";
 
-/**
- * Live coaching for the eye photo: one instruction at a time (back up, come closer, centre the
- * eye, hold still, more light), worked out from where the phone found the eye and how big and
- * sharp it is. Photos taken outside these limits are the ones the AI review calls unclear: an
- * iris only a few dozen pixels across has no visible pupil detail, and a phone held too close
- * can't focus.
- */
-
 export type CoachInput = {
   facing: "environment" | "user";
   quality: QualityReport | null;
   steady: boolean;
-  /** The eye found in the live picture (video pixels), if any. */
   eye: { x: number; y: number; r: number; openness: number | null } | null;
-  /** The framing guide in video pixels. */
   guide: { x: number; y: number; w: number; h: number } | null;
 };
 
@@ -34,29 +24,17 @@ export type CoachKey =
 
 export type Coach = {
   key: CoachKey;
-  /** The instruction, short enough to read at a glance. */
   text: string;
-  /** Everything is right: the photo can be taken. */
   ready: boolean;
-  /** Where the eye's size sits between too far (0) and too close (1), with the good band. */
   distance: { value: number; okFrom: number; okTo: number } | null;
-  /** The eye isn't in the middle of the oval. */
   offCenter: boolean;
 };
 
-/**
- * Iris diameter as a share of the guide's width. The guide is sized for one eye corner to
- * corner, and an eye is about 2.6 iris diameters wide, so a well-framed iris is about 0.3.
- */
 export const COACH = {
   frac: { environment: { min: 0.2, max: 0.45 }, user: { min: 0.15, max: 0.45 } },
-  /** Iris diameter in real camera pixels needed to see the pupil's detail. */
   minIrisPx: { environment: 90, user: 60 },
-  /** Eye centre may sit this far from the guide's centre (share of the guide's width / height). */
   center: { x: 0.16, y: 0.22 },
-  /** Below this the eyelids cover too much of the iris (face model only). */
   minOpenness: 0.2,
-  /** Meter scale: iris share from 0.05 (far) to 0.6 (close). */
   meter: { from: 0.05, to: 0.6 },
 };
 

@@ -4,11 +4,6 @@ import { SplineScene } from "@/components/ui/splite";
 import { Card } from "@/components/ui/card"
 import { Spotlight } from "@/components/ui/spotlight"
 
-/**
- * Reference usage of the Spline block (the original robot scene). If the team
- * designs an eye in Spline, its scene URL can be passed to <SplineScene>.
- * (The demo's `fill` prop was removed: this Spotlight version doesn't take one.)
- */
 export function SplineSceneBasic() {
   return (
     <Card className="w-full h-[500px] bg-black/[0.96] relative overflow-hidden">
@@ -17,7 +12,6 @@ export function SplineSceneBasic() {
       />
 
       <div className="flex h-full">
-        {/* Left content */}
         <div className="flex-1 p-8 relative z-10 flex flex-col justify-center">
           <h1 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-b from-neutral-50 to-neutral-400">
             Interactive 3D
@@ -28,7 +22,6 @@ export function SplineSceneBasic() {
           </p>
         </div>
 
-        {/* Right content */}
         <div className="flex-1 relative">
           <SplineScene
             scene="https://prod.spline.design/kZDDjO5HuC9GJUM2/scene.splinecode"

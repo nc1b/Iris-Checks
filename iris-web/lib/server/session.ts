@@ -1,17 +1,6 @@
 import "server-only";
 import { createRemoteJWKSet, errors, jwtVerify } from "jose";
 
-/**
- * Who is calling? Verifies the Clerk session token the dashboard sends as
- * `Authorization: Bearer <token>` (from `getToken()`).
- *
- * Clerk session tokens are RS256 JWTs signed by the app's Frontend API. We check the
- * signature against Clerk's published public keys (JWKS), the issuer, the expiry, and
- * that the token was issued to a page on this site (`azp`). This is the same check
- * Clerk's own SDK does; it doesn't need the Clerk secret key, which only the dashboard
- * can provide. To switch to `clerkMiddleware` + `auth()` later, add CLERK_SECRET_KEY.
- */
-
 function frontendApiHost(): string | null {
   const pk = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
   const encoded = pk?.split("_")[2];
@@ -48,7 +37,6 @@ export async function getSessionUserId(request: Request): Promise<string | null>
       clockTolerance: 5,
     });
     if (typeof payload.azp === "string" && !allowedParty(payload.azp, request)) return null;
-    // Sessions with unfinished tasks (e.g. required setup) aren't fully signed in yet.
     if (payload.sts === "pending") return null;
     return typeof payload.sub === "string" && payload.sub.startsWith("user_") ? payload.sub : null;
   } catch (e) {

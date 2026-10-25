@@ -8,12 +8,6 @@ import { PHOTO_THRESHOLDS } from "@/lib/eye-photo";
 import type { PhotoState } from "@/components/scanner/photo-match";
 import { cn } from "@/lib/utils";
 
-/**
- * What the phone itself found in the eye photo (lib/eye-locate.ts), and the per-condition
- * summaries that combine it with the AI review and the photo match.
- */
-
-/** The photo with the iris, pupil, reflection and the sampled white of the eye drawn on it. */
 export function AnnotatedPhoto({ photo, className }: { photo: CapturedPhoto; className?: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -60,7 +54,6 @@ export function AnnotatedPhoto({ photo, className }: { photo: CapturedPhoto; cla
 const darknessWord = (d: number) => (d <= MEASURE_BANDS.darkness.clear ? "Clear and dark" : d <= MEASURE_BANDS.darkness.hazy ? "Slightly grey" : "Grey or light");
 const rednessWord = (r: number) => (r < MEASURE_BANDS.redness.low ? "Low" : r < MEASURE_BANDS.redness.high ? "Some" : "Marked");
 
-/** The phone's own measurements, in plain words. */
 export function PhoneFindings({ eye }: { eye: EyeMeasure | null }) {
   if (!eye) {
     return (
@@ -126,11 +119,6 @@ export type MatchState = PhotoState;
 type Signal = { source: string; finding: "yes" | "maybe" | "no" | "unknown"; detail: string };
 type Verdict = { title: string; body: string; level: "signs" | "possible" | "none" | "unknown" };
 
-/**
- * Cataract: three independent looks at the pupil. The AI review of the photo, the photo match
- * (a model trained on labelled eye photos: 92% of cataracts caught, 95% of others cleared, on
- * internet photos), and the phone's own measure of how grey the pupil is.
- */
 export function cataractSignals(analysis: PhotoAnalysis, match: MatchState, eye: EyeMeasure | null): { signals: Signal[]; verdict: Verdict } {
   const lens = analysis.quality.usable ? analysis.observations.lens_cloudiness : "cannot_assess";
   const ai: Signal = {
@@ -168,7 +156,7 @@ export function cataractSignals(analysis: PhotoAnalysis, match: MatchState, eye:
   const verdict: Verdict =
     ai.finding === "yes" || yes >= 2 || (yes >= 1 && maybe >= 1)
       ? { level: "signs", title: "Signs of a cloudy lens", body: "More than one check saw a grey or cloudy pupil, which can be a cataract. Book an eye exam in the next few weeks, sooner if your vision changed suddenly." }
-      : // A phone "maybe" alone doesn't outweigh the AI review seeing a clear, black pupil.
+      :
         yes >= 1 || (maybe >= 1 && ai.finding !== "no")
         ? { level: "possible", title: "Possible cloudiness", body: "One check saw something. Lighting and reflections can cause this too. Retake the photo in even light, and mention it at your next eye exam." }
         : no >= 1
@@ -205,11 +193,8 @@ export function ConditionCard({ name, verdict, signals, children }: { name: stri
   );
 }
 
-/** Glaucoma: what a photo can show (a sudden pressure attack), and where the slow kind is checked. */
 export function glaucomaVerdict(analysis: PhotoAnalysis): Verdict {
   const o = analysis.observations;
-  // A pressure attack always comes with a red eye, so a usable photo with no redness rules it out
-  // even when the model didn't answer that question directly.
   const ac = !analysis.quality.usable ? "cannot_assess" : o.angle_closure === "cannot_assess" && o.redness === "none" ? "none" : o.angle_closure;
   if (ac === "possible")
     return {

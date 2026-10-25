@@ -22,7 +22,6 @@ type CheckResponse = { analysis: PhotoAnalysis; triage: Triage; model: string; l
 const URGENCY_ORDER: Urgency[] = ["routine", "soon", "same_day", "emergency"];
 const worse = (a: Urgency, b: Urgency) => (URGENCY_ORDER.indexOf(a) >= URGENCY_ORDER.indexOf(b) ? a : b);
 
-/** What a photo finding means, in plain words. Educational, never a diagnosis. */
 const CATEGORY_TEXT: Record<Category, { title: string; body: string; urgency: Urgency }> = {
   no_visible_concern: {
     title: "Nothing of concern was visible",
@@ -68,7 +67,6 @@ const URGENCY_TEXT: Record<Urgency, { title: string; body: string }> = {
   routine: { title: "No urgent signs from your answers", body: "Keep up regular eye exams, and get checked if anything changes or worries you." },
 };
 
-/** Model photo problems → the same retake instructions the phone's own checks use. */
 const PROBLEM_TO_ISSUE: Partial<Record<QualityProblem, QualityIssue>> = {
   blur: "blur",
   too_dark: "too_dark",
@@ -93,12 +91,10 @@ export function EyeCheck() {
   const [match, setMatch] = useState<MatchState>({ status: "none" });
   const advice = useMemo(() => triage(symptoms), [symptoms]);
 
-  // Warm up the photo-match model while the person looks at their photo.
   useEffect(() => {
     if (step === "review") loadEyeEmbedder().catch(() => {});
   }, [step]);
 
-  /** The photo match: the eye close-up's fingerprint, compared with the labelled eye photos. */
   async function runMatch(p: CapturedPhoto, token: string | null) {
     if (!p.eyeCanvas) return setMatch({ status: "none" });
     setMatch({ status: "loading" });
@@ -131,7 +127,6 @@ export function EyeCheck() {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ image: photo.dataUrl, enhanced: photo.enhancedUrl, symptoms }),
-        // The models take their time to look carefully (the server allows up to 5 minutes).
         signal: AbortSignal.timeout(300_000),
       });
       const json = await res.json().catch(() => ({}));
@@ -474,7 +469,6 @@ function Review({
   onAnalyse: () => void;
 }) {
   const q = photo.quality;
-  // The same coach as the live camera, run on the photo: would it have taken this one?
   const advice = coach({
     facing,
     quality: q,
@@ -605,7 +599,6 @@ function Result({ result, photo, match, onRetake }: { result: CheckResponse; pho
   }
 
   const text = CATEGORY_TEXT[a.category];
-  // Signs of a cloudy lens from the combined cataract checks call for an exam soon.
   const cataract = cataractSignals(a, match, photo?.eye ?? null).verdict;
   const urgency = worse(worse(result.triage.urgency, text.urgency), cataract.level === "signs" ? "soon" : "routine");
   const reasons = [...result.triage.reasons];
@@ -653,7 +646,6 @@ function CataractCard({ analysis, match, photo }: { analysis: PhotoAnalysis; mat
   return <ConditionCard name="Cataract" verdict={verdict} signals={signals} />;
 }
 
-/** A photo can only catch a sudden pressure attack; the slow, common glaucoma needs other checks. */
 function GlaucomaNote() {
   return (
     <div className="mt-3 rounded-xl bg-muted/50 p-3 text-sm" data-testid="glaucoma-note">

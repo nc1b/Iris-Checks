@@ -4,12 +4,6 @@ import { UserRound } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
-/**
- * Team Showcase (after makviesainte on 21st.dev): a staggered three-column photo grid
- * next to a member list. Hovering a photo or a name highlights both; photos are
- * grayscale until highlighted. Members without a photo get a placeholder tile.
- */
-
 export type TeamMember = {
   id: string;
   name: string;
@@ -28,7 +22,6 @@ function PhotoCard({ member, className, hoveredId, onHover }: { member: TeamMemb
       onMouseLeave={() => onHover(null)}
     >
       {member.image ? (
-        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={member.image}
           alt={member.name}

@@ -1,9 +1,7 @@
-# Eye image datasets stay local (size + privacy)
 ml/data/raw/*
 ml/data/processed/*
 !ml/data/**/.gitkeep
 
-# Dependencies / build output
 node_modules/
 dist/
 __pycache__/

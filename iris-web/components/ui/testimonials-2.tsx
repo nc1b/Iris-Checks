@@ -38,7 +38,6 @@ const context = [
   { value: "Research", label: "current stage" },
 ];
 
-/** The supplied testimonial-card layout, adapted to the project's real quotes. */
 export default function TestimonialsBlock() {
   const [active, setActive] = useState(0);
   const quote = quotes[active];

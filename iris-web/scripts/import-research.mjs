@@ -2,8 +2,6 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// Usage: node scripts/import-research.mjs /path/to/the/Samsung/Obsidian/vault
-// The source vault is read-only. Only the public research export is written.
 const vault = process.argv[2];
 if (!vault) throw new Error('Pass the path to the Samsung research vault.');
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -42,8 +40,6 @@ function clean(markdown, id, headings) {
     text = text.replace(/Students and competitions:/g, 'Student projects and datasets:');
   }
   text = selectSections(text, headings);
-  // Exclude internal schedules, implementation locations, competition copy, and
-  // superseded feature decisions while retaining the underlying science.
   text = text.split('\n').filter(line => !/^# |^Back to |^Related:|^> \*\*Status:|^> \*\*Newer:/.test(line))
     .filter(line => !/judg|hackathon|\bSFT\b|Solve for Tomorrow|\bcompetition\b|\bcontest\b|\bpitch\b|\bdeadlines?\b|Already in the code|Where it is in the code|Samsung and MIT/i.test(line))
     .join('\n');

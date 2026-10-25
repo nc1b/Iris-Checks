@@ -2,11 +2,6 @@ import { PUBLISHED_PUPIL_IRIS_RATIO, STUDIES } from "./reference";
 import { IRIS_FAQS } from "./faq";
 import { ROADMAP } from "./roadmap";
 
-/**
- * Facts the Iris assistant answers from. The chat route embeds these with the
- * free NVIDIA Nemotron embedding model and sends the closest matches to the
- * chat model with each question.
- */
 export const KNOWLEDGE: string[] = [
   "Iris is a student research project developing THREE checks using only a phone's camera and screen light: diabetes-related pupil responses, glaucoma-related differences between eyes, and cataract-related lens cloudiness. Each is experimental, and results would be explained in plain language to help people seek appropriate care.",
   "Status: ALL THREE checks (diabetes, glaucoma, cataract) are COMING SOON and are not live yet. Each check needs its own validation on real phones against appropriate clinical assessments. There are no accounts or sign-ups yet. The home page shows a concept preview with example data. The goal is a short scan of around 30 seconds, but actual timing and phone compatibility haven't been established.",

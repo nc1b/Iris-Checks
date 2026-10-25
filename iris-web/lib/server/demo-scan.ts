@@ -2,18 +2,10 @@ import "server-only";
 import type { Scan, ScanMetrics } from "@/lib/dashboard-types";
 import { rateScan } from "@/lib/scan-rating";
 
-/**
- * A simulated scan for the prototype dashboard.
- * Numbers are drawn around typical values from the literature, with an occasional
- * weaker or uneven response, and rated with the same provisional rules as the camera
- * scan (lib/scan-rating.ts). Always saved with source "demo".
- */
-
 const rand = (min: number, max: number) => min + Math.random() * (max - min);
 const round = (n: number, digits = 2) => Math.round(n * 10 ** digits) / 10 ** digits;
 
 export function makeDemoScan(note?: string): Omit<Scan, "id" | "created_at"> {
-  // Most demo scans look typical; some are weaker or uneven so the dashboard shows every state.
   const weaker = Math.random() < 0.2;
   const uneven = Math.random() < 0.15;
   const hazy = Math.random() < 0.15;

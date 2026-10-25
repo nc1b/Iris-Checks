@@ -3,7 +3,6 @@ import { Moon, Sun } from 'lucide-react'
 import { setTheme, useIsDark } from '@/lib/theme'
 import { cn } from '@/lib/utils'
 
-/** Round sun/moon button for the top bar. */
 export function ThemeToggle({ className }: { className?: string }) {
     const dark = useIsDark()
     return (

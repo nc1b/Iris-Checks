@@ -91,7 +91,6 @@ export function Dashboard() {
     }
   }, [api]);
 
-  // First load (and back to sign-in if signed out). `load` is for retries and refreshes.
   useEffect(() => {
     if (!isLoaded) return;
     if (!isSignedIn) {
@@ -166,7 +165,6 @@ export function Dashboard() {
           )
         ) : (
           <>
-            {/* Greeting */}
             <section className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
               <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
                 <span className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs text-muted-foreground">
@@ -317,7 +315,6 @@ function UserMenu() {
         className="flex h-9 items-center gap-2 rounded-xl border pl-1 pr-2 transition-colors hover:bg-accent"
       >
         {user?.hasImage ? (
-          // eslint-disable-next-line @next/next/no-img-element
           <img src={user.imageUrl} alt="" className="size-7 rounded-lg object-cover" />
         ) : (
           <span className="flex size-7 items-center justify-center rounded-lg bg-foreground text-xs font-semibold uppercase text-background">{name.slice(0, 1)}</span>

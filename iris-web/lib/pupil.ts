@@ -1,29 +1,11 @@
-/**
- * Pupil measurement from a small crop centred on the iris.
- *
- * MediaPipe gives us the iris centre and radius. Inside the iris we look for the
- * dark pupil: sample the brightness along horizontal-ish rays from the centre and
- * find where it rises from "pupil dark" to "iris". Rays near vertical are skipped
- * because eyelids cover the top and bottom of the iris.
- */
-
 export const CROP_SIZE = 96;
-/** The crop spans this many iris radii from the centre to the edge. */
 export const CROP_SPAN = 1.2;
 
 export type PupilReading = {
-  /** Pupil radius in crop pixels. */
   pupilPx: number;
-  /** Iris radius in crop pixels (fixed by the crop geometry). */
   irisPx: number;
-  /** Iris brightness minus pupil brightness (0–255). Low = hard to see the pupil. */
   contrast: number;
-  /** Fraction of rays that found an edge. */
   coverage: number;
-  /**
-   * How well lit the eye area is (0–255): the brightness of its brighter parts (white of the
-   * eye, lids). Not the iris itself, which is naturally dark in brown eyes.
-   */
   irisLevel: number;
 };
 
@@ -50,8 +32,6 @@ export function measurePupil(img: ImageData): PupilReading | null {
   const cy = height / 2;
   const irisPx = width / 2 / CROP_SPAN;
 
-  // Brightness (luma) and the red channel. Brown irises reflect much more red than green,
-  // so in dim light the red channel often shows the dark pupil far more clearly.
   const luma = new Float32Array(width * height);
   const red = new Float32Array(width * height);
   for (let p = 0, i = 0; p < luma.length; p++, i += 4) {
@@ -59,7 +39,6 @@ export function measurePupil(img: ImageData): PupilReading | null {
     red[p] = data[i];
   }
 
-  // Pupil level: darkest part of the central disc. Iris level: the outer ring.
   const levels = (lum: Float32Array) => {
     const core: number[] = [];
     const ring: number[] = [];
@@ -78,7 +57,6 @@ export function measurePupil(img: ImageData): PupilReading | null {
   };
   const byLuma = levels(luma);
   const byRed = levels(red);
-  // Prefer the red channel only when it clearly separates pupil and iris better.
   const useRed = Number.isFinite(byRed.contrast) && byRed.contrast > (Number.isFinite(byLuma.contrast) ? byLuma.contrast * 1.15 : 0);
   const lum = useRed ? red : luma;
   const { pupilLevel, irisLevel, contrast } = useRed ? byRed : byLuma;
@@ -88,10 +66,7 @@ export function measurePupil(img: ImageData): PupilReading | null {
     return { pupilPx: NaN, irisPx, contrast: Number.isFinite(contrast) ? contrast : 0, coverage: 0, irisLevel: irisLight };
   }
 
-  // Smooth twice (3×3) so sensor noise in a dark iris doesn't look like an edge.
   const smooth = boxBlur(boxBlur(lum, width, height), width, height);
-  // Reflections of the screen or a lamp sit on the pupil and iris. Mask them, with a margin,
-  // so their blurred edges aren't mistaken for the pupil's edge.
   const glare = new Uint8Array(width * height);
   const bright = irisLevel + Math.max(25, contrast * 0.8);
   for (let y = 0; y < height; y++) {
@@ -109,15 +84,12 @@ export function measurePupil(img: ImageData): PupilReading | null {
     return glare[i] ? NaN : smooth[i];
   };
 
-  // Along each ray, the pupil edge is where brightness rises the most (dark pupil → iris),
-  // not just the first pixel past a threshold, which noise in a dark iris trips straight away.
   const rMin = Math.max(3, irisPx * 0.15);
   const rMax = irisPx * 0.85;
   const minStep = Math.max(2.5, contrast * 0.2);
   const darkInside = pupilLevel + contrast * 0.65;
   const radii: number[] = [];
   let rays = 0;
-  // Angles within ±60° of horizontal, on both sides (eyelids cover the top and bottom).
   for (const base of [0, Math.PI]) {
     for (let a = -60; a <= 60; a += 8) {
       rays++;
@@ -139,7 +111,6 @@ export function measurePupil(img: ImageData): PupilReading | null {
       let best = -Infinity;
       let bestR = NaN;
       for (let r = Math.ceil(rMin); r <= rMax; r++) {
-        // Look 3 px either side; across a masked reflection, look up to 6 px.
         const inside = Number.isFinite(meanOf(r - 3, r - 1)) ? meanOf(r - 3, r - 1) : meanOf(r - 6, r - 1);
         const outside = Number.isFinite(meanOf(r + 1, r + 3)) ? meanOf(r + 1, r + 3) : meanOf(r + 1, r + 6);
         const step = outside - inside;
@@ -152,20 +123,16 @@ export function measurePupil(img: ImageData): PupilReading | null {
     }
   }
 
-  // Keep the rays that agree with the majority (within 20% of the median).
   const mid = median(radii);
   const agreeing = radii.filter((r) => Math.abs(r - mid) <= mid * 0.2);
   const coverage = agreeing.length / rays;
   const pupilPx = median(agreeing);
-  // Too few rays agree, or a size no real pupil has (under 15% or over 82% of the iris).
   if (agreeing.length < rays * 0.35 || pupilPx < irisPx * 0.15 || pupilPx > irisPx * 0.82) return { pupilPx: NaN, irisPx, contrast, coverage, irisLevel: irisLight };
   return { pupilPx, irisPx, contrast, coverage, irisLevel: irisLight };
 }
 
-/** Pixels around a reflection that are also ignored (its blurred edge). */
 const GLARE_MARGIN = 2;
 
-/** 3×3 box blur. */
 function boxBlur(src: Float32Array, w: number, h: number) {
   const out = new Float32Array(src.length);
   for (let y = 0; y < h; y++) {
@@ -184,7 +151,6 @@ function boxBlur(src: Float32Array, w: number, h: number) {
   return out;
 }
 
-/** Eye aspect ratio from MediaPipe face mesh landmarks (blink detection). */
 export function eyeAspectRatio(
   lm: { x: number; y: number }[],
   upper: number,
@@ -198,7 +164,6 @@ export function eyeAspectRatio(
   return h > 0 ? v / h : 0;
 }
 
-/** MediaPipe face mesh indices (478-point model with iris refinement). */
 export const LANDMARKS = {
   left: { irisCenter: 468, iris: [469, 470, 471, 472], upper: 159, lower: 145, inner: 133, outer: 33 },
   right: { irisCenter: 473, iris: [474, 475, 476, 477], upper: 386, lower: 374, inner: 362, outer: 263 },

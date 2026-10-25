@@ -1,24 +1,6 @@
 import { KNOWLEDGE } from "@/lib/knowledge";
 import { aiConfigured, aiFetch } from "@/lib/server/hackclub";
 
-/**
- * Project Q&A for the corner chat, through the Hack Club AI proxy.
- *
- * 1. Retrieval: the question and the project facts (lib/knowledge.ts) are embedded with
- *    NVIDIA's free Nemotron embedding model; the closest facts go into the prompt.
- *    (An embedding model can't write replies, so it's used for search only.)
- * 2. Answer: a free NVIDIA Nemotron chat model writes the reply. If the free tier is
- *    out of requests for the day (or errors), it falls back to the next model in the list.
- *
- * Env:
- *   HACKCLUB_API_KEY  – required (without it the widget gets a "not connected yet" reply)
- *   HACKCLUB_API_KEY_BACKUP – optional, used when the main key runs out (lib/server/hackclub)
- *   IRIS_CHAT_MODELS  – optional comma-separated model list, tried in order
- *   IRIS_EMBED_MODEL  – optional embedding model
- *
- * Message text is never logged.
- */
-
 const EMBED_MODEL = process.env.IRIS_EMBED_MODEL || "nvidia/nemotron-3.5-embed-1b:free";
 const CHAT_MODELS = (process.env.IRIS_CHAT_MODELS || "nvidia/nemotron-3.5-lightning:free,nvidia/nemotron-3.5-super-vl:free,anthropic/claude-haiku-5.5")
   .split(",")
@@ -28,7 +10,6 @@ const MAX_MESSAGES = 10;
 const MAX_CHARS = 800;
 const TOP_K = 4;
 
-// Best-effort per-instance rate limit: 15 requests per minute per IP.
 const hits = new Map<string, number[]>();
 function rateLimited(ip: string) {
   const now = Date.now();
@@ -87,7 +68,6 @@ function cosine(a: number[], b: number[]) {
   return dot / (Math.sqrt(na) * Math.sqrt(nb) || 1);
 }
 
-// Knowledge embeddings are computed once per server instance and reused.
 let knowledgeVectors: Promise<number[][]> | null = null;
 
 async function relevantFacts(question: string): Promise<{ facts: string[]; retrieval: "embeddings" | "all" }> {
@@ -102,11 +82,9 @@ async function relevantFacts(question: string): Promise<{ facts: string[]; retri
       .sort((a, b) => b.score - a.score)
       .slice(0, TOP_K)
       .map((r) => KNOWLEDGE[r.i]);
-    // Always include the status fact so the assistant never implies the scan is live.
     if (!ranked.includes(KNOWLEDGE[1])) ranked.push(KNOWLEDGE[1]);
     return { facts: ranked, retrieval: "embeddings" };
   } catch {
-    // Free embedding quota used up or service down: the fact list is small, so send it all.
     return { facts: KNOWLEDGE, retrieval: "all" };
   }
 }

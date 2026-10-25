@@ -3,12 +3,6 @@ import { EYE_ORDER } from "@/lib/camera-scan";
 import { PHOTO_CONDITIONS, PHOTO_THRESHOLDS, type PhotoCondition, type PhotoMatchResponse } from "@/lib/eye-photo";
 import { cn } from "@/lib/utils";
 
-/**
- * The photo match result: each eye's close-up compared with the Iris database of labelled
- * front-of-eye photos by the trained model in lib/server/photo-match.ts. Used by the camera
- * scan and the eye photo check.
- */
-
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export type PhotoState =

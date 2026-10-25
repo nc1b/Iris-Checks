@@ -1,7 +1,5 @@
--- Uploads finished: remove the temporary upload permission so nothing else can be added.
 drop policy "temp dataset upload" on storage.objects;
 
--- Link every image row to its uploaded copy.
 update iris.dataset_images i
 set storage_object = o.name
 from storage.objects o

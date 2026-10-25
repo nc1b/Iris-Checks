@@ -3,11 +3,6 @@ import { errorResponse } from "@/lib/server/db";
 import { cleanEmbedding, matchEye, PHOTO_ACCURACY, REFERENCE_COUNT } from "@/lib/server/photo-match";
 import { getSessionUserId } from "@/lib/server/session";
 
-/**
- * POST { eyes: { right?: number[], left?: number[] } } → how each eye's photo compares with the
- * Iris database of labelled front-of-eye photos. Only the fingerprints (1280 numbers per eye) are
- * sent, never the photos, and nothing is saved here.
- */
 export async function POST(request: Request) {
   const userId = await getSessionUserId(request);
   if (!userId) return Response.json({ error: "Please sign in." }, { status: 401 });

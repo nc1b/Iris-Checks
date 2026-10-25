@@ -4,7 +4,6 @@ import Image from "next/image";
 export const metadata: Metadata = {
   title: "Press kit",
   description: "Screens of the Iris website and phone scan, for videos and press.",
-  // Unlisted: not linked from the site, not in the sitemap, not for search engines.
   robots: { index: false, follow: false },
 };
 

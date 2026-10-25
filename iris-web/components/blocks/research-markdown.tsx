@@ -1,7 +1,6 @@
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-/** Render the notebook on the server; the search UI only receives its index. */
 export function ResearchMarkdown({ content }: { content: string }) {
   return (
     <div className="min-w-0 space-y-4 text-sm leading-7 text-muted-foreground [overflow-wrap:anywhere] sm:text-base">

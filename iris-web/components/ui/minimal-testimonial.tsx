@@ -4,13 +4,6 @@ import Image from "next/image"
 import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
 
-/**
- * Famous quotes about what Iris is building: catching problems early, the eye,
- * and technology that feels like magic. Adapted from the minimal-testimonial block.
- * Portraits are public-domain images from Wikimedia Commons, cropped to headshots:
- * Franklin by Joseph Siffred Duplessis (c. 1785), Leonardo's red-chalk self-portrait
- * (c. 1512), and a photo of Arthur C. Clarke released into the public domain.
- */
 const quotes = [
   {
     quote: "An ounce of prevention is worth a pound of cure.",
@@ -37,7 +30,6 @@ export function TestimonialsMinimal() {
   const [active, setActive] = useState(0)
   const [paused, setPaused] = useState(false)
 
-  // Gently cycle through the quotes unless the visitor is hovering or has chosen one.
   useEffect(() => {
     if (paused || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
     const id = window.setInterval(() => setActive((a) => (a + 1) % quotes.length), 7000)
@@ -49,7 +41,6 @@ export function TestimonialsMinimal() {
       className="mx-auto w-full max-w-2xl px-6 py-16"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}>
-      {/* Quote */}
       <div className="relative mb-12 min-h-[11rem] sm:min-h-[8.5rem]" aria-live="polite">
         {quotes.map((t, i) => (
           <blockquote
@@ -64,9 +55,7 @@ export function TestimonialsMinimal() {
         ))}
       </div>
 
-      {/* Author Row */}
       <div className="flex items-center gap-6">
-        {/* Avatars */}
         <div className="flex -space-x-2">
           {quotes.map((t, i) => (
             <button
@@ -95,10 +84,8 @@ export function TestimonialsMinimal() {
           ))}
         </div>
 
-        {/* Divider */}
         <div className="h-8 w-px bg-border" />
 
-        {/* Active Author Info */}
         <div className="relative min-h-[44px] flex-1">
           {quotes.map((t, i) => (
             <div

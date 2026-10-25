@@ -1,7 +1,6 @@
 import { BookOpen, Home, Info, ListChecks } from 'lucide-react'
 import { NavBar } from '@/components/ui/tubelight-navbar'
 
-// Reference usage of the tubelight navbar (the live site uses it inside components/blocks/site-nav.tsx).
 export function NavBarDemo() {
     const navItems = [
         { name: 'Home', section: 'home', icon: Home },

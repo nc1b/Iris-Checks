@@ -5,23 +5,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { HLSVideoPlayer } from '@/components/ui/hls-video-player'
 import { cn } from '@/lib/utils'
 
-/**
- * The 30-second trailer, playing muted and looped in the background of its own section, with an
- * "ambient light" glow that takes its colour from the video, and a "Watch with sound" button.
- *
- * Kind to phones and data: the video only loads when the section is near the screen, phones get
- * the 720p file, it pauses when scrolled away, and it doesn't play by itself for people who
- * asked for reduced motion or data saving (they get the poster and a play button).
- */
-
 const SOURCES = { full: '/trailer/iris-trailer.mp4', small: '/trailer/iris-trailer-720.mp4' }
 const POSTER = '/trailer/iris-trailer-poster.jpg'
-/** The ambient glow is redrawn this many times a second from a tiny copy of the frame. */
 const GLOW_FPS = 6
-/**
- * The trailer opens on a few seconds of near-black screen, so the silent background version starts
- * here, on the first bright shot. "Watch with sound" still plays it from the very beginning.
- */
 const BACKGROUND_START = 3
 
 const time = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
@@ -31,7 +17,6 @@ export function TrailerSection() {
     const frameRef = useRef<HTMLDivElement>(null)
     const videoRef = useRef<HTMLVideoElement>(null)
     const glowRef = useRef<HTMLCanvasElement>(null)
-    // Chosen once on the client: which file, and whether it may start by itself.
     const [setup, setSetup] = useState<{ src: string; autoplay: boolean } | null>(null)
     const [playing, setPlaying] = useState(false)
     const [muted, setMuted] = useState(true)
@@ -40,7 +25,6 @@ export function TrailerSection() {
     const userPaused = useRef(false)
     const visible = useRef(false)
 
-    // Load the video only when the section comes near the screen.
     useEffect(() => {
         const section = sectionRef.current
         if (!section) return
@@ -59,7 +43,6 @@ export function TrailerSection() {
         return () => io.disconnect()
     }, [])
 
-    // Play while on screen, pause when scrolled away (unless the person paused it themselves).
     useEffect(() => {
         const frame = frameRef.current
         if (!frame || !setup) return
@@ -77,7 +60,6 @@ export function TrailerSection() {
         return () => io.disconnect()
     }, [setup])
 
-    // Ambient light: a tiny, blurred copy of the current frame glows behind the player.
     useEffect(() => {
         if (!playing) return
         const video = videoRef.current
@@ -106,7 +88,6 @@ export function TrailerSection() {
         const video = videoRef.current
         if (!video) return
         if (video.muted) {
-            // Turning the sound on starts the trailer from the beginning, the way it was made to be heard.
             video.muted = false
             video.currentTime = 0
             userPaused.current = false
@@ -121,7 +102,7 @@ export function TrailerSection() {
         const video = videoRef.current as (HTMLVideoElement & { webkitEnterFullscreen?: () => void }) | null
         if (!video) return
         if (video.requestFullscreen) video.requestFullscreen().catch(() => {})
-        else video.webkitEnterFullscreen?.() // iPhone Safari
+        else video.webkitEnterFullscreen?.()
     }, [])
 
     const seek = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -142,14 +123,12 @@ export function TrailerSection() {
                 </div>
 
                 <div className="relative mt-10 md:mt-12">
-                    {/* Ambient light from the video itself, softly spilling around the frame. */}
                     <canvas
                         ref={glowRef}
                         width={32}
                         height={18}
                         aria-hidden
                         className={cn(
-                            // On a white page a mostly dark video would glow grey, so it stays faint in light mode.
                             'pointer-events-none absolute -inset-x-[5%] -inset-y-[5%] h-[110%] w-[110%] blur-3xl transition-opacity duration-1000',
                             playing ? 'opacity-15 dark:opacity-40' : 'opacity-0',
                         )}
@@ -185,14 +164,11 @@ export function TrailerSection() {
                                 }}
                             />
                         ) : (
-                            // eslint-disable-next-line @next/next/no-img-element -- a placeholder the same size as the video until it loads
                             <img src={POSTER} alt="" width={1920} height={1080} className="block aspect-video h-auto w-full" />
                         )}
 
-                        {/* Shade at the bottom so the controls read on any frame. */}
                         <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
 
-                        {/* Big play button when it isn't playing (paused, or not allowed to start by itself). */}
                         {!playing && (
                             <button
                                 type="button"
@@ -239,7 +215,6 @@ export function TrailerSection() {
                             </button>
                         </div>
 
-                        {/* Progress: a thin line along the bottom edge; click it to jump. */}
                         <div
                             role="slider"
                             aria-label="Trailer progress"

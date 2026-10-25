@@ -48,7 +48,6 @@ export function Spotlight({
   useEffect(() => {
     if (!parentElement) return;
 
-    // Keep stable references so the listeners are actually removed on cleanup.
     const onEnter = () => setIsHovered(true);
     const onLeave = () => setIsHovered(false);
     parentElement.addEventListener('mousemove', handleMouseMove);

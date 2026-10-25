@@ -25,17 +25,8 @@ const quickLinks = [
   { label: "FAQ", section: "faq" },
 ]
 
-/** Everything Iris keeps in this browser. Listed in the Privacy Policy. */
 const STORAGE_KEYS = [THEME_KEY, "iris-chat-messages", "iris-chat-position"]
 
-/**
- * Site footer, adapted from the footer-section block:
- * - "Stay connected" newsletter → ask-the-AI box (there's no mailing list yet)
- * - "Contact us" → honest "coming soon" (no made-up address)
- * - social buttons → site actions (there are no social accounts yet)
- * - dark mode switch wired to the site-wide theme
- * - "Cookie settings" clears what Iris saved in this browser
- */
 function Footerdemo() {
   const isDarkMode = useIsDark()
   const [question, setQuestion] = React.useState("")
@@ -46,7 +37,6 @@ function Footerdemo() {
       try {
         localStorage.removeItem(key)
       } catch {
-        // ignore
       }
     }
     window.location.reload()

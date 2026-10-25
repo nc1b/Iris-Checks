@@ -1,16 +1,6 @@
 import { STUDIES, THRESHOLDS } from "@/lib/reference";
 import { aiConfigured, aiFetch } from "@/lib/server/hackclub";
 
-/**
- * Turns the scan's numbers into a plain-language explanation using the
- * Hack Club AI proxy. Only numbers are sent, never images.
- *
- * Env:
- *   HACKCLUB_API_KEY  – required for AI text (falls back to a built-in explanation)
- *   HACKCLUB_API_KEY_BACKUP – optional, used when the main key runs out (lib/server/hackclub)
- *   IRIS_AI_MODEL     – optional, defaults to anthropic/claude-haiku-5.5
- */
-
 const DEFAULT_MODEL = "anthropic/claude-haiku-5.5";
 
 type Body = {
@@ -119,7 +109,6 @@ ${ranges}`;
       "/chat/completions",
       {
         model: process.env.IRIS_AI_MODEL || DEFAULT_MODEL,
-        // Some models spend tokens on hidden reasoning before answering; leave room and turn it off where supported.
         max_tokens: 1200,
         reasoning: { enabled: false },
         temperature: 0.4,

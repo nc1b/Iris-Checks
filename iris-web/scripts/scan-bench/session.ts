@@ -31,19 +31,10 @@ import {
   type Person,
 } from "./eye-sim";
 
-/**
- * One simulated camera scan, run through the app's own code (lib/eye-tracker, lib/camera-scan,
- * lib/analysis, lib/scan-rating) the way components/scanner/camera-scan.tsx runs it: line up each
- * eye until the hold completes, a 3 s countdown, then the recording with the flash.
- */
-
-/** The phone screen (CSS px) and camera frame used for the on-screen ring geometry. */
 export const SCREEN = { w: 390, h: 844 };
 const RING = { x: 0.5, y: 0.22, radius: 0.18 };
 const IRIS_IN_RING = 0.4;
-/** Pixels per mm when the iris fills the ring as asked (about 15 cm from the camera). */
 export const PPM_REF = 11;
-/** Give up lining up an eye after this long (s): the person would be stuck. */
 const ALIGN_MAX = 10;
 
 export function ringGeometry(vw: number, vh: number) {
@@ -53,8 +44,6 @@ export function ringGeometry(vw: number, vh: number) {
   const y = vh / 2 + (SCREEN.h * RING.y - SCREEN.h / 2) / scale;
   return { x, y, ringR, search: { guess: { x, y, r: ringR * IRIS_IN_RING }, reach: ringR, radii: [0.5, 0.7, 0.9, 1.1, 1.4, 1.8] } };
 }
-
-// ---------- Random people and rooms ----------
 
 const pick = <T,>(rng: () => number, items: [T, number][]) => {
   let x = rng() * items.reduce((s, [, w]) => s + w, 0);
@@ -126,18 +115,13 @@ export function randomConditions(rng: () => number, force?: Partial<Conditions>)
   return { ...c, ...force };
 }
 
-// ---------- Running a scan ----------
-
 export type EyeRun = {
   alignSeconds: number | null;
-  /** While lining up: share of frames failing each check. */
   alignFails: Record<"found" | "centered" | "distance" | "open" | "sharp" | "steady", number>;
-  /** Share of recording frames with a pupil measurement. */
   tracked: number;
   screen: number;
   ppm: number;
   stimulus: number;
-  /** The pupil's contrast against the iris between flashes (median, 0–255). */
   contrast: number;
 };
 
@@ -151,7 +135,6 @@ export type ScanRun = {
   ideal: { metrics: ScanMetrics; status: ReturnType<typeof rateScan> };
 };
 
-/** Blink closure (0–1) at time t for blinks starting at `times`. */
 function blinkAt(t: number, times: number[]) {
   let b = 0;
   for (const s of times) {
@@ -181,8 +164,6 @@ export function runScan(seed: number, opts: { person?: Person; truth?: Truth; co
 
   for (const eye of EYE_ORDER) {
     tracker.reset();
-    // Where this person holds the phone for this eye: distance (px per mm) and the eye's spot.
-    // How close this person first holds the phone; they move when the app says closer or back.
     let ppm = cond.pxPerMm * uniform(rng, 0.88, 1.12);
     let toldDir: "far" | "close" | null = null;
     let toldSince = 0;
@@ -190,7 +171,6 @@ export function runScan(seed: number, opts: { person?: Person; truth?: Truth; co
     const ang = rng() * Math.PI * 2;
     const home = { x: ring.x + off * Math.cos(ang), y: ring.y + off * Math.sin(ang) };
     const phase = [rng() * 6.3, rng() * 6.3, rng() * 6.3, rng() * 6.3];
-    // The screen's light falls off with distance squared.
     const lightOf = (s: number, flash: boolean) => cond.ambient + (flash ? cond.flashGain : 0.55 * s) * (ppm / PPM_REF) ** 2;
     let gain = clamp(1 / lightOf(0, false), 0.2, 1.8);
     const place = (t: number, approach: number) => {
@@ -209,7 +189,6 @@ export function runScan(seed: number, opts: { person?: Person; truth?: Truth; co
       gain += (target - gain) * (1 - Math.exp(-step / cond.aeTau));
     };
 
-    // Line up: the eye comes into the ring over the first second; hold until 24 good frames.
     let t = 0;
     let frame = seed * 100000 + (eye === "right" ? 0 : 50000);
     const hold = new LineUpHold();
@@ -230,7 +209,6 @@ export function runScan(seed: number, opts: { person?: Person; truth?: Truth; co
       const second = eye !== EYE_ORDER[0];
       const checks = { ...frameChecks(reading, second ? firstIris : null), steady: steadiness.update(t, reading) };
       screen = nextScreenLight(screen, reading?.light ?? null, second);
-      // Told to move: after half a second's reaction, about 20% closer or further per second.
       const dir = checks.distance === "far" || checks.distance === "close" ? checks.distance : null;
       if (dir !== toldDir) {
         toldDir = dir;
@@ -254,7 +232,6 @@ export function runScan(seed: number, opts: { person?: Person; truth?: Truth; co
       }
     }
 
-    // Countdown: 3 s, still tracking (as the app does) so the lock is fresh for the recording.
     const t0 = t + 3;
     while (t < t0) {
       const step = dt();
@@ -266,7 +243,6 @@ export function runScan(seed: number, opts: { person?: Person; truth?: Truth; co
       tracker.track(cam, { model: null, face: null, ring: ring.search, ts: t * 1000, recording: true });
     }
 
-    // Recording.
     const restLight = lightOf(screen, false);
     const stimulus = stimulusFactor(cond.flashGain * (ppm / PPM_REF) ** 2, restLight);
     const amp = person.amp[eye] * stimulus;
@@ -289,7 +265,6 @@ export function runScan(seed: number, opts: { person?: Person; truth?: Truth; co
       opts.hook?.({ eye, phase: "recording", t: rt, cam, reading });
       recordFrame(state, rt, reading, IMAGE_SIDE[eye]);
       if (reading && Number.isFinite(reading.pupilR)) measured++;
-      // A perfect pupillometer at the same moments.
       const side = IMAGE_SIDE[eye];
       ideal[eye].push({ t: rt, open: blink < 0.5, [side]: { pupilPx: (pupilMm / 2) * pos.ppm, irisPx: IRIS_RADIUS_MM * pos.ppm, contrast: 100 } });
     }
@@ -314,7 +289,6 @@ export function runScan(seed: number, opts: { person?: Person; truth?: Truth; co
   };
 }
 
-/** The numbers a perfect pupillometer would give for the same pupils, through the same analysis. */
 function idealMetricsOf(ideal: Record<PersonEye, Sample[]>, person: Person): ScanMetrics {
   const m: ScanMetrics = {};
   const per = EYE_ORDER.map((e) => ({ e, a: analyse(ideal[e], EYE_PROTOCOL) }));
@@ -334,15 +308,13 @@ function idealMetricsOf(ideal: Record<PersonEye, Sample[]>, person: Person): Sca
   }
   const rest = Object.fromEntries(per.map((p) => [p.e, p.a.metrics.restingRatio])) as Record<PersonEye, number | null>;
   if (rest.left !== null && rest.right !== null) m.sizeDiffMm = Math.abs(rest.left - rest.right) * IRIS_DIAMETER_MM;
-  // Haze on the app's scale: how grey the pupil would look with no reflections and no noise.
   m.hazeLeft = hazeScale(person.haze.left);
   m.hazeRight = hazeScale(person.haze.right);
   m.validFraction = 1;
   return m;
 }
 
-/** Lens haze (0–1) on the app's haze scale: the pupil's grey as a share of the white of the eye. */
 export function hazeScale(h: number) {
-  const pupil = 6.4 + (180.6 - 6.4) * h; // brightness of the pupil colour, see eye-sim PUPIL and HAZE
+  const pupil = 6.4 + (180.6 - 6.4) * h;
   return clamp(pupil / 205, 0, 1);
 }

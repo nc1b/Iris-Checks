@@ -22,7 +22,6 @@ export function ResearchLibrary({ notes, sources, content }: Props) {
   const filteredSources = sources.filter(source => (category === "All topics" || source.categories.includes(category)) && terms.every(term => `${source.title} ${source.domain} ${source.kind} ${source.categories.join(" ")}`.toLowerCase().includes(term)));
   const noteCount = matchingNotes.filter(Boolean).length;
 
-  // Notebook links can open a specific entry, including links from other notes.
   useEffect(() => {
     let frame = 0;
     const openLinkedNote = () => {

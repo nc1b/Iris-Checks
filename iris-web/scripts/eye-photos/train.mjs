@@ -1,6 +1,3 @@
-// Trains and tests the photo-match classifier, and writes:
-//   - eye-photo-model.json  (classifier, thresholds, test accuracy) for the website's server
-//   - eye-reference-v1.json (one fingerprint per photo, with label and split) for Supabase
 import fs from 'node:fs';
 import {
   argmax, confusionMatrix, encodeVectors, flagMetrics, l2normalize, nearestNeighbors,
@@ -13,12 +10,8 @@ const raw = JSON.parse(fs.readFileSync(input, 'utf8'));
 const LABEL = { Normal: 'normal', Cataract: 'cataract', Conjunctivitis: 'conjunctivitis', Uveitis: 'uveitis', Eyelid: 'eyelid' };
 const LABELS = ['normal', 'cataract', 'conjunctivitis', 'uveitis', 'eyelid'];
 
-// Drop exact duplicate files.
 const seen = new Set();
 const all = raw.filter((r) => !seen.has(r.sha256) && seen.add(r.sha256));
-// "aug_" files are edited copies (flips, rotations...) that exist only in the disease folders.
-// Leaving them in would leak copies of test photos into training and teach the model that
-// "edited-looking" means disease, so they are left out of training, testing and matching.
 const isAugmented = (r) => /^aug/i.test(r.file);
 const items = all.filter((r) => !isAugmented(r));
 const augmented = all.filter(isAugmented);
@@ -27,8 +20,6 @@ const X = items.map((r) => l2normalize(Float32Array.from(r.emb)));
 const Xf = items.map((r) => l2normalize(Float32Array.from(r.flip)));
 const K = LABELS.length;
 
-// Group near-identical photos (the same picture at another size or crop) so a group never
-// lands in both training and testing.
 const NEAR_DUPLICATE = 0.95;
 const parent = items.map((_, i) => i);
 const find = (i) => (parent[i] === i ? i : (parent[i] = find(parent[i])));
@@ -61,7 +52,6 @@ const round = (n, d = 4) => Number(n.toFixed(d));
 const [trX, trY] = rows(split.train, true);
 const tuning = trainSoftmax(trX, trY, K, { epochs: 250 });
 
-// Thresholds on validation: catch at least 85% of each condition.
 const valP = split.val.map((i) => predictProba(tuning, X[i]));
 const thresholds = {};
 LABELS.forEach((l, k) => {
@@ -72,7 +62,6 @@ const trainRefs = split.train.map((i) => X[i]);
 const valClosest = split.val.map((i) => nearestNeighbors(X[i], trainRefs, 1)[0].similarity);
 const minSimilarity = round(quantile(valClosest, 0.02) - 0.02);
 
-// Honest accuracy on test photos never used for training or tuning.
 const testP = split.test.map((i) => predictProba(tuning, X[i]));
 const testY = split.test.map((i) => y[i]);
 const perClass = {};
@@ -81,13 +70,11 @@ LABELS.forEach((l, k) => {
   const m = flagMetrics(testP.map((p) => p[k]), testY.map((t) => t === k), thresholds[l]);
   perClass[l] = Object.fromEntries(Object.entries(m).map(([a, v]) => [a, v === null || Number.isInteger(v) ? v : round(v)]));
 });
-// "Anything wrong?" view: does Iris flag any condition when the eye isn't normal?
 const anyFlag = testP.map((p) => LABELS.some((l, k) => l !== 'normal' && p[k] >= thresholds[l]));
 const anyM = flagMetrics(anyFlag.map(Number), testY.map((t) => t !== 0), 0.5);
 const pred = testP.map(argmax);
 const accuracy = round(pred.filter((p, i) => p === testY[i]).length / pred.length);
 
-// Final model on train + validation.
 const [fX, fY] = rows([...split.train, ...split.val], true);
 const final = trainSoftmax(fX, fY, K, { epochs: 250 });
 
@@ -136,7 +123,6 @@ const refs = {
     split: splitOf[i],
     embedding: encodeVectors([X[i]]),
   })),
-  // Edited copies: recorded so they're marked in the database, but never matched against.
   augmented: augmented.map((r) => ({ label: LABEL[r.cls], file: `${r.cls}/${r.file}`, sha256: r.sha256, width: r.width, height: r.height })),
 };
 fs.writeFileSync(refOut, JSON.stringify(refs));

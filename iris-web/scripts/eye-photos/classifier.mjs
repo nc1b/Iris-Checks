@@ -1,8 +1,3 @@
-// The math behind Iris's comparison: a small softmax classifier trained on image
-// embeddings, nearest-neighbour search over reference photos, data splitting and
-// accuracy metrics. Pure JavaScript, so it runs the same in the browser and in tests.
-
-// Small seeded random generator (mulberry32), so builds are repeatable.
 export function seededRandom(seed) {
   let a = seed >>> 0;
   return () => {
@@ -36,7 +31,6 @@ export function l2normalize(v) {
   return out;
 }
 
-// Splits indices into train/validation/test, keeping each label's share the same in every part.
 export function stratifiedSplit(labels, { fractions = [0.7, 0.15, 0.15], seed = 42 } = {}) {
   const random = seededRandom(seed);
   const byLabel = new Map();
@@ -48,7 +42,6 @@ export function stratifiedSplit(labels, { fractions = [0.7, 0.15, 0.15], seed = 
   for (const indices of byLabel.values()) {
     const shuffled = shuffle(indices, random);
     const n = shuffled.length;
-    // Every label gets at least one validation and one test example when it has 3+.
     const nTest = n >= 3 ? Math.max(1, Math.round(n * fractions[2])) : 0;
     const nVal = n >= 3 ? Math.max(1, Math.round(n * fractions[1])) : 0;
     split.test.push(...shuffled.slice(0, nTest));
@@ -77,8 +70,6 @@ export function predictProba(model, x) {
   return softmaxInPlace(z);
 }
 
-// Multinomial logistic regression with L2 regularisation, trained full-batch with Adam.
-// balance: weight each class equally so rare conditions aren't drowned out by common ones.
 export function trainSoftmax(X, y, numClasses, {
   epochs = 300,
   learningRate = 0.05,
@@ -144,7 +135,6 @@ export function trainSoftmax(X, y, numClasses, {
   return { weights, bias };
 }
 
-// refs: array of L2-normalised vectors. Returns the k most similar by cosine similarity.
 export function nearestNeighbors(query, refs, k = 7) {
   const best = [];
   for (let i = 0; i < refs.length; i++) {
@@ -167,9 +157,6 @@ export function quantile(values, q) {
   return sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo);
 }
 
-// A score threshold that still flags at least `target` of the true cases. It sits halfway
-// between that true case and the next-highest other photo, so it isn't tuned right up
-// against one example and generalises better to new photos.
 export function thresholdForSensitivity(scores, isPositive, target = 0.85, { min = 0.05, max = 0.9 } = {}) {
   const positives = scores.filter((_, i) => isPositive[i]).sort((a, b) => b - a);
   if (!positives.length) return 0.5;
@@ -180,7 +167,6 @@ export function thresholdForSensitivity(scores, isPositive, target = 0.85, { min
   return Math.min(max, Math.max(min, (cut + nextNegative) / 2));
 }
 
-// Sensitivity, specificity and precision for flagging one condition at a threshold.
 export function flagMetrics(scores, isPositive, threshold) {
   let tp = 0, fp = 0, tn = 0, fn = 0;
   scores.forEach((score, i) => {
@@ -210,7 +196,6 @@ export function argmax(values) {
   return best;
 }
 
-// Embeddings are stored as signed bytes (values × 127) to keep the database small.
 export function encodeVectors(vectors) {
   const dim = vectors[0]?.length ?? 0;
   const bytes = new Uint8Array(vectors.length * dim);

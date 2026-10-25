@@ -9,10 +9,6 @@ import { FormError, errorText, goToDashboard } from "@/components/auth/auth-fram
 import { CodeField, Divider, EmailField, SubmitButton } from "@/components/auth/sign-in-form";
 import { GlassInputWrapper, GoogleIcon, PasswordInput } from "@/components/ui/sign-in";
 
-/**
- * Create an account with Clerk's custom-flow API:
- * name + email + password → emailed 6-digit code → session → dashboard.
- */
 export function SignUpForm() {
   const { signUp, fetchStatus } = useSignUp();
   const { isLoaded, isSignedIn } = useAuth();
@@ -153,7 +149,6 @@ export function SignUpForm() {
           </span>
         </label>
 
-        {/* Clerk renders its bot check here when bot protection is on. */}
         <div id="clerk-captcha" />
 
         <FormError message={error} />

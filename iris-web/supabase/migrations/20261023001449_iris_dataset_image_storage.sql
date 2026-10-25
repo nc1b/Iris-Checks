@@ -1,13 +1,9 @@
--- Resized copies (max 1024 px, JPEG) of the dataset images in a PRIVATE storage bucket.
--- Originals stay on the team computer (local_path). Nothing here is public.
-
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('eye-datasets', 'eye-datasets', false, 2097152, array['image/jpeg']);
 
 alter table iris.dataset_images rename column storage_path to local_path;
-alter table iris.dataset_images add column storage_object text;  -- path inside the eye-datasets bucket
+alter table iris.dataset_images add column storage_object text;
 
--- The import function referred to storage_path; recreate it with the new column names.
 create or replace function public.iris_import_dataset_images(p_secret text, p_rows jsonb)
 returns integer
 language plpgsql
@@ -42,8 +38,6 @@ begin
 end;
 $$;
 
--- TEMPORARY: lets the local upload script add files to this one bucket, under a dataset
--- folder, as new objects only (no reading, overwriting or deleting). Dropped right after.
 create policy "temp dataset upload" on storage.objects
   for insert to anon
   with check (bucket_id = 'eye-datasets' and (storage.foldername(name))[1] in ('mendeley-bmrd', 'mendeley-bajwa'));

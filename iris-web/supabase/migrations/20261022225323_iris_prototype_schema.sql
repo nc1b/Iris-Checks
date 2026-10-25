@@ -1,8 +1,3 @@
--- Iris prototype: profiles and scan results for signed-in (Clerk) users.
--- Tables live in a private schema that the public API can't reach. The Next.js
--- server calls a few SECURITY DEFINER functions, which check a server-only secret
--- (only its SHA-256 hash is stored here) and always scope work to one Clerk user id.
-
 create schema if not exists iris;
 revoke all on schema iris from public, anon, authenticated;
 
@@ -45,7 +40,6 @@ alter table iris.app_config enable row level security;
 alter table iris.profiles enable row level security;
 alter table iris.scans enable row level security;
 
--- Raises unless the caller knows the server secret.
 create function iris.assert_server(p_secret text)
 returns void
 language plpgsql
@@ -75,7 +69,6 @@ begin
 end;
 $$;
 
--- Profile + recent scans + summary, creating the profile on first visit.
 create function public.iris_dashboard(p_secret text, p_user text, p_first_name text default null)
 returns jsonb
 language plpgsql
@@ -152,7 +145,6 @@ begin
 
   insert into iris.profiles (clerk_user_id) values (p_user) on conflict do nothing;
 
-  -- Simple guard against runaway inserts: at most 30 scans per user per hour.
   if (select count(*) from iris.scans where clerk_user_id = p_user and created_at > now() - interval '1 hour') >= 30 then
     raise exception 'too many scans, try again later' using errcode = '54000';
   end if;
@@ -187,7 +179,6 @@ begin
 end;
 $$;
 
--- Deletes the profile and (by cascade) every scan for this user.
 create function public.iris_delete_my_data(p_secret text, p_user text)
 returns boolean
 language plpgsql

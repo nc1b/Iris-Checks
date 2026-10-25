@@ -1,7 +1,5 @@
 import { SignInPage, type Testimonial } from "@/components/ui/sign-in";
 
-// Reference usage of the original all-in-one SignInPage. The live sign-in page uses the
-// same layout with real Clerk logic (app/(account)/sign-in, components/auth/sign-in-form.tsx).
 const sampleTestimonials: Testimonial[] = [
   { avatarSrc: "/quotes/franklin.jpg", name: "Benjamin Franklin", handle: "Inventor, 1735", text: "An ounce of prevention is worth a pound of cure." },
   { avatarSrc: "/quotes/clarke.jpg", name: "Arthur C. Clarke", handle: "Profiles of the Future", text: "Any sufficiently advanced technology is indistinguishable from magic." },

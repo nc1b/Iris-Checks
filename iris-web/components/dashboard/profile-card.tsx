@@ -36,7 +36,6 @@ const questions: { key: "diabetes" | "glaucoma" | "cataract"; label: string }[] 
   { key: "cataract", label: "Has a doctor told you that you have cataracts?" },
 ];
 
-/** Optional answers that help the research, plus research consent. All saved to the database. */
 export function ProfileCard({ profile, onSave }: { profile: Profile; onSave: (form: Form) => Promise<void> }) {
   const [form, setForm] = useState<Form>({
     age_range: profile.age_range,

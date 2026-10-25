@@ -1,24 +1,19 @@
 import { Activity, Droplet, Eye, ScanEye, type LucideIcon } from "lucide-react";
 
-/** The three planned checks, shared by the home page sections and the app preview. */
 export type Check = {
   id: "diabetes" | "glaucoma" | "cataract";
   name: string;
   icon: LucideIcon;
-  /** What the phone looks at. */
   signal: string;
   measures: string;
   why: string;
   evidence: string;
-  /** How solid the phone version is today, in a couple of words. */
   stage: string;
   limits: string;
   nextStep: string;
-  /** Vision simulation photo (National Eye Institute, public domain). */
   image: { src: string; alt: string; caption: string };
 };
 
-/** Credit the National Eye Institute requests for its eye-disease simulation photos. */
 export const NEI_CREDIT = "Simulation: National Eye Institute, NIH";
 
 export const CHECKS: Check[] = [
@@ -63,7 +58,6 @@ export const CHECKS: Check[] = [
   },
 ];
 
-/** The planned scan, in order (also shown on the app preview). */
 export const SCAN_STEPS = [
   { title: "Get close", body: "Soft light, screen brightness up. Cover one eye and bring the phone close to the other.", icon: ScanEye },
   { title: "Right eye, one flash", body: "Iris locks onto your eye and records how your pupil reacts to the flash.", icon: Activity },

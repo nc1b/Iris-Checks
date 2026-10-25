@@ -1,25 +1,13 @@
-/**
- * Hack Club AI (ai.hackclub.com/proxy/v1), with a backup key.
- *
- * HACKCLUB_API_KEY is used first. When it has run out or is limited (402 for the spending limit,
- * 429, or 401/403 for a key that no longer works), the same request is sent again with
- * HACKCLUB_API_KEY_BACKUP, and this server instance uses the backup first for the next 10
- * minutes, so every request doesn't pay for a failed try.
- */
-
 export const AI_BASE = "https://ai.hackclub.com/proxy/v1";
 
-/** Statuses that mean "this key can't be used right now", not "this request is wrong". */
 const KEY_TROUBLE = new Set([401, 402, 403, 429]);
 const REST_MS = 10 * 60_000;
 let mainRestingUntil = 0;
 
-/** Is any Hack Club AI key set? */
 export function aiConfigured() {
   return !!(process.env.HACKCLUB_API_KEY || process.env.HACKCLUB_API_KEY_BACKUP);
 }
 
-/** POSTs `body` as JSON to `path` (e.g. "/chat/completions"), trying the main key, then the backup. */
 export async function aiFetch(path: string, body: unknown, timeoutMs: number): Promise<Response> {
   const main = process.env.HACKCLUB_API_KEY;
   const backup = process.env.HACKCLUB_API_KEY_BACKUP;

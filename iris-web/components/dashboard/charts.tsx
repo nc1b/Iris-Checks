@@ -3,13 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
-/**
- * Small, dependency-free SVG charts for the dashboard. One series per chart, drawn in the
- * text color (the site is black and white), with a shaded "typical range" band, a 2px line,
- * 8px markers with a surface-colored ring, a hairline grid, and a crosshair tooltip that
- * also works with the arrow keys. Every value is also listed in the scan history table.
- */
-
 export type Point = { t: string; v: number };
 
 const dateFmt = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
@@ -102,13 +95,11 @@ export function TrendChart({
           if (e.key === "ArrowRight") setActive((i) => Math.min(points.length - 1, (i ?? 0) + 1));
         }}
       >
-        {/* typical range */}
         <rect x={m.left} y={bandTop} width={innerW} height={Math.max(0, bandBottom - bandTop)} className="fill-foreground/[0.05]" />
         <text x={m.left + 6} y={bandTop + 13} className="fill-muted-foreground text-[10px]">
           Typical range
         </text>
 
-        {/* grid + y ticks */}
         {ticks.map((t) => (
           <g key={t}>
             <line x1={m.left} x2={m.left + innerW} y1={y(t)} y2={y(t)} className="stroke-border" strokeWidth={1} />
@@ -118,7 +109,6 @@ export function TrendChart({
           </g>
         ))}
 
-        {/* x labels: first and last */}
         <text x={x(0)} y={height - 6} className="fill-muted-foreground text-[10px]">
           {dateFmt.format(new Date(points[0].t))}
         </text>
@@ -126,10 +116,8 @@ export function TrendChart({
           {dateFmt.format(new Date(last.t))}
         </text>
 
-        {/* crosshair */}
         {a && <line x1={x(active!)} x2={x(active!)} y1={m.top} y2={m.top + innerH} className="stroke-foreground/30" strokeWidth={1} />}
 
-        {/* line + markers */}
         <path d={path} fill="none" className="stroke-foreground" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
         {points.map((p, i) => (
           <circle
@@ -142,7 +130,6 @@ export function TrendChart({
           />
         ))}
 
-        {/* end label (the one direct label) */}
         <text x={x(points.length - 1) + 10} y={y(last.v) + 4} className="fill-foreground text-xs font-semibold tabular-nums">
           {last.v.toFixed(0)}
           {unit}
@@ -165,7 +152,6 @@ export function TrendChart({
   );
 }
 
-/** Tiny trend line for a result card (values are in the table and the trend chart too). */
 export function Sparkline({ values, className }: { values: number[]; className?: string }) {
   if (values.length < 2) return <div className={cn("h-8", className)} />;
   const w = 112;

@@ -1,56 +1,25 @@
-/**
- * The iris and pupil in a close-up of one eye, fitted as circles (the camera scan).
- *
- * 1. Iris edge (limbus): along rows through the iris, the place where it meets the brighter white
- *    of the eye, on the left and right (the eyelids cover the top and bottom). A circle is fitted
- *    to those points. The face search (lib/eye-search) only finds the eye roughly; this gives the
- *    iris size the pupil is compared with, to about a pixel.
- * 2. Pupil: 36 rays from inside the pupil outwards; on each, the strongest step from pupil to
- *    iris. A circle is fitted to the edge points, and rays that disagree (an eyelash, a crypt in
- *    the iris) are dropped. Reflections of the screen and room lights are masked first: at 15 cm
- *    the screen reflects as a bright patch right over the pupil, so the edge is measured where it
- *    can be seen. A cloudy lens can make the pupil lighter than a dark iris; then the step is the
- *    other way round.
- * 3. Haze (cataract check): how grey the middle of the pupil is next to the white of the eye.
- *    Both are lit by the same light, so the ratio doesn't change with exposure or screen
- *    brightness, unlike plain brightness.
- *
- * Pure functions on ImageData, so the same code runs on the phone and in scripts/scan-bench.
- * Built to be quick (about a millisecond for a 192 px crop), because it runs on every frame.
- */
-
 export type Circle = { x: number; y: number; r: number };
 
 export type EyeFit = {
-  /** The iris edge in crop pixels, or null if it wasn't seen (eye closed, washed out). */
   iris: Circle | null;
-  /** The pupil in crop pixels, or null if it couldn't be measured. */
   pupil: Circle | null;
-  /** Brightness difference between the iris and the pupil (0–255) on the channel used. */
   contrast: number;
-  /** Share of the rays whose edge fits the pupil circle. */
   coverage: number;
-  /** How well lit the eye is: brightness of its bright parts (0–255). */
   light: number;
-  /** Grey level of the pupil's middle as a share of the white of the eye (0 = black), or null. */
   haze: number | null;
-  /** 1: pupil darker than the iris (usual). -1: lighter (a cloudy lens). 0: can't tell. */
   polarity: 1 | -1 | 0;
 };
 
 const RAYS = 36;
 const RAY_DIRS = Array.from({ length: RAYS }, (_, k) => [Math.cos((k * 2 * Math.PI) / RAYS), Math.sin((k * 2 * Math.PI) / RAYS)] as const);
-/** Polar sample points (angle cos/sin) within ±50° of horizontal, for levels that avoid the eyelids. */
 const SIDE_DIRS = (() => {
   const out: (readonly [number, number])[] = [];
   for (const base of [0, Math.PI]) for (let a = -50; a <= 50; a += 10) out.push([Math.cos(base + (a * Math.PI) / 180), Math.sin(base + (a * Math.PI) / 180)]);
   return out;
 })();
 
-/** Smoothed brightness, red and whiteness, the unsmoothed brightness (for thin reflections), and the reflection mask. */
 type Planes = { w: number; h: number; luma: Float32Array; red: Float32Array; white: Float32Array; raw: Float32Array; glare: Uint8Array };
 
-/** 3-tap box blur in both directions, in place via a scratch buffer. */
 function blur(src: Float32Array, w: number, h: number, tmp: Float32Array) {
   for (let y = 0; y < h; y++) {
     const o = y * w;
@@ -81,21 +50,12 @@ function planes(img: ImageData): Planes {
   }
   const raw = luma.slice();
   const tmp = new Float32Array(n);
-  // Once: more would smear bright reflections into the dark pupil beside them.
   for (const ch of [luma, red, white]) blur(ch, w, h, tmp);
   return { w, h, luma, red, white, raw, glare: new Uint8Array(n) };
 }
 
-/**
-/** Pixels around a reflection also left out: its blurred rim, and the smoothing's reach. */
 const GROW = 3;
 
-/**
- * Marks reflections on the cornea: pixels brighter than `threshold` over the iris (inside
- * `area`), grown by GROW px for their blurred rim. Found on the unsmoothed picture, because
- * smoothing dims a thin reflection (the outline of the screen's light frame) below the line. The white of the eye isn't a reflection, however
- * bright it gets in a washed-out frame, so nothing outside the iris is marked.
- */
 function markGlare(P: Planes, threshold: number, area: Circle) {
   const { w, h, raw, glare } = P;
   const row = new Uint8Array(w * h);
@@ -133,7 +93,6 @@ function quantile(values: number[], q: number) {
   return s[Math.min(s.length - 1, Math.max(0, Math.round(q * (s.length - 1))))];
 }
 
-/** Brightness at polar points around (cx, cy), radii in [r0, r1], skipping reflections. */
 function ringSamples(P: Planes, ch: Float32Array, cx: number, cy: number, r0: number, r1: number, dirs: readonly (readonly [number, number])[], steps = 4) {
   const out: number[] = [];
   for (let k = 0; k < steps; k++) {
@@ -146,7 +105,6 @@ function ringSamples(P: Planes, ch: Float32Array, cx: number, cy: number, r0: nu
   return out;
 }
 
-/** Algebraic (Kåsa) circle fit, then twice dropping points far from the circle. */
 export function fitCircle(xs: number[], ys: number[]): (Circle & { inliers: number; rms: number }) | null {
   let idx = xs.map((_, i) => i);
   let c: Circle | null = null;
@@ -154,7 +112,6 @@ export function fitCircle(xs: number[], ys: number[]): (Circle & { inliers: numb
     if (idx.length < 5) return null;
     let sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0, sxz = 0, syz = 0, sz = 0;
     const n = idx.length;
-    // Centre the points first for numerical stability.
     let mx = 0, my = 0;
     for (const i of idx) {
       mx += xs[i];
@@ -168,7 +125,6 @@ export function fitCircle(xs: number[], ys: number[]): (Circle & { inliers: numb
       const z = x * x + y * y;
       sx += x; sy += y; sxx += x * x; syy += y * y; sxy += x * y; sxz += x * z; syz += y * z; sz += z;
     }
-    // Solve [sxx sxy sx; sxy syy sy; sx sy n] [D E F] = -[sxz syz sz].
     const A = [sxx, sxy, sx, sxy, syy, sy, sx, sy, n];
     const b = [-sxz, -syz, -sz];
     const det = A[0] * (A[4] * A[8] - A[5] * A[7]) - A[1] * (A[3] * A[8] - A[5] * A[6]) + A[2] * (A[3] * A[7] - A[4] * A[6]);
@@ -201,13 +157,11 @@ export function fitCircle(xs: number[], ys: number[]): (Circle & { inliers: numb
   return { ...c, inliers: idx.length, rms };
 }
 
-/** Parabola through three edge strengths: where the peak really is, between pixels. */
 function subPixel(a: number, b: number, c: number) {
   const d = a - 2 * b + c;
   return d < 0 ? Math.max(-0.5, Math.min(0.5, (0.5 * (a - c)) / d)) : 0;
 }
 
-/** The iris edge from left and right edge points on rows through the iris. */
 function fitLimbus(P: Planes, guess: Circle): Circle | null {
   const R0 = guess.r;
   const k = Math.max(2, Math.round(R0 * 0.04));
@@ -228,9 +182,8 @@ function fitLimbus(P: Planes, guess: Circle): Circle | null {
       let best = 0;
       let bx = -1;
       const strength = (x: number) => {
-        const out = o + x + side * k; // towards the white of the eye
-        const inn = o + x - side * k; // towards the pupil
-        // A reflection on the iris side would look like the white of the eye.
+        const out = o + x + side * k;
+        const inn = o + x - side * k;
         if (P.glare[inn]) return 0;
         return Math.max(P.luma[out] - P.luma[inn], P.white[out] - P.white[inn]);
       };
@@ -252,9 +205,6 @@ function fitLimbus(P: Planes, guess: Circle): Circle | null {
   const c = fitCircle(xs, ys);
   if (!c || c.inliers < 8) return null;
   if (c.r < R0 * 0.7 || c.r > R0 * 1.35 || Math.hypot(c.x - guess.x, c.y - guess.y) > R0 * 0.4) return null;
-  // An iris is darker than the white of the eye on both sides of it. A circle through one side of
-  // the iris and the corner of the eye on the other (white inside, eyelid outside) lines up with
-  // edges too, but fails this on that side.
   const level = (ch: Float32Array, side: number, k0: number, k1: number) => {
     const v: number[] = [];
     for (let i = 0; i < 3; i++) {
@@ -275,16 +225,9 @@ function fitLimbus(P: Planes, guess: Circle): Circle | null {
   return { x: c.x, y: c.y, r: c.r };
 }
 
-/**
- * Fits the iris and pupil in a crop where the iris is expected near `guess` (crop pixels).
- * `sizeTolerance`: when the iris size is already known (during a recording), a fitted iris
- * edge more than this share bigger or smaller is wrong (a washed-out frame where the pupil's
- * edge looks like the iris's) and is ignored.
- */
 export function fitEye(img: ImageData, guess: Circle, sizeTolerance = 0.35): EyeFit {
   const P = planes(img);
   const n = P.w * P.h;
-  // How well lit: the 90th percentile of brightness, from a coarse histogram.
   const hist = new Uint32Array(256);
   for (let p = 0; p < n; p += 3) hist[Math.min(255, P.luma[p] | 0)]++;
   let acc = 0;
@@ -299,11 +242,8 @@ export function fitEye(img: ImageData, guess: Circle, sizeTolerance = 0.35): Eye
   }
   const empty: EyeFit = { iris: null, pupil: null, contrast: 0, coverage: 0, light, haze: null, polarity: 0 };
 
-  // Reflections: far brighter than the iris tissue around the pupil.
   const tissue0 = quantile(ringSamples(P, P.luma, guess.x, guess.y, guess.r * 0.55, guess.r * 0.85, SIDE_DIRS), 0.5);
   if (!Number.isFinite(tissue0)) return empty;
-  // In a washed-out frame (the first moments of a flash in a dim room) the iris itself is as
-  // bright as a reflection, so nothing can be told apart that way.
   if (tissue0 < 200) markGlare(P, Math.min(240, tissue0 + Math.max(35, 0.4 * (255 - tissue0))), { x: guess.x, y: guess.y, r: guess.r * 1.05 });
 
   const fitted = fitLimbus(P, guess);
@@ -311,9 +251,6 @@ export function fitEye(img: ImageData, guess: Circle, sizeTolerance = 0.35): Eye
   const I = iris ?? guess;
   const IR = I.r;
 
-  // Iris tissue and pupil levels, on brightness and on the red channel. The pupil level is the
-  // darkest fifth of what isn't a reflection near the middle: during a flash the screen's
-  // reflection covers the very middle, but not the sides of the pupil.
   const centreDirs = RAY_DIRS.filter((_, k) => k % 2 === 0);
   const levels = (ch: Float32Array) => {
     const tissue = quantile(ringSamples(P, ch, I.x, I.y, IR * 0.55, IR * 0.85, SIDE_DIRS), 0.5);
@@ -322,18 +259,14 @@ export function fitEye(img: ImageData, guess: Circle, sizeTolerance = 0.35): Eye
   };
   const byLuma = levels(P.luma);
   const byRed = levels(P.red);
-  // Brown irises reflect much more red than green, so the red channel often shows a dark pupil
-  // more clearly in dim light. Use it only when it's clearly better.
   const useRed = byLuma.contrast > 0 && byRed.contrast > byLuma.contrast * 1.15;
   const ch = useRed ? P.red : P.luma;
   const lv = useRed ? byRed : byLuma;
   const polarity: 1 | -1 | 0 = lv.contrast >= 6 ? 1 : lv.contrast <= -10 ? -1 : 0;
 
-  // Haze only where the iris edge was seen, so it's measured on an eye, not on skin beside it.
   const haze = iris ? measureHazeFit(P, iris, null) : null;
   if (polarity === 0 || !Number.isFinite(lv.contrast)) return { ...empty, iris, haze, polarity };
 
-  // Where to cast the rays from: the middle of the pupil-like pixels near the iris centre.
   const mid = (lv.tissue + lv.centre) / 2;
   let sx = 0;
   let sy = 0;
@@ -360,13 +293,6 @@ export function fitEye(img: ImageData, guess: Circle, sizeTolerance = 0.35): Eye
   const rMax = IR * 0.85;
   const len = Math.ceil(rMax) + Math.max(12, Math.round(IR * 0.15) + 2);
   const profile = new Float32Array(len + 1);
-  /**
-   * The pupil edge on one ray, at whole pixel r: the step from the 3 nearest clear pixels inside
-   * to the 3 nearest outside. Both sides must start right at the edge (not across a reflection),
-   * the inside must look like pupil (mostly), the 6 clear pixels outside must look like iris on
-   * average, and it mustn't turn pupil-dark again just beyond. The edge of a reflection inside
-   * the pupil fails those last tests: past it, the pupil comes back.
-   */
   const edge = (r: number) => {
     if (!Number.isFinite(profile[r - 1]) && !Number.isFinite(profile[r])) return 0;
     if (!Number.isFinite(profile[r + 1]) && !Number.isFinite(profile[r])) return 0;
@@ -385,7 +311,6 @@ export function fitEye(img: ImageData, guess: Circle, sizeTolerance = 0.35): Eye
     for (let q = r + 1; q <= len && q <= r + beyond; q++) {
       const v = profile[q];
       if (!Number.isFinite(v)) continue;
-      // Back to pupil-dark further out: this was a faint reflection inside the pupil, not its edge.
       if (q >= r + 2 && polarity * (darkLimit - v) > 0) return 0;
       if (outN < 3 && q <= r + 6) {
         outS += v;
@@ -398,13 +323,10 @@ export function fitEye(img: ImageData, guess: Circle, sizeTolerance = 0.35): Eye
     }
     if (inN < 2 || outN < 2 || farN < 4) return 0;
     const inside = inS / inN;
-    // Just inside, the blurred edge is already partway up, so "pupil-like" allows up to 70% of
-    // the way to the iris. (At halfway, noisy dark frames put the edge a pixel too far in.)
     if (polarity * (insideLimit - inside) <= 0 || polarity * (farS / farN - mid) <= 0) return 0;
     return polarity * (outS / outN - inside);
   };
   let pupil: (Circle & { inliers: number }) | null = null;
-  // Twice: the second time from the centre of the first circle, for evenly spread rays.
   for (let pass = 0; pass < 2; pass++) {
     const xs: number[] = [];
     const ys: number[] = [];
@@ -434,9 +356,6 @@ export function fitEye(img: ImageData, guess: Circle, sizeTolerance = 0.35): Eye
   }
   if (!pupil) return { ...empty, iris, haze, polarity };
 
-  // Contrast measured right at the pupil: its darker part inside (a flash's reflection can
-  // cover the rest) against the iris just outside it. A circle with hardly any contrast across
-  // it isn't the pupil (a washed-out frame).
   const inside = quantile(ringSamples(P, ch, pupil.x, pupil.y, pupil.r * 0.4, pupil.r * 0.85, RAY_DIRS, 3), polarity > 0 ? 0.25 : 0.75);
   const around = quantile(ringSamples(P, ch, pupil.x, pupil.y, pupil.r * 1.2, pupil.r * 1.5, centreDirs, 2), 0.5);
   const contrast = Number.isFinite(inside) && Number.isFinite(around) ? polarity * (around - inside) : Math.abs(lv.contrast);
@@ -452,13 +371,7 @@ export function fitEye(img: ImageData, guess: Circle, sizeTolerance = 0.35): Eye
   };
 }
 
-/**
- * Haze: the pupil's middle (its darker part, skipping reflections) as a share of the white of
- * the eye just outside the iris. Null when the white of the eye isn't usable (too dark, or
- * blown out) or too little of the pupil's middle is free of reflections.
- */
 function measureHazeFit(P: Planes, iris: Circle, pupil: Circle | null): number | null {
-  // The white of the eye beside the iris (raw: it isn't a reflection, however bright).
   const sclera: number[] = [];
   for (const k of [1.12, 1.2, 1.3]) {
     for (const [c, s] of SIDE_DIRS) {

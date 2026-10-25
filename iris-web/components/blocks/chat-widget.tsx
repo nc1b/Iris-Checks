@@ -24,10 +24,6 @@ const greeting: Message = {
         "Hi! I'm the Iris assistant. Ask me about the three planned checks (diabetes, glaucoma and cataracts), how the scan will work, or the research behind it.",
 }
 
-/**
- * Where the button sits, saved relative to the nearest corner (e.g. "20px from the
- * right, 20px from the bottom") so it stays docked there when the window size changes.
- */
 type Anchor = { right: boolean; bottom: boolean; dx: number; dy: number }
 
 function load<T>(key: string, fallback: T): T {
@@ -43,12 +39,9 @@ function save(key: string, value: unknown) {
     try {
         localStorage.setItem(key, JSON.stringify(value))
     } catch {
-        // Storage full or blocked: the chat still works, it just won't be remembered.
     }
 }
 
-// The visible page size, not counting scrollbars (window.innerWidth includes them,
-// which left the button half under the scrollbar on desktop).
 const vw = () => document.documentElement.clientWidth || window.innerWidth
 const vh = () => document.documentElement.clientHeight || window.innerHeight
 
@@ -81,12 +74,10 @@ function fromAnchor(a: Anchor): Pos {
 
 function loadAnchor(): Anchor {
     const saved = load<Partial<Anchor> | null>(POS_KEY, null)
-    // Older versions saved plain {x, y} pixels, which got stranded mid-screen after resizing: start over.
     if (!saved || typeof saved.right !== 'boolean' || !Number.isFinite(saved.dx) || !Number.isFinite(saved.dy)) return DEFAULT_ANCHOR
     return saved as Anchor
 }
 
-/** **bold**, *italic* and site links like /privacy. Everything else stays plain text (no HTML). */
 function inline(text: string): ReactNode[] {
     return text.split(/(\*\*[^*]+\*\*|\*[^*\s][^*]*\*|(?<![\w/])\/(?:privacy|terms|research)\b)/g).map((part, i) => {
         if (part.startsWith('**') && part.endsWith('**') && part.length > 4) return <strong key={i} className="font-semibold">{part.slice(2, -2)}</strong>
@@ -101,7 +92,6 @@ function inline(text: string): ReactNode[] {
     })
 }
 
-/** Small, safe markdown subset for replies: paragraphs, "- " / "1. " lists, bold, italic. */
 function Markdown({ text }: { text: string }) {
     const blocks: ReactNode[] = []
     let list: { ordered: boolean; items: string[] } | null = null
@@ -136,11 +126,6 @@ function Markdown({ text }: { text: string }) {
     return <div className="space-y-2">{blocks}</div>
 }
 
-/**
- * Floating "ask about the project" chat. Drag the round button (or the panel's
- * header) anywhere on screen. The conversation and the position are saved in this
- * browser's localStorage. Rendered client-only (see chat-widget-loader.tsx).
- */
 export default function ChatWidget() {
     const [open, setOpen] = useState(false)
     const [messages, setMessages] = useState<Message[]>(() => {
@@ -159,7 +144,6 @@ export default function ChatWidget() {
     const inputRef = useRef<HTMLTextAreaElement>(null)
     const drag = useRef<{ startX: number; startY: number; origin: Pos; moved: boolean } | null>(null)
     const messagesRef = useRef(messages)
-    // Bumped by "New chat" so a reply that arrives afterwards is dropped instead of reviving the old chat.
     const chatId = useRef(0)
     const firstScroll = useRef(true)
 
@@ -172,7 +156,6 @@ export default function ChatWidget() {
         posRef.current = pos
     }, [pos])
 
-    // Keep the button docked to its corner when the window size changes.
     useEffect(() => {
         const onResize = () => {
             setViewport({ w: vw(), h: vh() })
@@ -190,7 +173,6 @@ export default function ChatWidget() {
         return () => window.removeEventListener('keydown', onKey)
     }, [open])
 
-    // Jump to the bottom when opened, then scroll smoothly for new messages.
     useEffect(() => {
         const el = listRef.current
         if (!el || !open) return
@@ -198,7 +180,6 @@ export default function ChatWidget() {
         firstScroll.current = false
     }, [messages, loading, open])
 
-    // Grow the textarea with its text (up to max-h).
     useLayoutEffect(() => {
         const el = inputRef.current
         if (!el) return
@@ -219,7 +200,6 @@ export default function ChatWidget() {
             const res = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                // Send only the recent conversation, without the canned greeting or error notes.
                 body: JSON.stringify({
                     messages: next
                         .filter((m) => m.content !== greeting.content && !m.error)
@@ -248,7 +228,6 @@ export default function ChatWidget() {
         return () => window.removeEventListener(OPEN_CHAT_EVENT, onOpen)
     }, [send])
 
-    // ----- dragging -----
     const onPointerDown = (e: React.PointerEvent) => {
         if (e.button !== 0) return
         drag.current = { startX: e.clientX, startY: e.clientY, origin: pos, moved: false }
@@ -270,7 +249,6 @@ export default function ChatWidget() {
         setDragging(false)
         if (!d) return
         if (d.moved) {
-            // Remember where it was dropped, relative to the nearest corner.
             anchor.current = toAnchor(posRef.current)
             save(POS_KEY, anchor.current)
         } else if (toggle) setOpen((o) => !o)
@@ -291,13 +269,11 @@ export default function ChatWidget() {
         send(all[lastUser].content, all.slice(0, lastUser))
     }
 
-    // ----- panel placement: opens toward the side of the screen with more room -----
     const panelW = Math.min(380, viewport.w - MARGIN * 2)
     const onRight = pos.x + BUTTON / 2 > viewport.w / 2
     const roomAbove = pos.y - MARGIN * 2
     const roomBelow = viewport.h - (pos.y + BUTTON) - MARGIN * 2
     const below = roomBelow > roomAbove
-    // Never cover the button: shrink the panel to the space on its side.
     const panelH = Math.max(260, Math.min(560, below ? roomBelow : roomAbove))
     const panelLeft = Math.min(Math.max(MARGIN, onRight ? pos.x + BUTTON - panelW : pos.x), viewport.w - panelW - MARGIN)
     const panelTop = below ? pos.y + BUTTON + MARGIN : Math.max(MARGIN, pos.y - panelH - MARGIN)
@@ -316,7 +292,6 @@ export default function ChatWidget() {
                     !dragging && 'transition-[opacity,transform] duration-300 ease-out motion-reduce:transition-none',
                     open ? 'translate-y-0 scale-100 opacity-100' : 'pointer-events-none translate-y-2 scale-95 opacity-0',
                 )}>
-                {/* Header (drag handle) */}
                 <div
                     onPointerDown={onPointerDown}
                     onPointerMove={onPointerMove}
@@ -362,7 +337,6 @@ export default function ChatWidget() {
                 </div>
                 <div className="mx-4 h-px bg-border" />
 
-                {/* Messages */}
                 <div ref={listRef} className="flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4" aria-live="polite">
                     {messages.map((m, i) =>
                         m.role === 'user' ? (
@@ -422,7 +396,6 @@ export default function ChatWidget() {
                     )}
                 </div>
 
-                {/* Composer */}
                 <form
                     onSubmit={(e) => {
                         e.preventDefault()
@@ -483,13 +456,11 @@ export default function ChatWidget() {
                     'animate-in fade-in zoom-in-50 [animation-delay:600ms] [animation-duration:500ms] [animation-fill-mode:both] motion-reduce:animate-none',
                     dragging ? 'cursor-grabbing scale-110' : 'cursor-grab transition-transform duration-200 hover:scale-105 active:scale-95',
                 )}>
-                {/* The Iris character: a dark tile whose eyes follow your cursor. */}
                 <EyeTracker
                     aria-hidden
                     shape="Cube"
                     size={BUTTON}
                     track="window"
-                    // Inline so it beats the component's own `relative` and fixed 200px size.
                     style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
                     className="pointer-events-none drop-shadow-[0_10px_18px_rgba(0,0,0,0.25)]"
                     bodyClassName="fill-foreground stroke-background/40"

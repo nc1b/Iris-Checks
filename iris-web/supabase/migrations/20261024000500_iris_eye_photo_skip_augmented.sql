@@ -1,8 +1,3 @@
--- The Eye Diseases Classification dataset includes 340 edited copies ("aug_" files: flips,
--- rotations...) that exist only in the disease folders. Keep them recorded but marked as
--- augmented, without fingerprints, so photo matching only ever compares with original photos.
--- A re-import now also updates each photo's train/val/test split.
-
 create or replace function iris.import_eye_references(p_url text)
 returns integer
 language plpgsql

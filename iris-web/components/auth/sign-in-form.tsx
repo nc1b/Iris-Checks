@@ -10,11 +10,6 @@ import { GlassInputWrapper, GoogleIcon, PasswordInput } from "@/components/ui/si
 
 type Step = "password" | "device-code" | "reset-email" | "reset-code" | "reset-password";
 
-/**
- * Sign in with Clerk's custom-flow API (Clerk v7 "signals"):
- * email + password → (new device: emailed code) → session → dashboard.
- * Also: Google, and resetting a forgotten password with an emailed code.
- */
 export function SignInForm() {
   const { signIn, fetchStatus } = useSignIn();
   const { isLoaded, isSignedIn } = useAuth();
@@ -26,7 +21,6 @@ export function SignInForm() {
   const [error, setError] = useState<string | null>(null);
   const busy = fetchStatus === "fetching" || !isLoaded;
 
-  // Already signed in? Go straight to the dashboard.
   useEffect(() => {
     if (isLoaded && isSignedIn) router.replace("/dashboard");
   }, [isLoaded, isSignedIn, router]);
@@ -36,7 +30,6 @@ export function SignInForm() {
     if (error) setError(errorText(error));
   };
 
-  // What to do after a step succeeds, based on what Clerk still needs.
   const next = async () => {
     if (signIn.status === "complete") return finish();
     if (signIn.status === "needs_client_trust" || signIn.status === "needs_second_factor") {

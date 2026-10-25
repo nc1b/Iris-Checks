@@ -2,13 +2,6 @@ import { AGE_RANGES, ANSWERS, type Profile } from "@/lib/dashboard-types";
 import { db, errorResponse } from "@/lib/server/db";
 import { getSessionUserId } from "@/lib/server/session";
 
-/**
- * The signed-in user's dashboard data.
- * GET    → profile + recent scans (creates the profile on first visit)
- * PATCH  → update optional profile answers and research consent
- * DELETE → delete the profile and every saved scan
- */
-
 const unauthorized = () => Response.json({ error: "Please sign in." }, { status: 401 });
 
 export async function GET(request: Request) {

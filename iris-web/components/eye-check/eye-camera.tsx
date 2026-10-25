@@ -28,32 +28,23 @@ import { cn } from "@/lib/utils";
 
 export type Facing = "environment" | "user";
 
-/** What this phone's camera lets a web page control. Many browsers expose none of it. */
 type Controls = {
   zoom: { min: number; max: number; step: number } | null;
   focus: boolean;
   torch: boolean;
-  /** Exposure compensation in EV, where the browser allows it (mostly Chrome on Android). */
   exposure: { min: number; max: number; step: number } | null;
 };
 
 const NO_CONTROLS: Controls = { zoom: null, focus: false, torch: false, exposure: null };
 const TORCH_AUTO_OFF_MS = 30_000;
 
-/** Live processing: how often the guide region is checked, in ms (about 8 times a second). */
 const TICK_MS = 120;
-/** Mean pixel change between checks above which the picture is moving (smears the photo). */
 const MAX_MOTION = 6;
-/** Anti-blur: on capture, keep sampling this long and send the sharpest frame from this window. */
 const BURST_MS = 700;
 const BEST_WINDOW_MS = 1500;
-/** Auto photo: this many good, steady checks in a row (about 1.2 s). */
 const AUTO_TICKS = 10;
-/** Lighting control: wait this long between automatic exposure steps. */
 const EXPOSURE_STEP_MS = 900;
-/** Live eye finding runs on every other check (about 4 times a second). */
 const EYE_EVERY = 2;
-/** Forget the live eye if it hasn't been seen for this long. */
 const EYE_STALE_MS = 900;
 
 type CapabilitiesPlus = MediaTrackCapabilities & {
@@ -78,9 +69,7 @@ export function EyeCamera({
   onClose,
 }: {
   facing: Facing;
-  /** e.g. "left eye", shown in the instructions. */
   eyeLabel: string;
-  /** True when the person reported light sensitivity or pain: the flashlight stays hidden behind a warning. */
   avoidTorch: boolean;
   onFacing: (f: Facing) => void;
   onCapture: (photo: CapturedPhoto) => void;
@@ -111,7 +100,6 @@ export function EyeCamera({
   const goodTicks = useRef(0);
   const best = useRef<Best | null>(null);
   const framesSeen = useRef<number[]>([]);
-  // The eye and pupil found in the live picture, in video pixels.
   const [eye, setEye] = useState<LiveEye | null>(null);
   const eyeRef = useRef<{ m: EyeMeasure; at: number } | null>(null);
   const eyeScratch = useRef<HTMLCanvasElement | null>(null);
@@ -119,13 +107,10 @@ export function EyeCamera({
   const [coach, setCoach] = useState<Coach | null>(null);
   const [resolution, setResolution] = useState<string>("");
   const [attempt, setAttempt] = useState(0);
-  // Front camera only: the screen around the oval turns white to light the face. It comes on by
-  // itself the first time the photo is too dark, and the person can switch it off.
   const [screenLight, setScreenLight] = useState(false);
   const screenLightAuto = useRef(false);
   const mirrored = facing === "user";
 
-  // Start (or restart, on switching) the camera.
   useEffect(() => {
     let cancelled = false;
     let current: MediaStream | null = null;
@@ -138,7 +123,6 @@ export function EyeCamera({
       try {
         current = await navigator.mediaDevices.getUserMedia({
           audio: false,
-          // Ask for the highest resolution the camera offers; the browser picks the closest.
           video: { facingMode: { ideal: facing }, width: { ideal: 3840 }, height: { ideal: 2160 } },
         });
         if (cancelled) return current.getTracks().forEach((t) => t.stop());
@@ -153,7 +137,6 @@ export function EyeCamera({
           exposure: ev && ev.max > ev.min ? { min: ev.min, max: ev.max, step: ev.step || 0.1 } : null,
         });
         setExposure((settings as { exposureCompensation?: number }).exposureCompensation ?? 0);
-        // Let the camera keep adjusting exposure, focus and colour by itself while framing.
         const keepAdjusting: Record<string, string> = {};
         if (caps.exposureMode?.includes("continuous")) keepAdjusting.exposureMode = "continuous";
         if (caps.focusMode?.includes("continuous")) keepAdjusting.focusMode = "continuous";
@@ -162,7 +145,6 @@ export function EyeCamera({
         setZoom((settings as { zoom?: number }).zoom ?? caps.zoom?.min ?? 1);
         setResolution(settings.width && settings.height ? `${settings.width}×${settings.height}` : "");
         setStream(current);
-        // Start loading the eye-finding model while the person frames the photo.
         loadFaceModel().catch(() => {});
       } catch (e) {
         const name = e instanceof DOMException ? e.name : "";
@@ -193,8 +175,6 @@ export function EyeCamera({
     video.play().catch(() => {});
   }, [stream]);
 
-  // Real-time processing, about 8 times a second: light, sharpness and motion of the guide
-  // region, the sharpest recent frame (for the anti-blur capture), and the auto photo.
   const tickRef = useRef<() => void>(() => {});
   useEffect(() => {
     if (!stream) return;
@@ -217,12 +197,10 @@ export function EyeCamera({
     try {
       await stream?.getVideoTracks()[0]?.applyConstraints({ advanced: [{ exposureCompensation: value } as MediaTrackConstraintSet] });
     } catch {
-      /* not every step is accepted; the camera keeps its own exposure */
     }
   }
 
   const track = () => stream?.getVideoTracks()[0];
-
 
   const setTorch = useCallback(
     async (on: boolean) => {
@@ -233,7 +211,6 @@ export function EyeCamera({
       try {
         await apply(on);
         setTorchOn(on);
-        // Never leave the light on: it switches itself off after 30 seconds.
         if (on) {
           torchTimer.current = window.setTimeout(() => {
             apply(false).catch(() => {});
@@ -247,7 +224,6 @@ export function EyeCamera({
     [stream],
   );
 
-  /** Sends the sharpest frame from the last moment, or the current frame if none was kept. */
   const finishCapture = useCallback(() => {
     const video = videoRef.current;
     const view = viewRef.current;
@@ -271,7 +247,6 @@ export function EyeCamera({
     if (capturingRef.current || !videoRef.current?.videoWidth) return;
     capturingRef.current = true;
     setCapturing(true);
-    // Keep watching a moment longer so a sharper frame can still win (anti-blur).
     window.setTimeout(finishCapture, BURST_MS);
   }, [finishCapture]);
 
@@ -291,14 +266,11 @@ export function EyeCamera({
       void _pixels;
       setLive({ ...quality, motion, steady });
 
-      // Where is the eye, and its pupil? Only an eye inside the guide counts.
       const g = viewToVideo(guideRect(view.clientWidth, view.clientHeight), view.clientWidth, view.clientHeight, video.videoWidth, video.videoHeight, mirrored);
       const locked = !!eyeRef.current && now - eyeRef.current.at < EYE_STALE_MS;
-      // Following a found eye is quick; the full search is slower, so it runs half as often.
       if (++tickCount.current % (locked ? EYE_EVERY : EYE_EVERY * 2) === 0) {
         eyeScratch.current ??= document.createElement("canvas");
         const last = locked ? eyeRef.current!.m.iris : null;
-        // Search only the oval (faster, and nothing else can be mistaken for the eye).
         const m = measureEye(video, { near: last, scratch: eyeScratch.current, region: g, faceModel: false });
         const inside = m && m.iris.x > g.x && m.iris.x < g.x + g.w && m.iris.y > g.y && m.iris.y < g.y + g.h;
         if (inside) eyeRef.current = { m, at: now };
@@ -307,7 +279,6 @@ export function EyeCamera({
       }
       const eyeSeen = !!eyeRef.current && now - eyeRef.current.at < EYE_STALE_MS;
 
-      // Keep the sharpest steady frame of the last moment, at full resolution.
       framesSeen.current = [...framesSeen.current.filter((t) => now - t < BEST_WINDOW_MS + BURST_MS), now];
       const score = quality.sharpness * (steady ? 1 : 0.5) * (quality.issues.includes("too_dark") || quality.issues.includes("glare") ? 0.6 : 1);
       const kept = best.current;
@@ -315,7 +286,6 @@ export function EyeCamera({
         best.current = { frame: grabGuide(video, view.clientWidth, view.clientHeight, mirrored), score, at: now };
       }
 
-      // Lighting control: brighter exposure when the eye is too dark, darker when washed out.
       if (controls.exposure && !exposureManual.current && now - exposureAt.current > EXPOSURE_STEP_MS) {
         const { min, max, step } = controls.exposure;
         const delta = quality.issues.includes("too_dark") ? Math.max(step, 0.3) : quality.issues.includes("too_bright") || quality.issues.includes("glare") ? -Math.max(step, 0.3) : 0;
@@ -330,19 +300,16 @@ export function EyeCamera({
         setScreenLight(true);
       }
 
-      // Coaching: one instruction at a time, from the eye's size, position and sharpness.
       const seen = eyeSeen ? eyeRef.current!.m : null;
       const advice = coachFor({ facing, quality, steady, eye: seen && { ...seen.iris, openness: seen.openness }, guide: g });
       setCoach(advice);
 
-      // Auto photo once the coach is happy (eye found, right distance, centred, sharp, steady, lit) for a moment.
       goodTicks.current = advice.ready ? goodTicks.current + 1 : 0;
       setAutoHold(auto ? Math.min(1, goodTicks.current / AUTO_TICKS) : 0);
       if (auto && !capturingRef.current && goodTicks.current >= AUTO_TICKS) capture();
     };
   });
 
-  /** Restarts the camera (switching sides or retrying) from a clean state. */
   function restart(next: Facing) {
     setStarting(true);
     setError(null);
@@ -366,7 +333,6 @@ export function EyeCamera({
     try {
       await track()?.applyConstraints({ advanced: [{ zoom: value } as MediaTrackConstraintSet] });
     } catch {
-      /* the slider only shows when zoom is supported; ignore a rejected step */
     }
   }
 
@@ -414,10 +380,8 @@ export function EyeCamera({
           className={cn("absolute inset-0 size-full object-cover", mirrored && "-scale-x-100")}
         />
 
-        {/* What the phone found: the iris, the pupil and the reflection, drawn on the live picture. */}
         <EyeOverlay eye={eye} mirrored={mirrored} arrow={!!coach?.offCenter} />
 
-        {/* The coach: one instruction at a time, big enough to read at arm's length. */}
         {coach && !error && (
           <div className="pointer-events-none absolute inset-x-4 bottom-4 z-20 flex justify-center" aria-live="polite" data-testid="coach">
             <div
@@ -432,7 +396,6 @@ export function EyeCamera({
           </div>
         )}
 
-        {/* Framing guide: the area outside is dimmed; only the inside is sent. */}
         <div
           aria-hidden
           className={cn(
@@ -494,7 +457,6 @@ export function EyeCamera({
           <Chip ok={live ? !!eye : null}>{eye ? (eye.m.pupilMm !== null ? `Pupil ${eye.m.pupilMm.toFixed(1)} mm` : "Eye found") : "Finding eye…"}</Chip>
           <Chip ok={live ? live.steady : null}>{live ? (live.steady ? "Steady" : "Moving") : "Steady …"}</Chip>
         </div>
-        {/* Distance: where the eye's size sits between too far and too close. */}
         {coach?.distance && (
           <div className="text-[11px] text-white/70" data-testid="distance-meter">
             <div className="relative h-2 rounded-full bg-white/15">
@@ -517,7 +479,6 @@ export function EyeCamera({
             </div>
           </div>
         )}
-        {/* Live sharpness: the bar fills as the picture gets sharper; the tick is the minimum. */}
         <div className="flex items-center gap-3 text-[11px] text-white/70">
           <span className="w-14 shrink-0">Sharpness</span>
           <div className="relative h-1.5 flex-1 rounded-full bg-white/15" aria-label="Live sharpness">
@@ -618,7 +579,6 @@ export function EyeCamera({
             aria-label="Take photo"
             className="relative flex size-[72px] items-center justify-center rounded-full border-4 border-white/40 bg-white/20 transition active:scale-95 disabled:opacity-60"
           >
-            {/* Fills while the auto photo is about to take itself. */}
             <svg className="absolute inset-[-4px] -rotate-90" viewBox="0 0 72 72" aria-hidden>
               <circle cx="36" cy="36" r="34" fill="none" stroke="white" strokeWidth="4" strokeDasharray={2 * Math.PI * 34} strokeDashoffset={2 * Math.PI * 34 * (1 - (capturing ? 1 : autoHold))} />
             </svg>
@@ -654,14 +614,11 @@ export function EyeCamera({
   );
 }
 
-/** Circles on the iris and pupil, and a dot on the reflection, mapped from video to screen pixels. */
-/** The live eye, with the video and view sizes it was found at (for drawing it on screen). */
 type LiveEye = { m: EyeMeasure; videoW: number; videoH: number; viewW: number; viewH: number };
 
 function EyeOverlay({ eye: live, mirrored, arrow }: { eye: LiveEye | null; mirrored: boolean; arrow: boolean }) {
   if (!live) return null;
   const { m: eye, viewW: vw, viewH: vh, videoW, videoH } = live;
-  // The preview fills the view like CSS object-fit: cover (and is mirrored for the front camera).
   const scale = Math.max(vw / videoW, vh / videoH);
   const ox = (vw - videoW * scale) / 2;
   const oy = (vh - videoH * scale) / 2;
@@ -672,7 +629,6 @@ function EyeOverlay({ eye: live, mirrored, arrow }: { eye: LiveEye | null; mirro
   const c = at(eye.iris);
   const r = eye.iris.r * scale;
   const g = eye.glint && at(eye.glint);
-  // Arrow from the eye to the middle of the oval, when the eye is off to one side.
   const target = { x: vw / 2, y: vh * GUIDE.centerY };
   const len = Math.hypot(target.x - c.x, target.y - c.y);
   const ux = len ? (target.x - c.x) / len : 0;
@@ -728,7 +684,6 @@ function liveHint(q: QualityReport | null, opts: { facing: Facing; torch: boolea
   if (!q) return { good: false, light: "Light …", sharp: "Focus …", size: "Size …", tip: "Tap the eye on screen to focus." };
   const light = q.issues.includes("too_dark") ? "Too dark" : q.issues.includes("too_bright") ? "Too bright" : q.issues.includes("glare") ? "Glare" : "Light good";
   const sharp = q.issues.includes("blur") ? "Blurry" : "Sharp";
-  // QualityReport only: motion is shown in its own chip.
   const size = q.side < QUALITY_LIMITS.minSide ? "Low detail" : "Detail good";
   const tip = q.issues.includes("too_dark")
     ? opts.facing === "environment" && opts.torch

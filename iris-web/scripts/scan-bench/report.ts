@@ -12,7 +12,6 @@ const p90 = (xs: number[]) => {
 };
 const flagged = (s: CheckStatus) => s === "borderline" || s === "see_doctor";
 
-/** The bench's printed report: line-up, measurement errors against a perfect pupillometer, and how often each check gets it right. */
 export function report(runs: ScanRun[], seconds: number) {
   const lines: string[] = [];
   const eyes = runs.flatMap((r) => [r.eyes.right, r.eyes.left]);
@@ -61,7 +60,6 @@ export function report(runs: ScanRun[], seconds: number) {
   lines.push("");
 
   lines.push("Checks");
-  // Diabetes: does the phone give the same answer as a perfect pupillometer would?
   const dia = runs.filter((r) => r.ideal.status.diabetes_status !== "unclear");
   const diaClear = dia.filter(
     (r) => r.phone.status.diabetes_status !== "unclear",
@@ -69,7 +67,6 @@ export function report(runs: ScanRun[], seconds: number) {
   lines.push(
     `  Diabetes (pupil reflex): unclear ${pct(1 - diaClear.length / Math.max(1, dia.length))}; when answered, same as a perfect pupillometer ${pct(diaClear.filter((r) => r.phone.status.diabetes_status === r.ideal.status.diabetes_status).length / Math.max(1, diaClear.length))}, same flag/no-flag ${pct(diaClear.filter((r) => flagged(r.phone.status.diabetes_status) === flagged(r.ideal.status.diabetes_status)).length / Math.max(1, diaClear.length))}`,
   );
-  // Glaucoma: one eye's reflex clearly weaker (relative afferent defect).
   const rapd = runs.filter((r) => r.truth.rapdEye);
   const noRapd = runs.filter((r) => !r.truth.rapdEye);
   const ans = (rs: ScanRun[], key: "glaucoma_status" | "cataract_status") =>

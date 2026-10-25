@@ -24,7 +24,6 @@ export function ChecksSection() {
           {CHECKS.map((c, i) => (
             <Reveal key={c.id} delay={i * 120} className="h-full">
               <article className="group flex h-full flex-col overflow-hidden rounded-3xl border bg-card p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-black/5 dark:hover:shadow-white/5">
-                {/* What the condition can do to vision. Grayscale like the rest of the site; color on hover. */}
                 <figure className="-mx-6 -mt-6 mb-6">
                   <div className="relative aspect-[3/2] overflow-hidden border-b">
                     <Image

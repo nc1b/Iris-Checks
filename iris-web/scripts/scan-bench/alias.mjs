@@ -1,6 +1,3 @@
-// Lets Node run the app's TypeScript (lib/*.ts) directly: resolves "@/…" like tsconfig paths,
-// adds the ".ts" that the app's imports leave out, and loads JSON imports.
-// Usage: node --import ./scripts/scan-bench/alias.mjs scripts/scan-bench/run.ts
 import { existsSync, readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import path from "node:path";

@@ -12,7 +12,6 @@ export const metadata: Metadata = {
   description: "The students building Iris. Team profiles are coming soon.",
 };
 
-// Placeholders until the team adds names and photos (add `image` and a real `name` per person).
 const members: TeamMember[] = [
   { id: "lead", name: "Project lead", role: "Coming soon" },
   { id: "research", name: "Research", role: "Coming soon" },

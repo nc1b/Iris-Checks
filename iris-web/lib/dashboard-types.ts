@@ -1,5 +1,3 @@
-/** Shapes shared by the dashboard API (app/api/me, app/api/scans) and the dashboard UI. */
-
 export type CheckStatus = "typical" | "borderline" | "see_doctor" | "unclear";
 export type Answer = "yes" | "no" | "unsure";
 export type AgeRange = "13-17" | "18-39" | "40-59" | "60+";
@@ -17,22 +15,17 @@ export type Profile = {
 };
 
 export type ScanMetrics = {
-  /** Diabetes check (pupil light reflex) */
   restingRatio?: number;
-  amplitude?: number; // %
-  latency?: number; // s
-  velocity?: number; // mm/s
-  /** Glaucoma check (left vs right) */
+  amplitude?: number;
+  latency?: number;
+  velocity?: number;
   sizeDiffMm?: number;
-  leftLitAmplitude?: number; // %
-  rightLitAmplitude?: number; // %
-  reflexBalance?: number; // 0-1, weaker eye / stronger eye
-  /** Cataract check (lens haze: the pupil's grey as a share of the white of the eye) */
-  hazeLeft?: number; // 0-1
-  hazeRight?: number; // 0-1
-  /** Capture quality */
-  validFraction?: number; // 0-1
-  /** Photo match: highest score across both eyes for each condition (0-1), vs the Iris photo database */
+  leftLitAmplitude?: number;
+  rightLitAmplitude?: number;
+  reflexBalance?: number;
+  hazeLeft?: number;
+  hazeRight?: number;
+  validFraction?: number;
   photoCataract?: number;
   photoConjunctivitis?: number;
   photoUveitis?: number;

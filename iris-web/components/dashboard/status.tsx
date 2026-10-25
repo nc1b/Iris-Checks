@@ -3,7 +3,6 @@ import type { CheckStatus, Scan, ScanMetrics } from "@/lib/dashboard-types";
 import { CHECKS, type Check } from "@/lib/checks";
 import { cn } from "@/lib/utils";
 
-/** Status always shows an icon and words, never color alone (the site is black and white anyway). */
 const STATUS: Record<CheckStatus, { label: string; icon: typeof CircleCheck; className: string }> = {
   typical: { label: "Looks typical", icon: CircleCheck, className: "border-border text-foreground" },
   borderline: { label: "Borderline", icon: CircleAlert, className: "border-foreground/50 text-foreground" },
@@ -23,7 +22,6 @@ export function StatusBadge({ status, compact }: { status: CheckStatus; compact?
 
 export const statusLabel = (s: CheckStatus) => STATUS[s].label;
 
-/** How each check is summarised on the dashboard: one trend number with its typical range. */
 export type CheckView = Check & {
   statusOf: (scan: Scan) => CheckStatus;
   metric: { label: string; unit: string; value: (m: ScanMetrics) => number | undefined; typical: { min?: number; max?: number }; better: "higher" | "lower" };
@@ -36,7 +34,6 @@ export const CHECK_VIEWS: CheckView[] = [
   {
     ...CHECKS[0],
     statusOf: (s) => s.diabetes_status,
-    // Typical cut-off matches lib/reference.ts THRESHOLDS (amplitude typical ≥ 18%).
     metric: { label: "Pupil constriction", unit: "%", value: (m) => m.amplitude, typical: { min: 18 }, better: "higher" },
     details: (m) => [
       { label: "Constriction", value: fmt(m.amplitude, 1, "%") },
@@ -47,7 +44,6 @@ export const CHECK_VIEWS: CheckView[] = [
   {
     ...CHECKS[1],
     statusOf: (s) => s.glaucoma_status,
-    // Typical cut-off matches EYE_DIFFERENCE.reflexBalance.even (0.8).
     metric: { label: "Left–right balance", unit: "%", value: (m) => (m.reflexBalance === undefined ? undefined : m.reflexBalance * 100), typical: { min: 80 }, better: "higher" },
     details: (m) => [
       { label: "Balance", value: fmt(m.reflexBalance === undefined ? undefined : m.reflexBalance * 100, 0, "%") },
@@ -58,7 +54,6 @@ export const CHECK_VIEWS: CheckView[] = [
   {
     ...CHECKS[2],
     statusOf: (s) => s.cataract_status,
-    // Typical cut-off matches HAZE.typical in lib/server/demo-scan.ts (0.2).
     metric: {
       label: "Lens haze",
       unit: "%",

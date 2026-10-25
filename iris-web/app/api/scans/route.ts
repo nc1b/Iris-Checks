@@ -3,16 +3,6 @@ import { makeDemoScan } from "@/lib/server/demo-scan";
 import { getSessionUserId } from "@/lib/server/session";
 import { cleanMetrics, rateScan } from "@/lib/scan-rating";
 
-/**
- * POST → save a scan for the signed-in user.
- *
- * - `{ source: "camera", metrics }` saves a real camera scan. Only the numbers are sent
- *   (never images); the server drops anything out of range and works out the three
- *   results itself, so the browser can't save made-up results.
- * - Anything else runs and saves a simulated demo scan.
- *
- * Both accept an optional `note`.
- */
 export async function POST(request: Request) {
   const userId = await getSessionUserId(request);
   if (!userId) return Response.json({ error: "Please sign in." }, { status: 401 });

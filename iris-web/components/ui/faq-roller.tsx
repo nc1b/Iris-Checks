@@ -4,16 +4,6 @@ import { Pause, Play } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
-/**
- * FAQ roller (after dhileepkumargm's "habit-faq-scroller" on 21st.dev): rows of
- * question cards that loop sideways, alternating direction and speed.
- *
- * - Each row is rendered twice side by side and slid by -50%, so the loop is seamless.
- *   The second copy is hidden from screen readers and keyboard focus.
- * - It always moves (also when the device asks for reduced motion, by design), so there's
- *   a Pause button (WCAG 2.2.2), and hovering or focusing a row pauses it too.
- */
-
 export type FaqRollerItem = { question: string; answer: string };
 export type FaqRollerRow = { items: FaqRollerItem[]; duration?: number; direction?: "left" | "right" };
 
@@ -38,7 +28,6 @@ function Row({ row, paused }: { row: FaqRollerRow; paused: boolean }) {
         )}
         style={{ "--faq-duration": `${row.duration ?? 60}s` } as React.CSSProperties}
       >
-        {/* Trailing gap keeps the spacing even where the two copies meet. */}
         <div className="flex items-stretch gap-4 pr-4">
           {row.items.map((item) => (
             <FaqCard key={item.question} item={item} />

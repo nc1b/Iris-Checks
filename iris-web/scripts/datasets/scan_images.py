@@ -1,8 +1,3 @@
-"""Walk an extracted dataset folder and write one CSV row per image:
-relative path, folder parts, sha256, width, height.
-
-Usage: python -I scan_images.py <extracted_root> <out_csv>
-"""
 import csv
 import hashlib
 import sys

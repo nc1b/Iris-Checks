@@ -4,18 +4,6 @@ import React, { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/**
- * Sign-in layout (adapted from the 21st.dev "sign-in" block): a form column on the
- * left and a photo with floating glass cards on the right.
- *
- * Changes for Iris: black-and-white accents instead of violet, the site font, `<img>`
- * alt text, an accessible password toggle, and the pieces exported separately so the
- * sign-in and sign-up pages (components/auth) can share the layout with real Clerk logic.
- * `SignInPage` keeps the original all-in-one API for reference (see sign-in-demo.tsx).
- */
-
-// --- HELPER COMPONENTS (ICONS) ---
-
 export const GoogleIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 48 48" aria-hidden>
     <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s12-5.373 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-2.641-.21-5.236-.611-7.743z" />
@@ -24,8 +12,6 @@ export const GoogleIcon = () => (
     <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l6.19 5.238C42.022 35.026 44 30.038 44 24c0-2.641-.21-5.236-.611-7.743z" />
   </svg>
 );
-
-// --- TYPE DEFINITIONS ---
 
 export interface Testimonial {
   avatarSrc: string;
@@ -45,8 +31,6 @@ interface SignInPageProps {
   onCreateAccount?: () => void;
 }
 
-// --- SUB-COMPONENTS ---
-
 export const GlassInputWrapper = ({ children, invalid }: { children: React.ReactNode; invalid?: boolean }) => (
   <div
     className={cn(
@@ -60,7 +44,6 @@ export const GlassInputWrapper = ({ children, invalid }: { children: React.React
 
 export const TestimonialCard = ({ testimonial, delay }: { testimonial: Testimonial; delay: string }) => (
   <div className={`animate-testimonial ${delay} flex w-64 items-start gap-3 rounded-3xl border border-white/15 bg-black/40 p-5 text-white backdrop-blur-xl`}>
-    {/* eslint-disable-next-line @next/next/no-img-element */}
     <img src={testimonial.avatarSrc} className="h-10 w-10 rounded-2xl object-cover" alt={testimonial.name} />
     <div className="text-sm leading-snug">
       <p className="flex items-center gap-1 font-medium">{testimonial.name}</p>
@@ -117,7 +100,6 @@ export function PasswordInput({
   );
 }
 
-/** Two-column frame shared by the sign-in and sign-up pages. */
 export function AuthShell({
   children,
   heroImageSrc,
@@ -133,7 +115,6 @@ export function AuthShell({
 }) {
   return (
     <div className="flex min-h-[100dvh] w-full flex-col md:h-[100dvh] md:flex-row">
-      {/* Left column: form */}
       <section className="relative flex flex-1 flex-col p-6 sm:p-8">
         {top}
         <div className="flex flex-1 items-center justify-center py-8">
@@ -141,10 +122,8 @@ export function AuthShell({
         </div>
       </section>
 
-      {/* Right column: hero image + cards */}
       {heroImageSrc && (
         <section className="relative hidden flex-1 p-4 md:block">
-          {/* The slide-in animates `filter`, so the grayscale filter lives on an inner layer. */}
           <div role="img" aria-label={heroAlt} className="animate-slide-right animate-delay-300 absolute inset-4 overflow-hidden rounded-3xl">
             <div className="absolute inset-0 bg-cover bg-center grayscale" style={{ backgroundImage: `url(${heroImageSrc})` }} />
             <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
@@ -169,8 +148,6 @@ export function AuthShell({
     </div>
   );
 }
-
-// --- MAIN COMPONENT (original all-in-one API) ---
 
 export const SignInPage: React.FC<SignInPageProps> = ({
   title = <span className="font-light tracking-tighter text-foreground">Welcome</span>,

@@ -1,10 +1,6 @@
 import { CROP_SIZE, CROP_SPAN } from "./pupil";
 import { idealCurve, REFERENCE_SHAPES, type Protocol, type Sample } from "./analysis";
 
-/**
- * Demo data: fake camera samples (with noise, jitter and a blink) that go through
- * the exact same analysis as a real scan. Clearly labelled as simulated in the UI.
- */
 export function simulateSamples(protocol: Protocol, profile: "typical" | "diabetesLike", seed = 7): Sample[] {
   let s = seed;
   const rand = () => {

@@ -9,7 +9,6 @@ export const metadata: Metadata = {
   alternates: { canonical: "/scan" },
 };
 
-// The camera scan lives in the signed-in dashboard (app/(account)/dashboard/scan) so results can be saved.
 export default function ScanPage() {
   return (
     <>

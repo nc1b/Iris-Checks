@@ -1,10 +1,3 @@
--- Front-of-eye photo matching for the camera scan.
---
--- Each labelled reference photo gets an AI fingerprint (a 1280-number embedding from Google's
--- MobileNet V3 Large, the same model the phone runs). The scan sends the fingerprint of the
--- person's eye close-up; iris_match_eye finds the most similar reference photos with pgvector.
--- Only fingerprints, labels and file names are stored here, never the photos themselves.
-
 create extension if not exists vector with schema extensions;
 create extension if not exists http with schema extensions;
 
@@ -36,8 +29,6 @@ create table iris.eye_photo_embeddings (
 
 alter table iris.eye_photo_embeddings enable row level security;
 
--- Fingerprints are shipped as signed bytes (value × 127), base64-encoded. Cosine similarity
--- ignores length, so the vector doesn't need re-normalising.
 create function iris.vector_from_int8_b64(p_b64 text)
 returns extensions.vector
 language sql
@@ -51,8 +42,6 @@ as $$
   ) s
 $$;
 
--- Loads a reference file (see iris-web/scripts/eye-photos) from a URL. Run by hand as the
--- database owner; not callable through the API.
 create function iris.import_eye_references(p_url text)
 returns integer
 language plpgsql
@@ -102,7 +91,6 @@ begin
 end;
 $$;
 
--- The k reference photos most similar to a scan's eye fingerprint (cosine similarity).
 create function public.iris_match_eye(p_secret text, p_embedding text, p_k integer default 7)
 returns jsonb
 language plpgsql

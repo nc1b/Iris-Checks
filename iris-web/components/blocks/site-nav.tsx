@@ -47,7 +47,6 @@ const moreItems: MoreItem[] = [
     { name: 'Terms of Service', href: '/terms', icon: FileText, description: 'Rules for using the site' },
 ]
 
-// Home page sections, top to bottom, and which top-bar entry each one lights up.
 const spySections: [id: string, nav: string][] = [
     ['checks', 'checks'],
     ['how-it-works', 'how-it-works'],
@@ -56,13 +55,6 @@ const spySections: [id: string, nav: string][] = [
     ['faq', 'faq'],
 ]
 
-/**
- * Top bar: logo, icon + label links to the home page sections, a "More" menu, the
- * theme toggle and an "Ask Iris" button. Always visible near the top of the page;
- * it tucks away while you scroll down and returns when you scroll up (but never while
- * a menu is open or while it's scrolling you to a section). On small screens the
- * links move into a menu.
- */
 export function SiteNav() {
     const pathname = usePathname()
     const [scrolled, setScrolled] = useState(false)
@@ -73,7 +65,6 @@ export function SiteNav() {
     const [moreOpen, setMoreOpen] = useState(false)
     const moreRef = useRef<HTMLDivElement>(null)
     const headerRef = useRef<HTMLElement>(null)
-    // While the page smooth-scrolls to a section we clicked, keep the bar in place.
     const holdUntil = useRef(0)
 
     useEffect(() => {
@@ -89,7 +80,6 @@ export function SiteNav() {
             else if (Math.abs(y - lastY) > 8) setHidden(y > lastY)
             if (Math.abs(y - lastY) > 8 || y < 80) lastY = y
 
-            // Scroll-spy: the last section whose top has passed 40% of the screen.
             let current = 'home'
             for (const [id, nav] of spySections) {
                 const el = document.getElementById(id)
@@ -111,7 +101,6 @@ export function SiteNav() {
         }
     }, [pathname])
 
-    // Close menus on outside clicks and Escape (links close them when clicked).
     useEffect(() => {
         if (!moreOpen && !menuOpen) return
         const onDown = (e: PointerEvent) => {
@@ -161,7 +150,6 @@ export function SiteNav() {
                 ref={headerRef}
                 className={cn(
                     'fixed inset-x-0 top-0 transition-transform duration-500 ease-out motion-reduce:transition-none',
-                    // Above the chat (z-40) while the phone menu is open.
                     menuOpen ? 'z-50' : 'z-30',
                     hidden && !menuOpen && !moreOpen && '-translate-y-[140%]',
                 )}>
@@ -172,7 +160,6 @@ export function SiteNav() {
                             'flex h-14 items-center gap-2 rounded-2xl border bg-background/80 pl-2 pr-2 backdrop-blur-xl transition-shadow duration-500 animate-in fade-in slide-in-from-top-4 [animation-duration:700ms] motion-reduce:animate-none',
                             scrolled ? 'shadow-lg shadow-black/5 dark:shadow-black/40' : 'shadow-sm',
                         )}>
-                        {/* Logo */}
                         <SectionLink
                             section="home"
                             onNavigate={() => goTo('home')}
@@ -187,7 +174,6 @@ export function SiteNav() {
                             </span>
                         </SectionLink>
 
-                        {/* Center links (desktop) */}
                         <div className="mx-auto hidden items-center gap-1 rounded-xl border bg-muted/50 p-1 lg:flex">
                             {sectionItems.map((item) => {
                                 const isActive = active === item.section
@@ -242,7 +228,6 @@ export function SiteNav() {
                             </div>
                         </div>
 
-                        {/* Right side */}
                         <div className="ml-auto flex items-center gap-1.5 lg:ml-0">
                             <ThemeToggle className="size-10 rounded-xl" />
                             <Link
@@ -270,7 +255,6 @@ export function SiteNav() {
                         </div>
                     </nav>
 
-                    {/* Mobile menu */}
                     <div
                         id="mobile-menu"
                         inert={!menuOpen}
@@ -382,7 +366,6 @@ function MoreLink({
     )
 }
 
-/** The Iris mark (a transparent white PNG): black in light mode, white in dark mode. */
 export const Logo = ({ className }: { className?: string }) => {
     return <Image src="/iris-logo.png" alt="" width={663} height={259} className={cn('h-8 w-auto object-contain invert dark:invert-0', className)} />
 }

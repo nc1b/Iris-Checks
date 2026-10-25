@@ -1,12 +1,7 @@
 import type { Analysis, Protocol } from "./analysis";
 
-/**
- * Research log for the team's pilot study. Stored only in this browser
- * (localStorage) and exported as CSV on demand. No photos or video are stored.
- */
-
 export type Participant = {
-  code: string; // anonymous code, e.g. P07
+  code: string;
   age: number | null;
   diabetes: "type1" | "type2" | "no" | "unsure" | "";
 };
@@ -45,7 +40,6 @@ export function addToLog(entry: Omit<LogEntry, "id" | "date">): LogEntry[] {
   try {
     localStorage.setItem(KEY, JSON.stringify(next));
   } catch {
-    // Storage unavailable (private mode): keep it in memory only.
   }
   return next;
 }
@@ -54,7 +48,6 @@ export function clearLog() {
   try {
     localStorage.removeItem(KEY);
   } catch {
-    // ignore
   }
 }
 

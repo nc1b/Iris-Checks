@@ -5,17 +5,6 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { report } from "./report";
 import { runScan, type ScanRun } from "./session";
 
-/**
- * The scan test bench: runs many simulated camera scans (random people, eyes, rooms and phones)
- * through the app's own scan code and reports how close the phone's numbers come to a perfect
- * pupillometer's, and how often each check gets it right.
- *
- *   node --import ./scripts/scan-bench/alias.mjs scripts/scan-bench/run.ts --n 300 --seed 1
- *
- * Options: --n scans (300), --seed first seed (1), --workers processes (CPU count − 2),
- * --out file for every scan's numbers as JSON lines.
- */
-
 const args = process.argv.slice(2);
 const opt = (name: string, def: number) => {
   const i = args.indexOf(`--${name}`);

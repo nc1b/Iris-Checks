@@ -3,22 +3,6 @@
 import * as React from "react";
 import { useEffect, useId, useLayoutEffect, useRef } from "react";
 
-/**
- * EyeTracker Component
- * An interactive, spring-animated SVG character that watches the cursor
- * with natural foreshortening, eye blinking, and shape morphing.
- *
- * Attribution: Bencho (https://bencho.dev)
- * License: MIT
- *
- * Changes for Iris:
- * - `track="window"` follows the pointer anywhere on the page (the original only
- *   followed it inside the component's own box, which is tiny for an icon)
- * - `bodyClassName` / `eyeClassName` to recolor it (default colors unchanged)
- * - props are mirrored into refs in an effect instead of during render
- * - the animation loop pauses while the tab is hidden
- */
-
 function cn(...classes: (string | undefined | null | false)[]) {
   return classes.filter(Boolean).join(" ");
 }
@@ -98,31 +82,18 @@ function outline(r: number[]): string {
 }
 
 export interface EyeTrackerProps extends React.HTMLAttributes<HTMLDivElement> {
-  /** How far the eyes turn toward the pointer (0-100) */
   follow?: number;
-  /** Overshoot and springiness (0-100) */
   bounce?: number;
-  /** Outer size in pixels (16-180) */
   size?: number;
-  /** Outer silhouette shape */
   shape?: "Ball" | "Circle" | "Cube" | "Pill" | "Hexagon" | "Hex flat";
-  /** Eye geometry style */
   eyes?: "Slant" | "Dots" | "Squares";
-  /** Relative scale multiplier for the eyes */
   eyeScale?: number;
-  /** Width scaling factor */
   eyeWidth?: number;
-  /** Corner roundness factor */
   eyeRound?: number;
-  /** Height scaling factor */
   eyeHeight?: number;
-  /** When true, ignores pointer and looks around randomly */
   idle?: boolean;
-  /** "frame": follow the pointer only inside the component (original); "window": anywhere on the page */
   track?: "frame" | "window";
-  /** Override the body's fill/stroke classes */
   bodyClassName?: string;
-  /** Override the eyes' fill classes */
   eyeClassName?: string;
 }
 
@@ -334,7 +305,6 @@ export function EyeTracker({
   const shown = useRef<number[] | null>(null);
   const from = useRef(shape);
 
-  // Morph between shapes (the path's `d` is driven directly while animating).
   useLayoutEffect(() => {
     if (from.current === shape) return;
 
@@ -426,6 +396,5 @@ export function EyeTracker({
   );
 }
 
-// 21st.dev compatibility exports
 export { EyeTracker as Component };
 export default EyeTracker;

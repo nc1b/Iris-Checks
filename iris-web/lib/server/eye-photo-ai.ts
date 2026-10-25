@@ -2,13 +2,6 @@ import "server-only";
 import { CATEGORIES, QUALITY_PROBLEMS, type PhotoAnalysis } from "@/lib/eye-check-types";
 import { aiConfigured, aiFetch } from "@/lib/server/hackclub";
 
-/**
- * Asks an image-capable model, through the Hack Club AI proxy, to describe one phone photo of
- * the front of an eye. The model only reports what is visible, says when it can't tell, and
- * never names conditions a phone photo can't show. The model choice is based on the comparison
- * in scripts/eye-photos/MODEL-EVAL.md.
- */
-
 export { AI_BASE } from "@/lib/server/hackclub";
 
 export const SYSTEM_PROMPT = `You review one phone photo of the front of a person's eye for an educational eye-health app made by students. You are not diagnosing. Describe only what is visible. Take your time and look closely before answering.
@@ -48,7 +41,6 @@ Reply with ONLY this JSON, no other text:
 const pick = <T extends string>(value: unknown, allowed: readonly T[], fallback: T): T =>
   typeof value === "string" && (allowed as readonly string[]).includes(value) ? (value as T) : fallback;
 
-/** Validates the model's reply. Anything malformed becomes "inconclusive", never a guess. */
 export function parseAnalysis(text: string): PhotoAnalysis | null {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
@@ -83,7 +75,6 @@ export function parseAnalysis(text: string): PhotoAnalysis | null {
   return analysis;
 }
 
-/** Most concerning first, for combining the panel's answers. */
 const CATEGORY_PRIORITY: PhotoAnalysis["category"][] = [
   "angle_closure_signs",
   "inflammation_signs",
@@ -96,13 +87,6 @@ const CATEGORY_PRIORITY: PhotoAnalysis["category"][] = [
 const SEVERITY: Record<string, number> = { cannot_assess: -1, none: 0, normal: 0, mild: 1, possible: 1, present: 1, drooping: 1, swelling_or_lump: 1, marked: 2, likely: 2 };
 const CONFIDENCE = ["low", "medium", "high"] as const;
 
-/**
- * Combines answers from several models looking at the same photo, cautiously: each feature
- * takes the most concerning answer any model gave, and the category is the most concerning
- * one, so a miss needs every model to miss. In testing, one model called a cataract normal
- * while another flagged it; combined, it was flagged.
- * When the models disagree on the category, confidence drops to "low".
- */
 export function combineAnalyses(answers: PhotoAnalysis[]): PhotoAnalysis {
   const usable = answers.filter((a) => a.quality.usable);
   if (usable.length === 0) return answers[0];
@@ -114,8 +98,6 @@ export function combineAnalyses(answers: PhotoAnalysis[]): PhotoAnalysis {
     }
   }
   let category = CATEGORY_PRIORITY.find((c) => usable.some((a) => a.category === c)) ?? "inconclusive";
-  // One model saw nothing of concern and was fairly sure, the other just couldn't tell: report
-  // the clear answer (with low confidence) instead of "can't tell". Any finding still wins.
   if (category === "inconclusive" && usable.some((a) => a.category === "no_visible_concern" && a.confidence !== "low")) category = "no_visible_concern";
   const lead = usable.find((a) => a.category === category) ?? usable[0];
   const agree = usable.every((a) => a.category === category);
@@ -123,14 +105,8 @@ export function combineAnalyses(answers: PhotoAnalysis[]): PhotoAnalysis {
   return { quality: lead.quality, observations, category, confidence, summary: lead.summary };
 }
 
-/** Words a phone-photo answer must never contain (things a photo can't show, or diagnoses). */
 export const UNSUPPORTED_CLAIMS = /glaucoma|diabet|retin|macula|optic nerve|eye pressure|you have|diagnos/i;
 
-/**
- * Drops any sentence that names something a photo can't show or sounds like a diagnosis, and
- * keeps the rest. (Earlier, one such sentence, even "this is not a diagnosis", threw away the
- * whole result, which turned real findings such as a cloudy pupil into "inconclusive".)
- */
 export function stripUnsupported(text: string): string {
   return (text.match(/[^.!?]+[.!?]*/g) ?? [])
     .filter((sentence) => !UNSUPPORTED_CLAIMS.test(sentence))
@@ -146,7 +122,6 @@ export type ModelCall = {
   error?: string;
 };
 
-/** "off" disables thinking (fastest); "low" asks for a little; "high" lets the model look carefully. */
 export type Reasoning = "off" | "low" | "high" | "default";
 
 export async function analysePhoto(
@@ -167,8 +142,6 @@ export async function analysePhoto(
       {
         model,
         temperature: 0,
-        // Leaves room for thinking before the JSON answer. The proxy reserves the cost of
-        // max_tokens up front, and larger budgets hit the key's spending limit (402).
         max_tokens: reasoning === "off" ? 700 : reasoning === "high" ? 6000 : 3000,
         ...(reasoning === "off" ? { reasoning: { enabled: false } } : reasoning === "default" ? {} : { reasoning: { effort: reasoning } }),
         usage: { include: true },

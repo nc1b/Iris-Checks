@@ -1,11 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/*
- * Iris theme: strictly black and white, with neutral grays for borders,
- * muted text and hover states. Dark mode is the `.dark` class on <html>,
- * set from the saved choice or the device setting (see lib/theme.ts).
- */
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -55,7 +50,6 @@
   --muted-foreground: #5c5c5c;
   --accent: #ededed;
   --accent-foreground: #000000;
-  /* No colour accents, even for destructive actions. */
   --destructive: #262626;
   --destructive-foreground: #ffffff;
   --border: #e3e3e3;
@@ -87,7 +81,6 @@
   }
 }
 
-/* Spinner used by the Spline scene's loading fallback (components/ui/splite.tsx). */
 .loader {
   width: 2rem;
   height: 2rem;
@@ -103,7 +96,6 @@
   }
 }
 
-/* Sign-in / sign-up pages (components/ui/sign-in.tsx) */
 @keyframes fadeSlideIn {
   to {
     opacity: 1;
@@ -195,7 +187,6 @@
   outline-offset: 2px;
 }
 
-/* FAQ roller (components/ui/faq-roller.tsx) */
 @keyframes faq-scroll {
   from { transform: translateX(0); }
   to { transform: translateX(-50%); }
@@ -214,7 +205,6 @@
     scroll-behavior: smooth;
   }
 
-  /* Theme switches crossfade via the View Transitions API (lib/theme.ts). */
   ::view-transition-old(root),
   ::view-transition-new(root) {
     animation-duration: 0.3s;

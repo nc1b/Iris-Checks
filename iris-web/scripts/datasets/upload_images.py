@@ -1,11 +1,3 @@
-"""Upload resized copies of a dataset's unique images to the private `eye-datasets` bucket.
-
-Usage: python -I upload_images.py <dataset_id> <index_csv> <image_root>
-
-Each unique image (by sha256) is resized to at most 1024 px on its longest side, saved as
-JPEG (quality 88) and uploaded as <dataset_id>/<sha256>.jpg. Already-uploaded files are
-skipped, so the script can be re-run. Originals are left untouched on disk.
-"""
 import csv
 import io
 import re
@@ -18,8 +10,6 @@ from pathlib import Path
 
 from PIL import Image, ImageOps
 
-# iris-web/.env.local (git-ignored) holds SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY and
-# SUPABASE_ANON_KEY (Storage wants a JWT in the Authorization header).
 ENV = str(Path(__file__).resolve().parents[2] / ".env.local")
 MAX_SIDE = 1024
 

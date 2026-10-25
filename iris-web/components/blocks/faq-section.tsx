@@ -4,7 +4,6 @@ import { BlurRevealText } from "@/components/ui/blur-reveal";
 import { FaqRoller, type FaqRollerRow } from "@/components/ui/faq-roller";
 import { IRIS_FAQS } from "@/lib/faq";
 
-// Three rows that drift in alternating directions at slightly different speeds.
 const rows: FaqRollerRow[] = [
   { items: IRIS_FAQS.slice(0, 4), duration: 90, direction: "left" },
   { items: IRIS_FAQS.slice(4, 7), duration: 75, direction: "right" },

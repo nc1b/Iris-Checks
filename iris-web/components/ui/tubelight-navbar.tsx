@@ -10,25 +10,17 @@ import { SectionLink } from "@/components/blocks/section-link"
 export interface NavItem {
   name: string
   icon: LucideIcon
-  /** Section id on the home page (scrolls there without changing the URL)… */
   section?: string
-  /** …or a separate page. */
   url?: string
 }
 
 interface NavBarProps {
   items: NavItem[]
-  /** Which item is lit up. Controlled by the parent (scroll position / current page). */
   activeName: string | null
   onSelect?: (name: string) => void
   className?: string
 }
 
-/**
- * "Tubelight" pill navigation: the active item gets a sliding lamp above it.
- * Adapted from the tubelight-navbar block to sit inside the Iris top bar instead
- * of being fixed on its own, and to support scroll-linked active state.
- */
 export function NavBar({ items, activeName, onSelect, className }: NavBarProps) {
   return (
     <div

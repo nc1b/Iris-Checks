@@ -38,7 +38,6 @@ export default function Scanner() {
   const [protocolId, setProtocolId] = useState<Protocol["id"]>("standard");
   const [participant, setParticipant] = useState<Participant>({ code: "", age: null, diabetes: "" });
   const [consent, setConsent] = useState(false);
-  // Demo flag only affects the results screen, which never renders on the server.
   const [demo, setDemo] = useState(
     () => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("demo") === "1",
   );
@@ -227,7 +226,6 @@ export default function Scanner() {
       });
       streamRef.current = stream;
       setPhase("camera");
-      // Wait a tick so the <video> is mounted.
       await new Promise((r) => setTimeout(r, 0));
       const video = videoRef.current;
       if (!video) throw new Error("Video element missing");
@@ -277,8 +275,6 @@ export default function Scanner() {
     setReady(false);
     setPhase("setup");
   };
-
-  // ---------- Render ----------
 
   if (phase === "results" && analysis) {
     return <Results analysis={analysis} protocol={protocol} participant={participant} demo={demo} onRetake={retake} />;

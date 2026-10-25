@@ -13,7 +13,6 @@ import { BlurRevealText } from "@/components/ui/blur-reveal";
 import { SCAN_STEPS } from "@/lib/checks";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 
-// Tells search engines the site's name and logo (shown in Google results).
 const structuredData = {
   "@context": "https://schema.org",
   "@graph": [

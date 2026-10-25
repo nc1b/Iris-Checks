@@ -4,15 +4,8 @@ import { motion, useScroll, useTransform } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
-/**
- * Timeline (after manuarora700 / Aceternity UI on 21st.dev): each entry's title sticks
- * while you read it, and a beam down the line fills in as you scroll.
- * Black-and-white version; the line re-measures when the content changes size.
- */
-
 export type TimelineEntry = {
   title: string;
-  /** Small line under the sticky title, e.g. a status. */
   label?: React.ReactNode;
   content: React.ReactNode;
 };

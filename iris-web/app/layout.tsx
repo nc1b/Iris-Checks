@@ -45,7 +45,6 @@ export const metadata: Metadata = {
   },
   robots: { index: true, follow: true },
   category: "health",
-  // Google Search Console "HTML tag" verification: set GOOGLE_SITE_VERIFICATION in Vercel.
   ...(process.env.GOOGLE_SITE_VERIFICATION ? { verification: { google: process.env.GOOGLE_SITE_VERIFICATION } } : {}),
 };
 
@@ -58,7 +57,6 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    // The inline script sets the theme class before paint, so the server and client markup can differ here.
     <html lang="en" className={`${inter.variable} h-full antialiased`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />

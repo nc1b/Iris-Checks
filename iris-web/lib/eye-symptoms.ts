@@ -1,13 +1,3 @@
-/**
- * Symptom questions and the urgent-care pathway for the eye photo check.
- *
- * The red flags follow public guidance from the American Academy of Ophthalmology
- * (aao.org "Eye emergencies" / "When to see an ophthalmologist") and the NHS (nhs.uk "Red eye",
- * "Eye injuries", "Flashes and floaters", "Sudden loss of vision"). They were written by the
- * student team and have NOT yet been reviewed by a clinician: see CLINICAL_REVIEW below.
- * Urgent guidance is shown the moment a red flag is chosen, before any photo is taken.
- */
-
 export const CLINICAL_REVIEW = {
   reviewed: false,
   note: "Based on AAO and NHS public guidance. Not yet reviewed by a clinician; a doctor or optometrist must check this before real-world use.",
@@ -22,7 +12,6 @@ export type Urgency = "emergency" | "same_day" | "soon" | "routine";
 
 export type RedFlag = { id: string; label: string; urgency: "emergency" | "same_day"; advice: string };
 
-/** Asked first. Any one of these skips straight to urgent guidance. */
 export const RED_FLAGS: RedFlag[] = [
   {
     id: "chemical",
@@ -108,14 +97,12 @@ export const EMPTY_SYMPTOMS: Symptoms = {
 
 export type Triage = { urgency: Urgency; reasons: string[] };
 
-/** Advice from the answers alone, before (and regardless of) any photo. */
 export function triage(s: Symptoms): Triage {
   const flags = RED_FLAGS.filter((f) => s.redFlags.includes(f.id));
   if (flags.some((f) => f.urgency === "emergency")) return { urgency: "emergency", reasons: flags.map((f) => f.advice) };
   if (flags.length) return { urgency: "same_day", reasons: flags.map((f) => f.advice) };
 
   const reasons: string[] = [];
-  // Painful red eye with light sensitivity or blurred vision needs a same-day check (NHS, AAO).
   if ((s.pain === "moderate" || s.pain === "mild") && (s.lightSensitivity || s.blurry) && s.redness) {
     return { urgency: "same_day", reasons: ["A painful red eye with light sensitivity or blurry vision should be checked by a doctor today."] };
   }
@@ -131,7 +118,6 @@ export function triage(s: Symptoms): Triage {
   return { urgency: "routine", reasons: [] };
 }
 
-/** A short, factual line for the image model. It must not change what the model sees. */
 export function symptomContext(s: Symptoms) {
   const parts: string[] = [];
   if (s.eye) parts.push(`eye: ${s.eye}`);

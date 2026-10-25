@@ -1,7 +1,3 @@
-/**
- * What the team plans to build, in order. Dates are goals and will move;
- * edit them here and the Roadmap section updates.
- */
 export type RoadmapStatus = "Now" | "Next" | "Planned";
 
 export type RoadmapEntry = {

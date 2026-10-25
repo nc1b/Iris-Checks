@@ -2,16 +2,6 @@ import { CLINICAL_REVIEW, EMPTY_SYMPTOMS, symptomContext, triage, type Symptoms 
 import { analysePhoto, combineAnalyses, stripUnsupported } from "@/lib/server/eye-photo-ai";
 import { getSessionUserId } from "@/lib/server/session";
 
-/**
- * POST { image: "data:image/jpeg;base64,…", symptoms } → what an image model can see in one
- * phone photo of the front of an eye, plus advice from the symptom answers.
- *
- * The photo is sent to the AI provider for this one request and is not stored by Iris.
- * Models are tried in order; the default order comes from the comparison in
- * scripts/eye-photos/MODEL-EVAL.md and can be changed with IRIS_EYE_MODELS.
- */
-
-// The models think carefully before answering, so allow up to 5 minutes in total.
 export const maxDuration = 300;
 
 const list = (value: string) =>
@@ -20,20 +10,9 @@ const list = (value: string) =>
     .map((m) => m.trim())
     .filter(Boolean);
 
-/**
- * The panel: image models asked at the same time, with careful (high) reasoning, their answers
- * combined cautiously (see combineAnalyses). If none answers, the fallback models are tried one
- * by one with low reasoning.
- *
- * Claude Opus 5.5 reviews the photo: in scripts/eye-photos/MODEL-EVAL.md it never gave a wrong
- * category and said so when unsure. Sonnet 5.5 and Haiku 5.5 are the cheaper backups, so the check
- * still answers if Opus fails or the Hack Club AI key's spending limit is reached (402).
- * Set IRIS_EYE_MODELS / IRIS_EYE_FALLBACK_MODELS to change them.
- */
 const PANEL = list(process.env.IRIS_EYE_MODELS ?? "anthropic/claude-opus-5.5");
 const FALLBACK = list(process.env.IRIS_EYE_FALLBACK_MODELS ?? "anthropic/claude-sonnet-5.5,anthropic/claude-haiku-5.5");
 
-/** About 2.7 MB of JPEG. The app sends at most ~1536 px at quality 0.9, well under this. */
 const MAX_DATA_URL = 3_600_000;
 const PANEL_TIMEOUT_MS = 170_000;
 const FALLBACK_TIMEOUT_MS = 60_000;
@@ -66,7 +45,6 @@ export async function POST(request: Request) {
     return Response.json({ error: "Send one JPEG, PNG or WebP photo." }, { status: 400 });
   }
   if (image.length > MAX_DATA_URL) return Response.json({ error: "That photo is too large. Please retake it." }, { status: 413 });
-  // Optional: the same photo brightened and sharpened on the phone.
   const enhanced = typeof body.enhanced === "string" && DATA_URL.test(body.enhanced) && body.enhanced.length <= MAX_DATA_URL ? body.enhanced : undefined;
 
   const symptoms = cleanSymptoms(body.symptoms);
@@ -89,10 +67,8 @@ export async function POST(request: Request) {
     const analysis = combineAnalyses(answered.map((p) => p.call.analysis!));
     const model = answered.map((p) => p.model).join(" + ");
     const latencyMs = Date.now() - started;
-    // Belt and braces: never pass on a sentence that names something a photo can't show.
     analysis.summary = stripUnsupported(analysis.summary);
     analysis.quality.explanation = stripUnsupported(analysis.quality.explanation);
-    // The emergency category must agree with its observation, and the reverse.
     if (analysis.category === "angle_closure_signs" && analysis.observations.angle_closure !== "possible") analysis.category = "inconclusive";
     if (analysis.quality.usable && analysis.observations.angle_closure === "possible") analysis.category = "angle_closure_signs";
     return Response.json({ analysis, triage: advice, model, latencyMs, clinicalReview: CLINICAL_REVIEW });

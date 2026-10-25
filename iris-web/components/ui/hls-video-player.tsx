@@ -5,10 +5,6 @@ import type Hls from 'hls.js'
 import type { ErrorData, ManifestParsedData, LevelSwitchedData } from 'hls.js'
 import { useComposedRefs } from '@/components/ui/hls-video-player-utils/compose-refs'
 
-/* -------------------------------------------------------------------------------------------------
- * Types
- * -------------------------------------------------------------------------------------------------*/
-
 type HLSErrorType = 'network' | 'media' | 'fatal' | 'other'
 
 export interface HLSVideoError {
@@ -22,35 +18,19 @@ export interface HLSVideoPlayerProps extends Omit<
   React.VideoHTMLAttributes<HTMLVideoElement>,
   'src' | 'width' | 'height' | 'onError'
 > {
-  /** Ref to the underlying video element */
   ref?: React.Ref<HTMLVideoElement>
-  /** The HLS stream URL (.m3u8) or regular video source */
   src: string
-  /** Video width (required for aspect ratio) */
   width: number
-  /** Video height (required for aspect ratio) */
   height: number
-  /** Enable debug logging */
   debug?: boolean
-  /** Custom error handler */
   onHlsError?: (error: HLSVideoError) => void
-  /** Native video error handler */
   onVideoError?: React.ReactEventHandler<HTMLVideoElement>
-  /** Called when the video is ready to play */
   onReady?: () => void
-  /** Called when HLS.js library is loaded (only when native HLS not supported) */
   onHlsLoaded?: () => void
-  /** Start time in seconds */
   startTime?: number
-  /** Maximum resolution to use (e.g., 720, 1080) */
   maxResolution?: number
-  /** Minimum resolution to use (e.g., 480, 720) */
   minResolution?: number
 }
-
-/* -------------------------------------------------------------------------------------------------
- * Utils
- * -------------------------------------------------------------------------------------------------*/
 
 function supportsHlsNatively(): boolean {
   if (typeof window === 'undefined') return false
@@ -74,14 +54,6 @@ function createHlsError(
   return { type, message, fatal, details }
 }
 
-/* -------------------------------------------------------------------------------------------------
- * HLSVideoPlayer
- * -------------------------------------------------------------------------------------------------*/
-
-/**
- * Plays an HLS stream (.m3u8) or a regular video file. Regular files and browsers with built-in
- * HLS (Safari) play natively; hls.js is only downloaded when a stream needs it.
- */
 export function HLSVideoPlayer({
   ref,
   src,
@@ -112,8 +84,6 @@ export function HLSVideoPlayer({
     [debug]
   )
 
-  // The latest callbacks, kept in refs so that passing new functions on every render (the usual
-  // way to write them) doesn't reload the video. Only the source and settings below reload it.
   const callbacks = React.useRef({ onHlsError, onReady, onHlsLoaded })
   React.useLayoutEffect(() => {
     callbacks.current = { onHlsError, onReady, onHlsLoaded }
@@ -129,7 +99,6 @@ export function HLSVideoPlayer({
 
   const composedRef = useComposedRefs(ref, videoRef)
 
-  // Initialize HLS or native playback
   React.useEffect(() => {
     const video = videoRef.current
     if (!video || !src) return
@@ -145,7 +114,6 @@ export function HLSVideoPlayer({
       log('Is HLS:', isHls)
       log('Has native HLS support:', hasNativeSupport)
 
-      // If it's not an HLS source or browser has native support, use native playback
       if (!isHls || hasNativeSupport) {
         log('Using native playback')
         isUsingHlsRef.current = false
@@ -158,7 +126,6 @@ export function HLSVideoPlayer({
         return
       }
 
-      // Load HLS.js dynamically only when needed
       try {
         log('Loading HLS.js...')
         const HlsModule = await import('hls.js')
@@ -185,12 +152,10 @@ export function HLSVideoPlayer({
         hlsRef.current = hls
         isUsingHlsRef.current = true
 
-        // Handle HLS events
         hls.on(HlsClass.Events.MANIFEST_PARSED, (_event, data: ManifestParsedData) => {
           if (destroyed) return
           log('Manifest parsed, levels:', data.levels.length)
 
-          // Apply resolution constraints
           if (maxResolution || minResolution) {
             const availableLevels = data.levels.map((level, i) => ({
               height: level.height,
@@ -206,7 +171,6 @@ export function HLSVideoPlayer({
             })
 
             if (validLevels.length > 0 && maxResolution && hls) {
-              // Set to highest valid level
               const maxLevel = validLevels.reduce((prev, curr) => (curr.height > prev.height ? curr : prev))
               hls.currentLevel = maxLevel.index
             }
@@ -234,12 +198,10 @@ export function HLSVideoPlayer({
             switch (data.type) {
               case HlsClass.ErrorTypes.NETWORK_ERROR:
                 handleError(createHlsError('network', 'Network error occurred', true, data.details))
-                // Try to recover
                 hls?.startLoad()
                 break
               case HlsClass.ErrorTypes.MEDIA_ERROR:
                 handleError(createHlsError('media', 'Media error occurred', true, data.details))
-                // Try to recover
                 hls?.recoverMediaError()
                 break
               default:
@@ -283,7 +245,6 @@ export function HLSVideoPlayer({
     }
   }, [src, debug, startTime, maxResolution, minResolution, autoPlay, handleError, log])
 
-  // Handle native video errors
   const handleVideoError = React.useCallback(
     (e: React.SyntheticEvent<HTMLVideoElement>) => {
       const video = e.currentTarget
@@ -306,7 +267,6 @@ export function HLSVideoPlayer({
   )
 
   const handleCanPlay = React.useCallback(() => {
-    // Only call onReady for native playback
     if (!isUsingHlsRef.current) {
       callbacks.current.onReady?.()
     }
@@ -320,7 +280,6 @@ export function HLSVideoPlayer({
       width={width}
       height={height}
       autoPlay={autoPlay}
-      // `style` is merged here (not spread with the other props) so it can't drop the aspect ratio.
       style={{ aspectRatio, ...style }}
       onError={handleVideoError}
       onCanPlay={handleCanPlay}

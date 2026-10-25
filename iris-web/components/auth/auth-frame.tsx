@@ -5,7 +5,6 @@ import Link from "next/link";
 import { ThemeToggle } from "@/components/blocks/theme-toggle";
 import { AuthShell, type Testimonial } from "@/components/ui/sign-in";
 
-// Real quotes with public-domain portraits (the same ones as the home page), not made-up reviews.
 const quotes: Testimonial[] = [
   { avatarSrc: "/quotes/franklin.jpg", name: "Benjamin Franklin", handle: "Inventor, 1735", text: "An ounce of prevention is worth a pound of cure." },
   { avatarSrc: "/quotes/leonardo.jpg", name: "Leonardo da Vinci", handle: "Notebooks", text: "The eye, which is termed the window of the soul…" },
@@ -38,7 +37,6 @@ export function AuthFrame({ children }: { children: React.ReactNode }) {
   );
 }
 
-/** Message shown when Clerk returns an error, with the longer explanation when there is one. */
 export function FormError({ message }: { message: string | null }) {
   if (!message) return null;
   return (
@@ -53,7 +51,6 @@ export function errorText(error: { message?: string; longMessage?: string } | nu
   return error.longMessage || error.message || "Something went wrong. Please try again.";
 }
 
-/** After Clerk creates the session: go to the dashboard (decorateUrl may return a full URL). */
 export function goToDashboard(decorateUrl: (url: string) => string, push: (url: string) => void) {
   const url = decorateUrl("/dashboard");
   if (url.startsWith("http")) window.location.href = url;

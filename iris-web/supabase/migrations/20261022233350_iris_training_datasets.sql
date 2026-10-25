@@ -1,21 +1,16 @@
--- Labeled eye-image datasets for training and testing the three checks.
--- Private schema (not reachable through the public API). Every image row says which
--- condition it shows AND what kind of image it is, so a model never mixes retina photos
--- with phone photos or pupil videos.
-
 create table iris.datasets (
-  id text primary key,                         -- short slug, e.g. 'mendeley-bmrd'
+  id text primary key,
   name text not null,
   source_url text not null,
   doi text,
-  license text not null,                       -- e.g. 'CC BY 4.0', 'unknown'
-  attribution text not null,                   -- citation to credit when used
+  license text not null,
+  attribution text not null,
   image_type text not null check (image_type in ('fundus', 'external_photo', 'slit_lamp', 'pupil_ir', 'mixed')),
-  conditions text[] not null,                  -- subset of the condition labels below
+  conditions text[] not null,
   image_count integer,
   download_size_mb integer,
   access text not null check (access in ('open_download', 'login_required', 'request_from_authors')),
-  relevance text not null,                     -- how it relates to the Iris checks
+  relevance text not null,
   status text not null default 'cataloged' check (status in ('cataloged', 'downloaded', 'imported', 'rejected')),
   notes text,
   created_at timestamptz not null default now()
@@ -24,19 +19,19 @@ create table iris.datasets (
 create table iris.dataset_images (
   id uuid primary key default gen_random_uuid(),
   dataset_id text not null references iris.datasets (id) on delete cascade,
-  source_path text not null,                   -- path inside the original download
-  storage_path text,                           -- where our copy lives, if stored
+  source_path text not null,
+  storage_path text,
   condition text not null check (condition in ('normal', 'diabetes', 'glaucoma', 'cataract', 'other')),
-  condition_detail text,                       -- e.g. 'diabetic retinopathy: moderate', 'glaucoma level 2'
+  condition_detail text,
   severity smallint check (severity between 0 and 5),
   image_type text not null check (image_type in ('fundus', 'external_photo', 'slit_lamp', 'pupil_ir')),
   eye text not null default 'unknown' check (eye in ('left', 'right', 'unknown')),
-  subject_ref text,                            -- dataset's own (anonymous) patient id, to keep a person's images in one split
-  is_augmented boolean not null default false, -- flipped/rotated copies made by the dataset authors
+  subject_ref text,
+  is_augmented boolean not null default false,
   width integer,
   height integer,
   split text check (split in ('train', 'val', 'test')),
-  sha256 text not null unique,                 -- catches the same image appearing in two datasets
+  sha256 text not null unique,
   created_at timestamptz not null default now(),
   unique (dataset_id, source_path)
 );
@@ -46,7 +41,6 @@ create index dataset_images_label_idx on iris.dataset_images (condition, image_t
 alter table iris.datasets enable row level security;
 alter table iris.dataset_images enable row level security;
 
--- Counts per dataset, condition and image type.
 create view iris.dataset_summary with (security_invoker = true) as
 select d.id as dataset_id, d.name, d.license, i.image_type, i.condition,
        count(*) as images,
@@ -57,7 +51,6 @@ from iris.datasets d
 join iris.dataset_images i on i.dataset_id = d.id
 group by d.id, d.name, d.license, i.image_type, i.condition;
 
--- The catalog: what exists, how it's licensed, and how to get it.
 insert into iris.datasets (id, name, source_url, doi, license, attribution, image_type, conditions, image_count, download_size_mb, access, relevance, notes) values
 ('ieee-t1d-pupil',
  'Dynamic Pupillary Dataset for Autonomic Neuropathy in Type 1 Diabetes',

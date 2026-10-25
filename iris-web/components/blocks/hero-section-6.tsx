@@ -6,8 +6,6 @@ import { CHECKS } from '@/lib/checks'
 import { ArrowDown, ArrowRight, Clock, ScanEye } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 
-// Example photos of people using their phones close to their eyes (Unsplash, free licence).
-// Shown in grayscale to fit the black-and-white theme.
 const heroImages = {
     light: {
         src: 'https://images.unsplash.com/photo-1683972606206-bcb0525a9f88?w=2400&q=80&auto=format&fit=crop',
@@ -22,8 +20,6 @@ const heroImages = {
 export function HeroSection({ children }: { children?: React.ReactNode }) {
     const imageRef = useRef<HTMLDivElement>(null)
 
-    // Scroll-linked parallax: the photo drifts and zooms slowly. (The text used to fade out and
-    // back in with the scroll, and slide in on load; both were removed because they looked buggy.)
     useEffect(() => {
         if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
         let frame = 0

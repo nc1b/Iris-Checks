@@ -72,7 +72,6 @@ export function Results({
 }) {
   const v = VERDICTS[analysis.verdict];
   const [ai, setAi] = useState<{ text: string; source: string } | null>(null);
-  // Results only ever render in the browser (after a scan), so reading localStorage here is safe.
   const [aiLoading, setAiLoading] = useState(true);
   const [log, setLog] = useState<LogEntry[]>(() => readLog());
   const [saved, setSaved] = useState(false);

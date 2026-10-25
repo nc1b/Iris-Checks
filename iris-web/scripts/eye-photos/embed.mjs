@@ -1,5 +1,3 @@
-// Embeds every dataset image with MediaPipe Image Embedder (same version and model as the site),
-// using the shared preprocessing: centre square crop → 96 px → 224 px.
 import { chromium } from 'playwright';
 import fs from 'node:fs';
 import path from 'node:path';

@@ -1,15 +1,8 @@
-/**
- * Checks one eye photo on the phone before it is sent anywhere, so a bad photo gets a specific
- * retake instruction instead of an "unclear" answer. Works on the cropped region at its original
- * resolution (never upscaled), so the numbers describe real detail, not digital zoom.
- */
-
 export type QualityIssue = "too_small" | "too_dark" | "too_bright" | "glare" | "blur" | "low_contrast";
 
 export type QualityReport = {
   ok: boolean;
   issues: QualityIssue[];
-  /** Short side of the crop, in real camera pixels. */
   side: number;
   brightness: number;
   sharpness: number;
@@ -17,15 +10,11 @@ export type QualityReport = {
   contrast: number;
 };
 
-/** Thresholds tuned on the eval fixtures (eval/fixtures) and test photos; see MODEL-EVAL.md. */
 export const QUALITY_LIMITS = {
-  /** Below this many real pixels across, the white of the eye and pupil edge aren't resolvable. */
   minSide: 320,
   minBrightness: 55,
   maxBrightness: 215,
-  /** Share of pixels that are pure white. A small light reflection is fine; a washout isn't. */
   maxClipped: 0.06,
-  /** Variance of the Laplacian on a 256 px copy. The sharp test photo scores ~70, blurred copies ~3–6. */
   minSharpness: 25,
   minContrast: 22,
 };
@@ -57,9 +46,7 @@ export const RETAKE: Record<QualityIssue, { title: string; fix: string }> = {
   },
 };
 
-/** Measures a crop. `data` is RGBA pixels from a canvas. */
 export function measureQuality(data: Uint8ClampedArray, width: number, height: number, side = Math.min(width, height)): QualityReport {
-  // Greyscale copy, scaled to about 256 px on the long side so sharpness is comparable across sizes.
   const scale = Math.min(1, 256 / Math.max(width, height));
   const w = Math.max(8, Math.round(width * scale));
   const h = Math.max(8, Math.round(height * scale));
@@ -79,7 +66,6 @@ export function measureQuality(data: Uint8ClampedArray, width: number, height: n
   const n = width * height;
   const brightness = sum / n;
   const contrast = Math.sqrt(Math.max(0, sumSq / n - brightness * brightness));
-  // Box-sample down for the sharpness measure.
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const sx = Math.min(width - 1, Math.floor(x / scale));

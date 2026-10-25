@@ -2,15 +2,6 @@ import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Dashboard, Profile, Scan } from "@/lib/dashboard-types";
 
-/**
- * Database access for the dashboard (Supabase Postgres).
- *
- * The tables live in a private `iris` schema the public API can't reach. The server calls
- * a few `public.iris_*` functions (see the iris_prototype_schema migration), passing
- * IRIS_DB_SECRET, which the database checks against a stored SHA-256 hash, plus the
- * verified Clerk user id. Every function only touches that one user's rows.
- */
-
 export class DbError extends Error {
   constructor(
     message: string,
@@ -42,11 +33,9 @@ export const db = {
   addScan: (userId: string, scan: Omit<Scan, "id" | "created_at">) => rpc<Scan>("iris_add_scan", { p_user: userId, p_scan: scan }),
   deleteScan: (userId: string, scanId: string) => rpc<boolean>("iris_delete_scan", { p_user: userId, p_scan_id: scanId }),
   deleteMyData: (userId: string) => rpc<boolean>("iris_delete_my_data", { p_user: userId }),
-  /** Most similar reference eye photos to a fingerprint (pgvector), as { label, similarity }. */
   matchEye: (embedding: string, k: number) => rpc<{ label: string; similarity: number }[]>("iris_match_eye", { p_embedding: embedding, p_k: k }),
 };
 
-/** Turns a thrown error into a safe JSON response (no internal details). */
 export function errorResponse(e: unknown) {
   if (e instanceof DbError) {
     if (e.code === "not_configured") return Response.json({ error: "The database isn't connected yet." }, { status: 503 });

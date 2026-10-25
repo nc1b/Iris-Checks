@@ -1,14 +1,3 @@
-"""Label an indexed dataset (CSV from scan_images.py) and import it into iris.dataset_images.
-
-Usage: python -I import_dataset.py <dataset_id> <index_csv> <image_root> [--dry-run]
-
-- One row per unique image (sha256). Duplicate files are merged; every label the dataset
-  gave the image is kept in all_labels.
-- label_quality: clean / severity_conflict (same disease, different levels: severity left
-  empty) / condition_conflict (different diagnoses: kept out of the splits).
-- split: fixed from the sha256 (70% train, 15% val, 15% test), so it never changes.
-- Sends rows to public.iris_import_dataset_images with IRIS_DB_SECRET from iris-web/.env.local.
-"""
 import csv
 import json
 import re
@@ -17,7 +6,6 @@ import urllib.request
 from collections import Counter, defaultdict
 from pathlib import Path
 
-# iris-web/.env.local (git-ignored) holds SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY and IRIS_DB_SECRET.
 ENV = str(Path(__file__).resolve().parents[2] / ".env.local")
 
 
@@ -30,7 +18,6 @@ def env():
     return out
 
 
-# --- labelers: folder path -> (condition, detail, severity, image_type) ---------------------
 
 
 def label_bmrd(folders: str):
@@ -51,7 +38,6 @@ def label_bmrd(folders: str):
 
 
 def label_bajwa(folders: str):
-    # All 601 images are retina (fundus) photos (checked: every one has the dark round border).
     return {
         "1_normal": ("normal", "normal retina", None, "fundus"),
         "2_cataract": ("cataract", "cataract (seen as a hazy retina photo)", None, "fundus"),
