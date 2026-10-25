@@ -12,22 +12,22 @@ type Shot = { file: string; title: string; caption: string };
 
 const SECTIONS: { heading: string; note?: string; shots: Shot[] }[] = [
   {
-    heading: "The website",
+    heading: "From the home page to the pupil test (desktop, dark mode)",
     shots: [
-      { file: "01-home", title: "Home", caption: "irischecks.app home: “Many eye checks. Just your phone.” Diabetes (pupil light reflex), glaucoma (left vs right reaction), cataracts (lens cloudiness)." },
-      { file: "02-how-it-works", title: "How it works", caption: "About 30 seconds, any phone. Step 1 Get close, Step 2 Right eye, one flash, Step 3 Left eye, one flash, Step 4 Three results." },
-      { file: "03-three-checks", title: "The three checks", caption: "One scan, three things to look for: diabetes, glaucoma and cataracts." },
+      { file: "01-home", title: "1. Home", caption: "irischecks.app home in dark mode: “Many eye checks. Just your phone.” Click “Sign in” at the top right." },
+      { file: "02-sign-in", title: "2. Sign in", caption: "The Iris sign-in page: “Welcome back”, sign in with email or Google." },
+      { file: "03-dashboard", title: "3. Dashboard: click “Pupil test”", caption: "The signed-in dashboard with the three checks. Click “Pupil test” (next to “Eye photo check”) to start." },
+      { file: "04-pupil-test", title: "4. Pupil reflex test", caption: "The pupil reflex test: about 30 seconds, one eye at a time. Step 1 Get close, Step 2 Right eye, one flash, Step 3 Left eye, one flash, Step 4 Three results. Click “Open camera”." },
     ],
   },
   {
-    heading: "The phone scan, step by step",
-    note: "Real screens of the Iris camera scan on a phone. The eye in these test runs is Iris's simulated test eye (scripts/scan-bench), not a patient.",
+    heading: "The pupil test on a real person's eye",
+    note: "A real recorded human pupil reacting to light (Wikimedia Commons, “Photopupillary reflex.gif” by 01syhr, CC BY-SA 4.0) was played into the Iris pupil test as the camera; Iris's actual scan code found and measured it. The same recording was used for both eyes.",
     shots: [
-      { file: "04-step1-line-up", title: "Steps 1–2: line up and hold still", caption: "Cover one eye, bring the phone close. Iris locks onto the iris and pupil: in the ring, same distance, pupil sharp, eye open, other eye covered, steady." },
-      { file: "05-step3-left-eye", title: "Step 3: left eye, one flash", caption: "A 3-second countdown, then the screen flashes once and Iris records how the pupil reacts." },
-      { file: "06-step4-results-typical", title: "Step 4: three results (typical)", caption: "Diabetes, glaucoma and cataracts each say “Looks typical”, with the measurements behind them." },
-      { file: "07-step4-results-glaucoma", title: "Step 4: one eye reacts weaker", caption: "Glaucoma check: “See a doctor”. Balance 53%: the left eye's reaction is about half the right eye's." },
-      { file: "08-step4-results-cataract", title: "Step 4: a cloudy lens", caption: "Cataract check: “See a doctor” when the pupil looks grey instead of black." },
+      { file: "05-real-eye-locked-on", title: "5. Iris locks onto the real eye", caption: "Full screen camera: a green ring on the iris and a white ring on the pupil. Right eye in the ring, close enough, pupil sharp, eye open, steady. Pupil about 7 mm, tracking 100%." },
+      { file: "06-countdown", title: "6. Countdown", caption: "Look at the dot. Keep your other eye covered. 3, 2, 1." },
+      { file: "07-flash", title: "7. One flash", caption: "The screen flashes white for one second (the top by the camera stays dark) and Iris records the real pupil shrinking." },
+      { file: "08-results", title: "8. The analysis", caption: "Your three results from the real eye: Diabetes looks typical (constriction 41%, reaction delay 0.40 s, speed 5 mm/s), Glaucoma looks typical, Cataracts look typical (haze 7%), capture quality 100%." },
     ],
   },
   {
