@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { ArrowUp, BookOpen, HeartHandshake, MessageCircle, Moon, Send, Sun, Trash2 } from "lucide-react"
+import { ArrowUp, BookOpen, MessageCircle, Moon, Send, Sun, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -22,7 +22,6 @@ const quickLinks = [
   { label: "Roadmap", section: "roadmap" },
   { label: "Research", href: "/research" },
   { label: "Team (coming soon)", href: "/team" },
-  { label: "Supporters", section: "supporters" },
   { label: "FAQ", section: "faq" },
 ]
 
@@ -56,7 +55,6 @@ function Footerdemo() {
   const actions = [
     { label: "Ask our AI assistant", icon: MessageCircle, onClick: () => openChat() },
     { label: "Read the research", icon: BookOpen, href: "/research" },
-    { label: "Become a supporter", icon: HeartHandshake, section: "supporters" },
     { label: "Back to top", icon: ArrowUp, onClick: () => window.scrollTo({ top: 0, behavior: "smooth" }) },
   ]
 
@@ -130,7 +128,7 @@ function Footerdemo() {
             <h3 className="mb-4 text-lg font-semibold">Explore</h3>
             <TooltipProvider delayDuration={150}>
               <div className="mb-6 flex flex-wrap gap-3">
-                {actions.map(({ label, icon: Icon, href, section, onClick }) => (
+                {actions.map(({ label, icon: Icon, href, onClick }) => (
                   <Tooltip key={label}>
                     <TooltipTrigger asChild>
                       {href ? (
@@ -138,12 +136,6 @@ function Footerdemo() {
                           <Link href={href} aria-label={label}>
                             <Icon className="h-4 w-4" />
                           </Link>
-                        </Button>
-                      ) : section ? (
-                        <Button asChild variant="outline" size="icon" className="rounded-full">
-                          <SectionLink section={section} aria-label={label}>
-                            <Icon className="h-4 w-4" />
-                          </SectionLink>
                         </Button>
                       ) : (
                         <Button variant="outline" size="icon" className="rounded-full" onClick={onClick} aria-label={label}>

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BookOpen, Building2, GraduationCap, HeartHandshake, ShieldCheck, Smartphone, Stethoscope, Users } from "lucide-react";
+import { BookOpen, ShieldCheck, Smartphone, Users } from "lucide-react";
 import TestimonialsBlock from "@/components/ui/testimonials-2";
 import { HeroSection } from "@/components/blocks/hero-section-6";
 import { SiteFooter } from "@/components/blocks/site-footer";
@@ -11,12 +11,6 @@ import { RoadmapSection } from "@/components/blocks/roadmap-section";
 import { BlurRevealText } from "@/components/ui/blur-reveal";
 import { SCAN_STEPS } from "@/lib/checks";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
-
-const supporterTypes = [
-  { icon: Stethoscope, title: "Clinics and eye doctors", body: "Advice on safe testing and checking our results against clinic devices." },
-  { icon: GraduationCap, title: "Schools and mentors", body: "Guidance from teachers, engineers and researchers as we build and test." },
-  { icon: Building2, title: "Local organizations", body: "Help reaching people who could benefit from a free eye check." },
-];
 
 // Tells search engines the site's name and logo (shown in Google results).
 const structuredData = {
@@ -79,47 +73,6 @@ export default function Home() {
       <TestimonialsBlock />
 
       <RoadmapSection />
-
-      <section id="supporters" className="scroll-mt-24 border-t">
-        <div className="mx-auto max-w-5xl px-6 py-24">
-          <Reveal className="max-w-2xl">
-            <p className="text-sm font-medium uppercase tracking-widest text-muted-foreground">Sponsors and supporters</p>
-            <h2 className="mt-3 text-balance text-3xl font-bold md:text-4xl">Help us bring eye checks to every phone</h2>
-            <p className="mt-4 text-muted-foreground">
-              Iris is a student project and we&apos;re looking for our first sponsors and supporters. Your name or logo could be here.
-            </p>
-          </Reveal>
-
-          <div className="mt-12 grid grid-cols-2 gap-4 md:grid-cols-4">
-            {[0, 1, 2, 3].map((i) => (
-              <Reveal key={i} effect="zoom" delay={i * 100}>
-                <div className="flex aspect-[3/2] items-center justify-center rounded-2xl border border-dashed border-foreground/25 text-center text-sm text-muted-foreground transition-colors duration-300 hover:border-foreground hover:text-foreground">
-                  <span className="flex flex-col items-center gap-2">
-                    <HeartHandshake className="size-5" />
-                    Your logo here
-                  </span>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-
-          <div className="mt-12 grid gap-4 md:grid-cols-3">
-            {supporterTypes.map(({ icon: Icon, title, body }, i) => (
-              <Reveal key={title} delay={i * 120}>
-                <div className="h-full rounded-2xl border bg-card p-6">
-                  <Icon className="size-5" />
-                  <h3 className="mt-4 font-semibold">{title}</h3>
-                  <p className="mt-2 text-sm text-muted-foreground">{body}</p>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-
-          <Reveal className="mt-10">
-            <p className="text-sm text-muted-foreground">Interested in supporting Iris? Contact details for the team are coming soon.</p>
-          </Reveal>
-        </div>
-      </section>
 
       <section id="about" className="scroll-mt-24 overflow-hidden border-t bg-muted/40">
         <div className="mx-auto grid max-w-5xl gap-10 px-6 py-24 md:grid-cols-[1.1fr_1fr]">

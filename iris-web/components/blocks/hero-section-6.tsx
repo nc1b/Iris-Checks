@@ -63,7 +63,7 @@ export function HeroSection({ children }: { children?: React.ReactNode }) {
                                 </SectionLink>
 
                                 <h1 className="mt-10 text-balance text-4xl font-bold tracking-tight md:text-6xl">
-                                    Three eye checks. <span className="text-muted-foreground">Just your phone.</span>
+                                    Many eye checks. <span className="text-muted-foreground">Just your phone.</span>
                                 </h1>
                                 <p className="mt-8 text-muted-foreground">
                                     Iris is exploring one 30-second phone scan that looks for signs linked to diabetes, glaucoma and cataracts, using

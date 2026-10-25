@@ -1,7 +1,7 @@
 /** Public address and search-engine details for the site. */
 export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://irischecks.app";
 export const SITE_NAME = "Iris Checks";
-export const SITE_TAGLINE = "Three eye checks. Just your phone.";
+export const SITE_TAGLINE = "Many eye checks. Just your phone.";
 export const SITE_DESCRIPTION =
   "Iris Checks is a student research project building a 30-second phone scan that looks for signs linked to diabetes, glaucoma and cataracts, using only your camera and screen light. Coming soon.";
 

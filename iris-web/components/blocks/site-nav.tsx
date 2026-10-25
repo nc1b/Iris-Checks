@@ -5,7 +5,6 @@ import {
     ChevronDown,
     CircleHelp,
     FileText,
-    HeartHandshake,
     Home,
     Info,
     LayoutGrid,
@@ -43,7 +42,6 @@ type MoreItem = { name: string; icon: LucideIcon; description: string; badge?: s
 const moreItems: MoreItem[] = [
     { name: 'Research', href: '/research', icon: BookOpen, description: 'The studies behind each check' },
     { name: 'Team', href: '/team', icon: Users, description: 'The students building Iris', badge: 'Soon' },
-    { name: 'Supporters', section: 'supporters', icon: HeartHandshake, description: 'Help bring eye checks to every phone' },
     { name: 'About', section: 'about', icon: Info, description: 'Why we started Iris' },
     { name: 'Privacy Policy', href: '/privacy', icon: Shield, description: 'What we collect (very little)' },
     { name: 'Terms of Service', href: '/terms', icon: FileText, description: 'Rules for using the site' },
@@ -54,7 +52,6 @@ const spySections: [id: string, nav: string][] = [
     ['checks', 'checks'],
     ['how-it-works', 'how-it-works'],
     ['roadmap', 'roadmap'],
-    ['supporters', 'more'],
     ['about', 'more'],
     ['faq', 'faq'],
 ]
