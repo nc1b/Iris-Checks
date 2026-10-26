@@ -76,7 +76,7 @@ export function ChecksSection() {
         </div>
 
         <p className="mt-8 text-sm text-muted-foreground">
-          Only a doctor can diagnose diabetes, glaucoma or cataracts.{" "}
+          Only a doctor can diagnose diabetic retinopathy, glaucoma or cataracts.{" "}
           <Link href="/research" className="inline-flex items-center gap-1 font-medium text-foreground underline underline-offset-4 hover:opacity-70">
             See the studies <ArrowRight className="size-3.5" />
           </Link>

@@ -15,7 +15,7 @@ export const ROADMAP: RoadmapEntry[] = [
     heading: "Research and concept",
     body: "Choosing what to check and learning what the science can and can't support.",
     items: [
-      "Picked three checks that share one phone scan: diabetes, glaucoma and cataracts",
+      "Picked three checks that share one phone scan: diabetic retinopathy, glaucoma and cataracts",
       "Reviewed the published studies behind each one",
       "Built this website, the app preview and the Ask Iris assistant",
     ],
@@ -50,7 +50,7 @@ export const ROADMAP: RoadmapEntry[] = [
     heading: "Pilot study",
     body: "A small study with volunteers, run with permission and adult supervision.",
     items: [
-      "People with and without diabetes, matched by age",
+      "People with and without clinically confirmed diabetic retinopathy, matched by age",
       "People with glaucoma or cataracts diagnosed by a doctor",
       "Share what worked and what didn't, openly",
     ],

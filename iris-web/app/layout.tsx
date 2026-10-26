@@ -13,7 +13,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: `${SITE_NAME}: eye checks by phone for diabetes, glaucoma and cataracts`,
+    default: `${SITE_NAME}: eye checks by phone for diabetic retinopathy, glaucoma and cataracts`,
     template: `%s · ${SITE_NAME}`,
   },
   description: SITE_DESCRIPTION,
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     "eye check",
     "phone eye scan",
     "pupil light reflex",
-    "diabetes screening research",
+    "diabetic retinopathy research",
     "glaucoma",
     "cataracts",
     "student research project",

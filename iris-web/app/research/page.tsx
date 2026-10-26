@@ -11,14 +11,14 @@ import notebook from "@/data/research-notebook.json";
 export const metadata: Metadata = {
   title: "Research",
   alternates: { canonical: "/research" },
-  description: "Explore the Iris research notebook: diabetes, glaucoma, cataracts, AI eye studies, the research timeline, datasets, prior art, methods, limitations, and collected source links.",
+  description: "Explore the Iris research notebook: diabetic retinopathy, glaucoma, cataracts, AI eye studies, the research timeline, datasets, prior art, methods, limitations, and collected source links.",
 };
 
 const checks = [
   {
-    title: "Diabetes",
+    title: "Diabetic retinopathy",
     measurement: "Pupil response to light",
-    body: "Specialized pupil devices have found average differences between people with and without diabetes. Iris is investigating whether an ordinary phone can capture useful measurements; the groups overlap and blood tests are still needed for diagnosis.",
+    body: "Specialized pupil devices have found average differences between people with and without diabetes. Iris is investigating whether an ordinary phone can capture useful measurements; this background evidence does not validate a diabetic retinopathy check. Retinal assessment by an eye professional is needed.",
     href: "https://pubmed.ncbi.nlm.nih.gov/35616273/",
     link: "Read the pupil study",
   },
@@ -41,7 +41,7 @@ const checks = [
 const stats = [
   { value: String(notebook.documents.length), label: "Research notes", source: "Studies, methods, datasets, and prior art" },
   { value: String(notebook.sources.length), label: "Collected source links", source: "Papers, projects, datasets, and background" },
-  { value: "3", label: "Planned checks", source: "Diabetes, glaucoma, and cataracts" },
+  { value: "3", label: "Planned checks", source: "Diabetic retinopathy, glaucoma, and cataracts" },
 ];
 
 const noteSummaries = notebook.documents.map(note => ({
@@ -69,7 +69,7 @@ const plan = [
   {
     icon: Gauge,
     title: "Three kinds of measurements",
-    body: "Pupil response for diabetes research, separate-eye response balance for glaucoma research, and captured images for cataract-related cloudiness.",
+    body: "Pupil response for diabetic retinopathy research, separate-eye response balance for glaucoma research, and captured images for cataract-related cloudiness.",
   },
   {
     icon: Eye,
@@ -79,7 +79,7 @@ const plan = [
   {
     icon: FlaskConical,
     title: "Tested before launch",
-    body: "Each check needs independent evaluation: blood-test-confirmed diabetes status, clinical pupil assessments for the eye comparison, and eye exams for lens cloudiness. Prototype results can't rule out disease.",
+    body: "Each check needs independent evaluation: clinically confirmed diabetic retinopathy status, clinical pupil assessments for the eye comparison, and eye exams for lens cloudiness. Prototype results can't rule out disease.",
   },
 ];
 
@@ -93,9 +93,9 @@ export default function ResearchPage() {
             <p className="text-sm font-medium uppercase tracking-widest text-muted-foreground">Research</p>
             <h1 className="mt-3 max-w-3xl text-balance text-4xl font-bold md:text-5xl">The science behind checking your eyes by phone</h1>
             <p className="mt-6 max-w-2xl text-muted-foreground">
-              Iris is exploring three areas: diabetes-related pupil responses, glaucoma-related differences between eyes, and cataract-related
+              Iris is exploring three areas: pupil measurements for diabetic retinopathy research, glaucoma-related differences between eyes, and cataract-related
               lens cloudiness. Our full notebook also covers the wider field of eye AI, its history, datasets, existing tools, and the open
-              questions that shape what we build.
+              questions that shape what we build. Earlier notebook entries describe the original diabetes pupil hypothesis; our current first check is diabetic retinopathy. Those historical studies do not validate a retinopathy test.
             </p>
             <a href="#library" className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-full border bg-foreground px-5 py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-80">
               <BookOpen aria-hidden="true" className="size-4" /> Browse all research
@@ -103,7 +103,7 @@ export default function ResearchPage() {
             <p className="mt-4 max-w-2xl rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
               <strong className="text-foreground">Still research:</strong> Iris hasn&apos;t established clinical accuracy for any of the three
               checks. Published findings don&apos;t establish how our phone version will perform. A typical measurement cannot rule out disease;
-              diabetes needs blood testing, and glaucoma or cataracts need an eye exam.
+              diabetic retinopathy, glaucoma and cataracts need assessment by an eye professional.
             </p>
           </Reveal>
 
@@ -220,7 +220,7 @@ export default function ResearchPage() {
             </div>
             <Reveal className="mt-10">
               <p className="text-xs text-muted-foreground">
-                To our knowledge, no one has published a phone-only version of this test for diabetes. Iris is a student research project, not a
+                Pupil studies in diabetes do not establish that Iris can detect diabetic retinopathy. Iris is a student research project, not a
                 medical device.
               </p>
             </Reveal>

@@ -26,7 +26,7 @@ const SECTIONS: { heading: string; note?: string; shots: Shot[] }[] = [
       { file: "05-real-eye-locked-on", title: "5. Iris locks onto the real eye", caption: "Full screen camera: a green ring on the iris and a white ring on the pupil. Right eye in the ring, close enough, pupil sharp, eye open, steady. Pupil about 7 mm, tracking 100%." },
       { file: "06-countdown", title: "6. Countdown", caption: "Look at the dot. Keep your other eye covered. 3, 2, 1." },
       { file: "07-flash", title: "7. One flash", caption: "The screen flashes white for one second (the top by the camera stays dark) and Iris records the real pupil shrinking." },
-      { file: "08-results", title: "8. The analysis", caption: "Your three results from the real eye: Diabetes looks typical (constriction 41%, reaction delay 0.40 s, speed 5 mm/s), Glaucoma looks typical, Cataracts look typical (haze 7%), capture quality 100%." },
+      { file: "08-results", title: "8. The analysis", caption: "Earlier prototype screenshot: pupil constriction 41%, reaction delay 0.40 s, speed 5 mm/s, haze 7%, capture quality 100%. The first research check is now named diabetic retinopathy; these measurements do not establish disease status." },
     ],
   },
   {
@@ -47,7 +47,7 @@ export default function PressKitPage() {
       <h1 className="text-3xl font-bold md:text-5xl">Iris press kit</h1>
       <p className="mt-3 max-w-2xl text-muted-foreground">
         Screens of irischecks.app and the Iris phone scan. Iris is a student research prototype, not a medical device: it can&apos;t diagnose
-        diabetes, glaucoma or cataracts.
+        diabetic retinopathy, glaucoma or cataracts.
       </p>
       {SECTIONS.map((s) => (
         <section key={s.heading} className="mt-14">

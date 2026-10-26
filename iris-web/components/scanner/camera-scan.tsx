@@ -993,7 +993,7 @@ function Results({
       </div>
 
       <p className="mt-8 text-center text-xs text-muted-foreground">
-        Iris is a student research prototype, not a medical device. It can&apos;t diagnose or rule out diabetes, glaucoma or cataracts, and its
+        Iris is a student research prototype, not a medical device. It can&apos;t diagnose or rule out diabetic retinopathy, glaucoma or cataracts, and its
         cut-offs are provisional. Only the numbers are saved, never images.
       </p>
     </main>

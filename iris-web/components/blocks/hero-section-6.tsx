@@ -62,7 +62,7 @@ export function HeroSection({ children }: { children?: React.ReactNode }) {
                                     Many eye checks. <span className="text-muted-foreground">Just your phone.</span>
                                 </h1>
                                 <p className="mt-8 text-muted-foreground">
-                                    Iris is exploring one 30-second phone scan that looks for signs linked to diabetes, glaucoma and cataracts, using
+                                    Iris is exploring one 30-second phone scan that looks for signs linked to diabetic retinopathy, glaucoma and cataracts, using
                                     only your camera and screen light. It&apos;s a student research project, and all three checks are coming soon.
                                 </p>
 

@@ -7,17 +7,17 @@ export const IRIS_FAQS: FAQItem[] = [
   {
     question: "What are the three checks Iris is working on?",
     answer:
-      "Iris is exploring three checks in one phone scan: pupil responses linked to diabetes, differences between the two eyes that may relate to glaucoma, and lens cloudiness associated with cataracts. All three are in development. The goal is to help people understand when to seek professional care, and each check needs its own testing.",
+      "Iris is exploring three checks in one phone scan: pupil responses being explored for diabetic retinopathy research, differences between the two eyes that may relate to glaucoma, and lens cloudiness associated with cataracts. All three are in development. The goal is to help people understand when to seek professional care, and each check needs its own testing.",
   },
   {
     question: "How will one scan cover all three?",
     answer:
-      "The plan is to line up both eyes in a dim room, record their response to the screen light, then light each eye separately while the other is covered. Iris would use the pupil response for the diabetes research, compare the separate responses for the glaucoma research, and examine captured images for cataract-related cloudiness. We're aiming for a short scan of around 30 seconds; the final steps and timing still need phone testing.",
+      "The plan is to line up both eyes in a dim room, record their response to the screen light, then light each eye separately while the other is covered. Iris would use the pupil response for the diabetic retinopathy research, compare the separate responses for the glaucoma research, and examine captured images for cataract-related cloudiness. We're aiming for a short scan of around 30 seconds; the final steps and timing still need phone testing.",
   },
   {
-    question: "Can the pupil check tell me if I have diabetes?",
+    question: "Can the pupil check tell me if I have diabetic retinopathy?",
     answer:
-      "A pupil response cannot confirm or rule out diabetes. Studies with specialized devices found average differences between people with and without diabetes, but the groups overlap. Iris is investigating whether a phone can measure useful differences. Doctors diagnose diabetes with blood tests such as A1C or blood glucose.",
+      "No. Iris has not established that pupil measurements can detect diabetic retinopathy. Studies of pupil responses in diabetes do not validate a retinopathy test. An eye professional needs to assess the retina; a blood sugar test alone does not diagnose diabetic retinopathy.",
   },
   {
     question: "How will the glaucoma check work?",
@@ -47,11 +47,11 @@ export const IRIS_FAQS: FAQItem[] = [
   {
     question: "What would a typical or flagged result mean?",
     answer:
-      "A typical result would only describe what the prototype measured; it wouldn't rule out diabetes, glaucoma, or cataracts. A flagged or unclear result would be a reason to discuss appropriate testing with a healthcare professional. Iris is a research prototype and cannot replace blood tests, regular eye exams, or medical advice.",
+      "A typical result would only describe what the prototype measured; it wouldn't rule out diabetic retinopathy, glaucoma, or cataracts. A flagged or unclear result would be a reason to discuss appropriate testing with a healthcare professional. Iris is a research prototype and cannot replace blood tests, regular eye exams, or medical advice.",
   },
   {
     question: "How could Iris help the Jacksonville community?",
     answer:
-      "We're exploring whether an accessible phone check could encourage people to seek diabetes testing or an eye exam sooner, especially when cost, transportation, or time make care harder to reach. The plan includes listening to local residents and healthcare workers and helping people find care resources. That community benefit depends on demonstrating that the checks are useful and reliable.",
+      "We're exploring whether an accessible phone check could encourage people to seek an eye exam sooner, especially when cost, transportation, or time make care harder to reach. The plan includes listening to local residents and healthcare workers and helping people find care resources. That community benefit depends on demonstrating that the checks are useful and reliable.",
   },
 ];

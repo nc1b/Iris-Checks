@@ -246,7 +246,7 @@ export function Dashboard() {
 
             <p className="mt-10 text-center text-xs text-muted-foreground">
               Iris is a student research prototype, not a medical device. Demo scans are simulated, and no result here can diagnose or rule out
-              diabetes, glaucoma or cataracts.
+              diabetic retinopathy, glaucoma or cataracts.
             </p>
           </>
         )}

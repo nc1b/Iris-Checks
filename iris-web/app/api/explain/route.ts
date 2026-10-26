@@ -60,12 +60,12 @@ function fallback(d: ReturnType<typeof clean>) {
   lines.push(`Here is what Iris measured: ${parts.join("; ")}.`);
   if (d.verdict === "weaker") {
     lines.push(
-      "Your pupil reacted more weakly or slowly than our starter range. Research with clinic pupillometers has linked this pattern to diabetes and early nerve changes, but many other things (lighting, age, tiredness, medicines, caffeine) affect pupils too. It's a reason to ask a doctor about an A1c blood test, not a diagnosis.",
+      "Your pupil reacted more weakly or slowly than our starter range. Research with clinic pupillometers has linked this pattern to diabetes and early nerve changes, but many other things (lighting, age, tiredness, medicines, caffeine) affect pupils too. This cannot detect or rule out diabetic retinopathy. Ask an eye professional about a retinal assessment.",
     );
   } else if (d.verdict === "check") {
     lines.push("Most measures looked typical. One was outside the range, which is often caused by lighting or movement, so a retake is worthwhile.");
   } else {
-    lines.push("Your pupil's reaction to the flash looked typical. That doesn't rule anything out. Regular check-ups are still the best way to catch diabetes early.");
+    lines.push("Your pupil's reaction to the flash looked typical. That doesn't rule anything out. An eye exam with retinal assessment is needed to check for diabetic retinopathy.");
   }
   lines.push("Remember: Iris is a student prototype and its thresholds are provisional.");
   return lines.join("\n\n");
@@ -92,8 +92,8 @@ Iris uses a phone camera and screen flash to measure the pupillary light reflex 
 
 Rules:
 - Write for a teenager or adult with no medical background. 110-170 words. Plain text, short paragraphs, no markdown headings, no bullet symbols.
-- Never diagnose. Never say the person has or does not have diabetes. Use "may", "can be linked to".
-- If the verdict is "weaker", suggest asking a doctor about an A1c blood test. If "retake", focus on how to get a better reading.
+- Never diagnose. Never say the person has or does not have diabetic retinopathy or diabetes. Pupil findings do not establish retinopathy status. Use "may", "can be linked to".
+- If the verdict is "weaker", suggest an eye exam with retinal assessment. If "retake", focus on how to get a better reading.
 - Mention one or two everyday factors that also change pupils (lighting, age, tiredness, caffeine, medicines).
 - If demo is true, say clearly that the data is simulated.
 - Do not invent statistics. Only use the research summary below.

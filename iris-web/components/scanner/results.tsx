@@ -22,7 +22,7 @@ import { ResponseChart } from "./response-chart";
 const VERDICTS: Record<Analysis["verdict"], { title: string; body: string; tone: string; icon: React.ReactNode }> = {
   typical: {
     title: "Your pupil response looks typical",
-    body: "Your pupil reacted to the light in the range we expect. This is not a diabetes test. If you have symptoms or risk factors, a doctor can still check your A1c.",
+    body: "Your pupil reacted to the light in the range we expect. This cannot rule out diabetic retinopathy. An eye professional can assess your retina.",
     tone: "bg-iris-400/15 ring-iris-400/40 text-iris-100",
     icon: <CheckCircle2 className="h-6 w-6 text-iris-300" />,
   },
@@ -34,7 +34,7 @@ const VERDICTS: Record<Analysis["verdict"], { title: string; body: string; tone:
   },
   weaker: {
     title: "Your pupil reacted more weakly or slowly than typical",
-    body: "In research studies, weaker and slower pupil reactions were linked to diabetes and early nerve changes. This prototype can't diagnose anything, but it's a reason to ask a doctor about an A1c (blood sugar) test.",
+    body: "In research studies, weaker and slower pupil reactions were linked to diabetes and early nerve changes. This prototype can't diagnose anything, but it cannot establish whether you have diabetic retinopathy. Ask an eye professional about a retinal assessment.",
     tone: "bg-amber-400/15 ring-amber-300/50 text-amber-50",
     icon: <AlertTriangle className="h-6 w-6 text-amber-300" />,
   },
@@ -334,7 +334,7 @@ export function Results({
       </div>
 
       <p className="text-xs text-iris-100/50">
-        Iris is a student research prototype. It is not a medical device and does not diagnose diabetes or any other condition.
+        Iris is a student research prototype. It is not a medical device and does not diagnose diabetic retinopathy or any other condition.
         Thresholds are provisional starter values. If you are worried about your health, talk to a doctor.
       </p>
     </div>

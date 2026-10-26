@@ -16,12 +16,12 @@ const MAX_SAVED = 40
 const BUTTON = 56
 const MARGIN = 12
 
-const suggestions = ['What are the three checks?', 'How will one scan work?', 'Can it tell if I have diabetes?', 'Is my data private?']
+const suggestions = ['What are the three checks?', 'How will one scan work?', 'Can it tell if I have diabetic retinopathy?', 'Is my data private?']
 
 const greeting: Message = {
     role: 'assistant',
     content:
-        "Hi! I'm the Iris assistant. Ask me about the three planned checks (diabetes, glaucoma and cataracts), how the scan will work, or the research behind it.",
+        "Hi! I'm the Iris assistant. Ask me about the three planned checks (diabetic retinopathy, glaucoma and cataracts), how the scan will work, or the research behind it.",
 }
 
 type Anchor = { right: boolean; bottom: boolean; dx: number; dy: number }

@@ -19,15 +19,15 @@ export const NEI_CREDIT = "Simulation: National Eye Institute, NIH";
 export const CHECKS: Check[] = [
   {
     id: "diabetes",
-    name: "Diabetes",
+    name: "Diabetic retinopathy",
     icon: Droplet,
     signal: "Pupil light reflex",
     measures: "How big your pupils are at rest, and how far, how fast and how soon they shrink after a flash.",
-    why: "About 40 million Americans have diabetes and around 11 million don't know it yet (CDC, 2023 data).",
-    evidence: "Clinic pupillometer studies found weaker, slower reactions on average in people with diabetes. No one has shown yet how well a phone can do this. That's our main experiment.",
+    why: "Diabetic retinopathy affects the retina in people with diabetes. Iris is exploring this as a research focus.",
+    evidence: "Clinic pupillometer studies found differences in people with diabetes. These findings do not establish that Iris can detect diabetic retinopathy.",
     stage: "Research question",
-    limits: "Groups overlap, so it can't say yes or no for one person, and a typical result doesn't rule diabetes out.",
-    nextStep: "A blood test such as A1C",
+    limits: "A pupil response cannot diagnose or rule out diabetic retinopathy. Iris does not capture a clinical retinal image.",
+    nextStep: "An eye exam with retinal assessment",
     image: { src: "/checks/diabetes.jpg", alt: "Two boys holding balls, with dark blotches covering parts of the picture, as someone with diabetic retinopathy might see them", caption: "How diabetic eye damage (retinopathy) can look" },
   },
   {
