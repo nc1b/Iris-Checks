@@ -1,5 +1,6 @@
 import { CLINICAL_REVIEW, EMPTY_SYMPTOMS, symptomContext, triage, type Symptoms } from "@/lib/eye-symptoms";
 import { analysePhoto, combineAnalyses, stripUnsupported } from "@/lib/server/eye-photo-ai";
+import { rateLimiter } from "@/lib/server/rate-limit";
 import { getSessionUserId } from "@/lib/server/session";
 
 export const maxDuration = 300;
@@ -16,6 +17,7 @@ const FALLBACK = list(process.env.IRIS_EYE_FALLBACK_MODELS ?? "anthropic/claude-
 const MAX_DATA_URL = 3_600_000;
 const PANEL_TIMEOUT_MS = 170_000;
 const FALLBACK_TIMEOUT_MS = 60_000;
+const rateLimited = rateLimiter(10, 60 * 60_000);
 const DATA_URL = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/;
 
 function cleanSymptoms(raw: unknown): Symptoms {
@@ -38,6 +40,7 @@ function cleanSymptoms(raw: unknown): Symptoms {
 export async function POST(request: Request) {
   const userId = await getSessionUserId(request);
   if (!userId) return Response.json({ error: "Please sign in." }, { status: 401 });
+  if (rateLimited(userId)) return Response.json({ error: "You've run a lot of photo checks this hour. Please try again later." }, { status: 429 });
 
   const body = (await request.json().catch(() => ({}))) as { image?: unknown; enhanced?: unknown; symptoms?: unknown };
   const image = typeof body.image === "string" ? body.image : "";

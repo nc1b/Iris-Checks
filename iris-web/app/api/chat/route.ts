@@ -1,5 +1,6 @@
 import { KNOWLEDGE } from "@/lib/knowledge";
 import { aiConfigured, aiFetch } from "@/lib/server/hackclub";
+import { clientIp, rateLimiter } from "@/lib/server/rate-limit";
 
 const EMBED_MODEL = process.env.IRIS_EMBED_MODEL || "nvidia/nemotron-3.5-embed-1b:free";
 const CHAT_MODELS = (process.env.IRIS_CHAT_MODELS || "nvidia/nemotron-3.5-lightning:free,nvidia/nemotron-3.5-super-vl:free,anthropic/claude-haiku-5.5")
@@ -10,15 +11,7 @@ const MAX_MESSAGES = 10;
 const MAX_CHARS = 800;
 const TOP_K = 4;
 
-const hits = new Map<string, number[]>();
-function rateLimited(ip: string) {
-  const now = Date.now();
-  const recent = (hits.get(ip) ?? []).filter((t) => now - t < 60_000);
-  recent.push(now);
-  hits.set(ip, recent);
-  if (hits.size > 5000) hits.clear();
-  return recent.length > 15;
-}
+const rateLimited = rateLimiter(15, 60_000);
 
 const RULES = `You are the assistant on the website of Iris, a student research project. Answer visitors' questions about the project using the facts provided.
 
@@ -108,8 +101,7 @@ export async function POST(request: Request) {
   const messages = clean(body);
   if (!messages) return Response.json({ text: "Please type a question first." }, { status: 400 });
 
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-  if (rateLimited(ip)) {
+  if (rateLimited(clientIp(request))) {
     return Response.json({ text: "You're sending messages quickly. Please wait a minute and try again." }, { status: 429 });
   }
 

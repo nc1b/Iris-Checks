@@ -11,6 +11,7 @@ export default function SSOCallbackPage() {
     <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
       <Loader2 className="size-5 animate-spin" />
       Signing you in…
+      <div id="clerk-captcha" />
       <HandleSSOCallback
         navigateToApp={({ decorateUrl }) => goToDashboard(decorateUrl, router.push)}
         navigateToSignIn={() => router.push("/sign-in")}
