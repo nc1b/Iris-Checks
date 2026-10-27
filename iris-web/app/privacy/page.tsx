@@ -5,23 +5,25 @@ import { LegalPage } from "@/components/blocks/legal-page";
 export const metadata: Metadata = {
   title: "Privacy Policy",
   alternates: { canonical: "/privacy" },
-  description: "How the Iris website and AI assistant handle your information.",
+  description: "What Iris collects, where it goes, who can see it and how to delete it.",
 };
 
 export default function PrivacyPage() {
   return (
     <LegalPage
       title="Privacy Policy"
-      updated="October 20, 2026"
+      updated="October 26, 2026"
       intro={
         <>
           <p>
-            Iris (&quot;we&quot;, &quot;us&quot;) is a student research project building a phone-based eye check. This policy explains what
-            information this website and its AI assistant handle, why, who it&apos;s shared with, and the choices you have.
+            Iris (&quot;we&quot;, &quot;us&quot;) is a student research project building phone-based eye checks. This policy explains what
+            information the website, the eye checks and the AI assistant collect, where it goes, who can see it, and the choices you have.
           </p>
           <p className="mt-4">
-            <strong className="text-foreground">The short version:</strong> there are no accounts, the eye scan isn&apos;t live yet, chat messages
-            are sent to an AI service to get an answer, your chat history is saved only in your own browser, and we never sell your information.
+            <strong className="text-foreground">The short version:</strong> you can browse and chat without an account. If you sign up, we store
+            your scan numbers and optional answers, linked to your account. We never store pictures or video of your eyes. The optional eye photo
+            check sends one photo to an AI service to be reviewed, and you&apos;re told before it&apos;s sent. You can delete your data at any time,
+            and we never sell it.
           </p>
         </>
       }
@@ -39,21 +41,56 @@ export default function PrivacyPage() {
           heading: "Information we collect",
           body: (
             <>
-              <p>We don&apos;t ask you to create an account or give us your name, email address or phone number. We handle:</p>
+              <p>
+                <strong>If you create an account</strong>, our sign-in provider, Clerk, stores your email address, your first name if you give it,
+                and your password or Google sign-in. We never see or store your password.
+              </p>
+              <p>
+                <strong>In your dashboard</strong>, our database stores, linked to your account:
+              </p>
+              <ul>
+                <li>Your optional profile answers: age range, whether a doctor has told you that you have diabetes, glaucoma or cataracts, and whether you agree to research use</li>
+                <li>Each scan you save: its results for the three checks, the measurements behind them (such as pupil size and reaction speed), and an optional note of up to 500 characters</li>
+              </ul>
+              <p>
+                <strong>Everyone</strong>, with or without an account:
+              </p>
+              <ul>
+                <li>Chat messages you send to the AI assistant</li>
+                <li>Technical data every website receives, such as your IP address, browser and device type, the pages you visit and the time of your visit, from our hosting provider&apos;s standard logs</li>
+                <li>Settings saved in your own browser (see &quot;Cookies and browser storage&quot;)</li>
+              </ul>
+              <p>We don&apos;t collect precise location, contacts or payment information, and we don&apos;t store photos or video of your eyes.</p>
+            </>
+          ),
+        },
+        {
+          heading: "The eye checks and your camera",
+          body: (
+            <>
+              <p>The camera only turns on when you start a check and your browser asks for your permission.</p>
               <ul>
                 <li>
-                  <strong>Chat messages</strong> you type into the AI assistant, including questions sent from the footer&apos;s question box.
+                  <strong>Pupil scan.</strong> The camera video is processed on your own device. Only the measurements, such as pupil size and how
+                  fast it shrinks, leave your device: to write the plain-language explanation on your results screen, and to save the scan if you choose to.
                 </li>
                 <li>
-                  <strong>Technical data</strong> that every website receives, such as your IP address, browser and device type, the pages you visit
-                  and the time of your visit. This comes from our hosting provider&apos;s standard logs.
+                  <strong>Eye photo check.</strong> This one sends a photo. When you continue, your close-up photo, a brightened copy of it and your
+                  symptom answers go to our server, which passes them to{" "}
+                  <a href="https://ai.hackclub.com" target="_blank" rel="noreferrer">
+                    Hack Club AI
+                  </a>{" "}
+                  and on to Anthropic&apos;s Claude to be described. The app tells you this before anything is sent. We don&apos;t save the photo,
+                  and those services handle it under their own privacy policies.
                 </li>
                 <li>
-                  <strong>Settings saved in your browser</strong>: your light/dark choice, your chat history and where you placed the chat button.
-                  These stay on your device (see &quot;Cookies and browser storage&quot;).
+                  <strong>Photo comparison.</strong> Your phone turns the eye close-up into a list of numbers that describes it. Only those numbers
+                  are sent to our server to compare with labeled reference eye photos, never the picture itself.
                 </li>
               </ul>
-              <p>We don&apos;t collect precise location, contacts, photos or payment information.</p>
+              <p>
+                Eye measurements can be sensitive health information, so we keep them to what each check needs and never put them in our server logs.
+              </p>
             </>
           ),
         },
@@ -61,9 +98,10 @@ export default function PrivacyPage() {
           heading: "How we use information",
           body: (
             <ul>
-              <li>To answer your questions in the AI assistant</li>
-              <li>To run, secure and fix the website, including preventing spam and abuse (for example, limiting how many messages can be sent per minute)</li>
-              <li>To remember your preferences on your own device</li>
+              <li>To run the eye checks and show your results and history in your dashboard</li>
+              <li>To answer your questions in the AI assistant and explain your scan results</li>
+              <li>To run, secure and fix the website, including preventing spam and abuse (for example, limiting how many scans or messages can be sent)</li>
+              <li>For our research study, only if you turn on &quot;Use my results for research&quot;. Then the team may include your scan numbers, never images or your email, in the pilot study analysis</li>
             </ul>
           ),
         },
@@ -72,36 +110,18 @@ export default function PrivacyPage() {
           body: (
             <>
               <p>
-                When you send a message, the recent conversation is sent to our server and passed to{" "}
-                <a href="https://ai.hackclub.com" target="_blank" rel="noreferrer">
-                  Hack Club AI
-                </a>
-                , which forwards it to an AI model provider (currently Anthropic) to write a reply.
+                When you send a message, the recent conversation is sent to our server and passed to Hack Club AI, which forwards it to an AI model
+                provider (currently NVIDIA or Anthropic) to write a reply. When a pupil scan finishes, its measurements and any age and diabetes
+                answers you gave for that scan are sent the same way to write the explanation on your results screen.
               </p>
               <ul>
                 <li>We don&apos;t store the content of your chat messages on our server or write them to our logs.</li>
                 <li>Your chat history is saved in your browser so it&apos;s still there next time. Use &quot;New chat&quot; or &quot;Clear saved data&quot; to delete it.</li>
-                <li>The AI services that process your messages handle them under their own privacy policies.</li>
                 <li>
-                  <strong>Please don&apos;t share personal, contact or health information in the chat.</strong> It answers questions about the
-                  project and is not medical advice.
+                  <strong>Please don&apos;t share personal or contact information in the chat.</strong> It answers questions about the project and
+                  is not medical advice.
                 </li>
               </ul>
-            </>
-          ),
-        },
-        {
-          heading: "The eye scan and your camera",
-          body: (
-            <>
-              <p>
-                Eye scanning is <strong>coming soon</strong> and isn&apos;t available on this website yet, so we don&apos;t access your camera.
-              </p>
-              <p>
-                When it launches, the plan is for the camera video to be processed on your own device and never uploaded or stored by us. Eye images
-                and measurements can be sensitive health and biometric information, so before the scan goes live we will update this policy, ask for
-                your clear permission first, and explain exactly what is measured and what (if anything) leaves your device.
-              </p>
             </>
           ),
         },
@@ -109,27 +129,37 @@ export default function PrivacyPage() {
           heading: "Cookies and browser storage",
           body: (
             <>
-              <p>We don&apos;t use advertising, analytics or tracking cookies. We use your browser&apos;s local storage only for:</p>
+              <p>
+                We don&apos;t use advertising, analytics or tracking cookies. Clerk sets the cookies needed to keep you signed in. We also use your
+                browser&apos;s local storage for:
+              </p>
               <ul>
                 <li><strong>iris-theme</strong>: your light or dark mode choice</li>
                 <li><strong>iris-chat-messages</strong>: your recent chat history (up to 40 messages)</li>
                 <li><strong>iris-chat-position</strong>: where you dragged the chat button</li>
+                <li><strong>iris.research-log.v1</strong>: results from the pupil reflex test page, kept only on your device so you can export them</li>
               </ul>
               <p>
-                This data never leaves your device unless you send a chat message. You can delete it at any time with &quot;Clear saved data&quot; at
-                the bottom of every page, or by clearing your browser&apos;s site data.
+                You can delete your theme and chat data with &quot;Clear saved data&quot; at the bottom of every page, clear the test log from the
+                results screen, or clear your browser&apos;s site data.
               </p>
             </>
           ),
         },
         {
-          heading: "Who we share information with",
+          heading: "Who can see your information",
           body: (
             <>
-              <p>We only share information with service providers that help run the site:</p>
+              <p>
+                Only you can see your dashboard. Our server checks your sign-in on every request and only returns your own records. Our database
+                can&apos;t be read directly from the internet, and only our team can manage it. We share information only with service providers that
+                help run Iris:
+              </p>
               <ul>
                 <li><strong>Vercel</strong>: hosts the website and keeps standard server logs</li>
-                <li><strong>Hack Club AI</strong> and its model provider: process chat messages to write replies</li>
+                <li><strong>Clerk</strong>: handles sign-up, sign-in and your account</li>
+                <li><strong>Supabase</strong>: hosts our database</li>
+                <li><strong>Hack Club AI</strong> and its model providers (Anthropic and NVIDIA): process chat messages, scan explanations and eye photos</li>
                 <li><strong>Unsplash</strong>: serves some photos, so your browser loads them from Unsplash&apos;s servers</li>
               </ul>
               <p>
@@ -143,8 +173,9 @@ export default function PrivacyPage() {
           heading: "How long we keep information",
           body: (
             <p>
-              We don&apos;t keep chat content. Hosting logs are kept by our hosting provider for a limited time under its own retention settings.
-              Information saved in your browser stays until you clear it.
+              We keep your profile answers and saved scans until you delete them or your account. We don&apos;t keep chat content or eye photos.
+              Hosting logs are kept by our hosting provider for a limited time under its own retention settings. Information saved in your browser
+              stays until you clear it.
             </p>
           ),
         },
@@ -152,8 +183,10 @@ export default function PrivacyPage() {
           heading: "Security",
           body: (
             <p>
-              The site is served over HTTPS, chat requests are checked and rate-limited, and API keys are kept on the server, never in your browser.
-              No system is perfectly secure, so please don&apos;t send sensitive information through the chat.
+              The site only loads over HTTPS and can&apos;t be embedded in other websites. Sign-in uses verified email codes, checks passwords against
+              known leaks, locks an account after repeated wrong passwords, and blocks bots. Our database tables can&apos;t be reached directly, every
+              request is checked and rate-limited, and our keys stay on the server, never in your browser or our code. No system is perfectly
+              secure, so please don&apos;t send sensitive information you don&apos;t need to.
             </p>
           ),
         },
@@ -162,12 +195,13 @@ export default function PrivacyPage() {
           body: (
             <>
               <ul>
-                <li>Use the site without the chat; nothing is sent unless you send a message.</li>
-                <li>Delete your saved chat and settings with &quot;New chat&quot; or &quot;Clear saved data&quot;.</li>
+                <li>Use the site and chat without an account, or skip the camera checks entirely.</li>
+                <li>Leave any profile question blank, and turn research use on or off at any time.</li>
+                <li>Delete any saved scan, or all your answers and scans at once with &quot;Delete my data&quot; in your dashboard.</li>
+                <li>Delete your sign-in account in &quot;Account settings&quot; in your dashboard.</li>
                 <li>
                   Depending on where you live (for example, under California or European privacy laws), you may have the right to ask what personal
-                  information we hold about you, and to ask us to correct or delete it. Because we don&apos;t keep chat content or accounts, we usually
-                  hold nothing that identifies you, but you can still contact us and we&apos;ll help.
+                  information we hold about you, and to ask us to correct or delete it. Contact us and we&apos;ll help.
                 </li>
               </ul>
               <p>We don&apos;t respond differently to &quot;Do Not Track&quot; signals because we don&apos;t track you across sites.</p>
@@ -178,9 +212,8 @@ export default function PrivacyPage() {
           heading: "Children's privacy",
           body: (
             <p>
-              Iris is built by students and is meant for a general audience. We don&apos;t knowingly collect personal information from children under
-              13. If you are under 13, please only use the chat with a parent, guardian or teacher, and don&apos;t share personal information. If you
-              believe a child has given us personal information, contact us and we&apos;ll delete it.
+              You must be 13 or older to create an account. We don&apos;t knowingly collect personal information from children under 13. If you
+              believe a child under 13 has given us personal information, contact us and we&apos;ll delete it.
             </p>
           ),
         },
@@ -188,8 +221,7 @@ export default function PrivacyPage() {
           heading: "Visitors outside the United States",
           body: (
             <p>
-              The website is hosted in the United States. If you visit from another country, your information (such as chat messages and technical
-              data) may be processed in the United States.
+              Iris is hosted in the United States. If you visit from another country, your information may be processed in the United States.
             </p>
           ),
         },
@@ -197,8 +229,8 @@ export default function PrivacyPage() {
           heading: "Changes to this policy",
           body: (
             <p>
-              We&apos;ll update this policy when the website changes, and always before the eye scan launches. The &quot;Last updated&quot; date at the
-              top shows the current version. Important changes will be highlighted on the site.
+              We&apos;ll update this policy whenever the way Iris handles information changes. The &quot;Last updated&quot; date at the top shows the
+              current version. Important changes will be highlighted on the site.
             </p>
           ),
         },

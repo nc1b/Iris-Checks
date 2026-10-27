@@ -12,7 +12,7 @@ export default function TermsPage() {
   return (
     <LegalPage
       title="Terms of Service"
-      updated="October 20, 2026"
+      updated="October 26, 2026"
       intro={
         <p>
           These terms are an agreement between you and the Iris team (&quot;we&quot;, &quot;us&quot;) about using the Iris website and its AI
@@ -26,8 +26,8 @@ export default function TermsPage() {
           body: (
             <>
               <p>
-                Iris is a <strong>research prototype, not a medical device</strong>. Nothing on this website, including the AI assistant and any
-                future eye scan, diagnoses, treats, cures or prevents any disease, or replaces a doctor, optometrist or other healthcare
+                Iris is a <strong>research prototype, not a medical device</strong>. Nothing on this website, including the AI assistant and the
+                eye checks, diagnoses, treats, cures or prevents any disease, or replaces a doctor, optometrist or other healthcare
                 professional.
               </p>
               <p>
@@ -41,17 +41,18 @@ export default function TermsPage() {
           heading: "Who can use Iris",
           body: (
             <p>
-              You must be at least 13 years old to use the AI assistant. If you&apos;re under 18, please use the site with permission from a parent or
+              You must be at least 13 years old to use Iris. If you&apos;re under 18, please use the site with permission from a parent or
               guardian, who agrees to these terms for you.
             </p>
           ),
         },
         {
-          heading: "The eye scan is not available yet",
+          heading: "The eye checks are a research prototype",
           body: (
             <p>
-              The eye scan described on this site is <strong>coming soon</strong> and still being tested. How it works may change before launch.
-              When it is available, its results will be screening information only, not a diagnosis, and additional terms and consent will apply.
+              The pupil scan and eye photo check are early research tools that are still being tested, and how they work may change. Their
+              results are screening information only, not a diagnosis. A result of &quot;looks typical&quot; does not mean your eyes are healthy,
+              so keep having regular eye exams. See our <Link href="/privacy">Privacy Policy</Link> for what each check collects.
             </p>
           ),
         },
