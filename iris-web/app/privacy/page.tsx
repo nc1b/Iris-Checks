@@ -238,7 +238,8 @@ export default function PrivacyPage() {
           heading: "Contact us",
           body: (
             <p>
-              Team contact details are coming soon and will be added here. You can also read our <Link href="/terms">Terms of Service</Link>.
+              Email us at <a href="mailto:support@irischecks.app">support@irischecks.app</a> with any question about your privacy or your data, or to ask us to delete it. You can also read our{" "}
+              <Link href="/terms">Terms of Service</Link>.
             </p>
           ),
         },

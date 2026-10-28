@@ -106,10 +106,15 @@ function Footerdemo() {
           <div>
             <h3 className="mb-4 text-lg font-semibold">Contact Us</h3>
             <div className="space-y-2 text-sm text-muted-foreground">
-              <p>Team contact details are coming soon.</p>
+              <p>
+                Email us at{" "}
+                <a href="mailto:support@irischecks.app" className="font-medium text-foreground underline-offset-4 hover:underline">
+                  support@irischecks.app
+                </a>
+              </p>
               <p>Want to support Iris or test it when it&apos;s ready? We&apos;d love to hear from you.</p>
               <button onClick={() => openChat()} className="font-medium text-foreground underline-offset-4 hover:underline">
-                Ask the assistant in the meantime →
+                Or ask the assistant →
               </button>
             </div>
           </div>

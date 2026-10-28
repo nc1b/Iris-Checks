@@ -164,7 +164,11 @@ export default function TermsPage() {
         },
         {
           heading: "Contact us",
-          body: <p>Team contact details are coming soon and will be added here.</p>,
+          body: (
+            <p>
+              Questions about these terms? Email us at <a href="mailto:support@irischecks.app">support@irischecks.app</a>.
+            </p>
+          ),
         },
       ]}
     />
