@@ -21,7 +21,7 @@ const quickLinks = [
   { label: "How it works", section: "how-it-works" },
   { label: "Roadmap", section: "roadmap" },
   { label: "Research", href: "/research" },
-  { label: "Team (coming soon)", href: "/team" },
+  { label: "Team", href: "/team" },
   { label: "FAQ", section: "faq" },
 ]
 

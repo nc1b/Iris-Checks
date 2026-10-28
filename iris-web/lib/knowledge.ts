@@ -18,7 +18,7 @@ export const KNOWLEDGE: string[] = [
   "Iris is not a medical device and does not diagnose anything. It is meant to help people decide when to get checked by a doctor. The Terms of Service are at /terms.",
   "Website: the home page has the three checks (each with why it matters, evidence, limits and the next step), a 30-second trailer video, How it works (about 30 seconds: line up, one flash for both eyes, one flash per eye, three results), quotes, a Roadmap, About, and a scrolling FAQ. The Research page (/research) lists the studies. The Team page (/team) is coming soon. Contact details are coming soon.",
   `Roadmap (goals, dates may change): ${ROADMAP.map((r) => `${r.title} (${r.status}): ${r.heading} - ${r.items.join("; ")}.`).join(" ")}`,
-  "Team: Iris is built by a team of students with help from mentors. Names and photos will be added to the Team page (/team) soon. Don't name or invent team members.",
+  "Team: Iris is built by four students in Jacksonville, Florida: Divij Velagapudi (developer), Sahaj Kalia (idea and research), Yash Tol (research and sponsor outreach) and Udayan Ganguly. Photos are coming soon to the Team page (/team). Don't invent other team members or roles.",
   ...IRIS_FAQS.map(({ question, answer }) => `FAQ: ${question} ${answer}`),
   "The AI assistant can be dragged anywhere on the screen. It can make mistakes and is not medical advice.",
 ];
