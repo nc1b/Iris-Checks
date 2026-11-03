@@ -20,7 +20,7 @@ export default function ScanPage() {
           </span>
           <h1 className="mt-6 text-3xl font-bold">Run the Iris camera scan</h1>
           <p className="mt-4 text-muted-foreground">
-            About 30 seconds on your phone: three screen flashes, then your three results. Sign in so your results are saved to your dashboard.
+            About 30 seconds on your phone: one screen flash for each eye, then your three results. Sign in so your results are saved to your dashboard.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button asChild>
