@@ -1,6 +1,7 @@
 import { STUDIES, THRESHOLDS } from "@/lib/reference";
 import { aiConfigured, aiFetch } from "@/lib/server/hackclub";
-import { clientIp, rateLimiter } from "@/lib/server/rate-limit";
+import { rateLimiter } from "@/lib/server/rate-limit";
+import { getSessionUserId } from "@/lib/server/session";
 
 const DEFAULT_MODEL = "anthropic/claude-haiku-5.5";
 const rateLimited = rateLimiter(10, 60_000);
@@ -82,7 +83,8 @@ export async function POST(request: Request) {
   }
   const data = clean(body);
 
-  if (!aiConfigured() || rateLimited(clientIp(request))) return Response.json({ text: fallback(data), source: "fallback" });
+  const userId = await getSessionUserId(request);
+  if (!userId || !aiConfigured() || rateLimited(userId)) return Response.json({ text: fallback(data), source: "fallback" });
 
   const research = STUDIES.map((s) => `- ${s.short}: ${s.finding}`).join("\n");
   const ranges = THRESHOLDS.map(
