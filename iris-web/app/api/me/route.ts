@@ -27,12 +27,13 @@ export async function PATCH(request: Request) {
   } catch {
     return Response.json({ error: "Invalid request." }, { status: 400 });
   }
+  const age_range = pick(body.age_range, AGE_RANGES);
   const profile: Partial<Profile> = {
-    age_range: pick(body.age_range, AGE_RANGES),
+    age_range,
     diabetes: pick(body.diabetes, ANSWERS),
     glaucoma: pick(body.glaucoma, ANSWERS),
     cataract: pick(body.cataract, ANSWERS),
-    research_consent: body.research_consent === true,
+    research_consent: body.research_consent === true && age_range !== "13-17",
   };
   try {
     return Response.json(await db.updateProfile(userId, profile));
