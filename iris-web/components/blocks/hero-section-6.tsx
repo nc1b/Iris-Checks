@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button'
 import { PendingSectionScroll, SectionLink } from '@/components/blocks/section-link'
 import { SiteNav } from '@/components/blocks/site-nav'
 import { CHECKS } from '@/lib/checks'
-import { ArrowDown, ArrowRight, Clock, ScanEye } from 'lucide-react'
+import { ArrowDown, ArrowRight, ScanEye } from 'lucide-react'
+import Link from 'next/link'
 import { useEffect, useRef } from 'react'
 
 const heroImages = {
@@ -51,7 +52,7 @@ export function HeroSection({ children }: { children?: React.ReactNode }) {
                                 <SectionLink
                                     section="checks"
                                     className={`group rounded-lg mx-auto flex w-fit items-center gap-2 border bg-background p-1 pr-3 transition-colors hover:bg-accent lg:ml-0`}>
-                                    <span className="bg-muted rounded-[calc(var(--radius)-0.25rem)] px-2 py-1 text-xs">Coming soon</span>
+                                    <span className="bg-muted rounded-[calc(var(--radius)-0.25rem)] px-2 py-1 text-xs">Research prototype</span>
                                     <span className="text-sm">Eye checks by phone</span>
                                     <span className="bg-(--color-border) block h-4 w-px"></span>
 
@@ -63,7 +64,8 @@ export function HeroSection({ children }: { children?: React.ReactNode }) {
                                 </h1>
                                 <p className="mt-8 text-muted-foreground">
                                     Iris is exploring one 30-second phone scan that looks for signs linked to diabetic retinopathy, glaucoma and cataracts, using
-                                    only your camera and screen light. It&apos;s a student research project, and all three checks are coming soon.
+                                    only your camera and screen light. It&apos;s a student research project: you can try the prototype, but it isn&apos;t a
+                                    medical device and can&apos;t diagnose anything.
                                 </p>
 
                                 <div>
@@ -74,24 +76,26 @@ export function HeroSection({ children }: { children?: React.ReactNode }) {
                                             <ScanEye className="text-muted-foreground pointer-events-none absolute inset-y-0 left-5 my-auto size-5" />
 
                                             <p className="flex h-14 items-center pl-12 text-left text-sm text-muted-foreground">
-                                                Eye scanning isn&apos;t live yet
+                                                Research prototype, not a diagnosis
                                             </p>
 
                                             <div className="md:pr-1.5 lg:pr-0">
                                                 <Button
-                                                    disabled
-                                                    aria-label="Eye scanning coming soon">
-                                                    <span className="hidden md:block">Coming soon</span>
-                                                    <Clock
-                                                        className="relative mx-auto size-5 md:hidden"
-                                                        strokeWidth={2}
-                                                    />
+                                                    asChild
+                                                    aria-label="Try the Iris prototype">
+                                                    <Link href="/scan">
+                                                        <span className="hidden md:block">Try it</span>
+                                                        <ArrowRight
+                                                            className="relative mx-auto size-5 md:hidden"
+                                                            strokeWidth={2}
+                                                        />
+                                                    </Link>
                                                 </Button>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <ul aria-label="The three planned checks" className="flex flex-wrap justify-center gap-2 lg:justify-start">
+                                    <ul aria-label="The three research checks"className="flex flex-wrap justify-center gap-2 lg:justify-start">
                                         {CHECKS.map((c) => (
                                             <li key={c.id}>
                                                 <SectionLink
