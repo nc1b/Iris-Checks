@@ -91,7 +91,7 @@ export default function Home() {
             </p>
             <Button asChild variant="outline" className="mt-8">
               <Link href="/team">
-                <Users className="mr-2 size-4" /> Meet the team <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-[11px]">Coming soon</span>
+                <Users className="mr-2 size-4" /> Meet the team
               </Link>
             </Button>
           </Reveal>
