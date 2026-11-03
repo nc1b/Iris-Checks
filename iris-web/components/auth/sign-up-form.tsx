@@ -103,7 +103,8 @@ export function SignUpForm() {
         <span className="font-light">Join</span> Iris
       </h1>
       <p className="animate-element animate-delay-200 text-muted-foreground">
-        Create an account to try the prototype. Scans are demo data for now; real camera checks are coming soon.
+        Create an account to try the research prototype: an eye photo check, an experimental pupil test and simulated demo scans. It isn&apos;t a
+        medical device.
       </p>
 
       <form className="space-y-5" onSubmit={onCreate}>
