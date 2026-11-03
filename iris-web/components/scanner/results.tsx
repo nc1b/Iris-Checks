@@ -95,7 +95,10 @@ export function Results({
       }),
     })
       .then((r) => r.json())
-      .then((j) => !cancelled && setAi({ text: j.text, source: j.source }))
+      .then((j) => {
+        if (typeof j.text !== "string" || !j.text) throw new Error("no explanation");
+        if (!cancelled) setAi({ text: j.text, source: j.source });
+      })
       .catch(() => !cancelled && setAi({ text: "The AI explanation isn't available right now.", source: "error" }))
       .finally(() => !cancelled && setAiLoading(false));
     return () => {

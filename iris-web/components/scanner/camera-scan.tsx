@@ -6,7 +6,7 @@ import { ArrowLeft, Camera, Check, CircleDashed, Hand, Loader2, RotateCcw, Save,
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CHECK_VIEWS, StatusBadge } from "@/components/dashboard/status";
+import { CHECK_VIEWS, overallSummary, StatusBadge, statusMeaning, usualRange } from "@/components/dashboard/status";
 import type { StimulusColor } from "@/lib/analysis";
 import {
   CLOSE_UP,
@@ -482,9 +482,10 @@ export function CameraScan() {
     setPhoto({ status: "none" });
     setResult(null);
     setSaveError(null);
+    let streamPromise: Promise<MediaStream> | null = null;
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error("unsupported");
-      const streamPromise = navigator.mediaDevices.getUserMedia({
+      streamPromise = navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user", width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } },
         audio: false,
       });
@@ -504,6 +505,7 @@ export function CameraScan() {
       const name = e instanceof Error ? `${e.name} ${e.message}` : String(e);
       console.error("camera scan failed to start", e);
       stopCamera();
+      streamPromise?.then((s) => s.getTracks().forEach((t) => t.stop()), () => {});
       setPhase("intro");
       setError(
         /NotAllowed|Permission|Security/i.test(name)
@@ -920,6 +922,7 @@ function Results({
   const metrics = { ...result.metrics, ...photoMetrics(photo) };
   const statuses = rateScan(metrics);
   const scanLike = { ...statuses } as Pick<Scan, "diabetes_status" | "glaucoma_status" | "cataract_status">;
+  const summary = overallSummary(CHECK_VIEWS.map((c) => c.statusOf(scanLike as Scan)));
   return (
     <main className="mx-auto max-w-3xl px-5 pb-16 pt-6">
       <Link href="/dashboard" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
@@ -927,6 +930,11 @@ function Results({
       </Link>
       <h1 className="mt-6 text-3xl font-bold tracking-tight">Your three results</h1>
       <p className="mt-2 text-muted-foreground">From this camera scan. Save it to see how your checks change over time.</p>
+
+      <section aria-live="polite" className="mt-6 rounded-2xl border bg-card p-4">
+        <h2 className="font-semibold">{summary.title}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{summary.body}</p>
+      </section>
 
       <div className="mt-6 grid gap-3 md:grid-cols-3">
         {CHECK_VIEWS.map((c) => {
@@ -945,6 +953,7 @@ function Results({
             <div className="mt-3">
               <StatusBadge status={status} />
             </div>
+            <p className="mt-3 text-sm">{statusMeaning(status, c.nextStep)}</p>
             <dl className="mt-4 space-y-1 border-t pt-3 text-xs">
               {c.details(metrics).map((d) => (
                 <div key={d.label} className="flex justify-between gap-2">
@@ -953,6 +962,7 @@ function Results({
                 </div>
               ))}
             </dl>
+            <p className="pt-1 text-[11px] text-muted-foreground">{usualRange(c.metric)}</p>
             <p className="mt-auto pt-3 text-[11px] text-muted-foreground">If flagged: {c.nextStep}</p>
           </article>
           );
