@@ -284,7 +284,8 @@ export function combineEyes(recordings: Record<PersonEye, EyeRecording | null>):
   set("hazeLeft", eyes.left?.haze, 3);
   set("hazeRight", eyes.right?.haze, 3);
 
-  const fractions = EYE_ORDER.map((e) => eyes[e]?.analysis.quality.validFraction).filter((v): v is number => v !== undefined);
+  const scanned = usable.length ? usable : EYE_ORDER.map((e) => eyes[e]).filter((e): e is EyeResult => !!e);
+  const fractions = scanned.map((e) => e.analysis.quality.validFraction);
   set("validFraction", fractions.length ? Math.min(...fractions) : null, 2);
 
   const warnings: string[] = [];

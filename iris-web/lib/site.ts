@@ -2,7 +2,7 @@ export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://irischecks.
 export const SITE_NAME = "Iris Checks";
 export const SITE_TAGLINE = "Many eye checks. Just your phone.";
 export const SITE_DESCRIPTION =
-  "Iris Checks is a student research project building a 30-second phone scan that looks for signs linked to diabetic retinopathy, glaucoma and cataracts, using only your camera and screen light. Coming soon.";
+  "Iris Checks is a student research project building a 30-second phone scan that looks for signs linked to diabetic retinopathy, glaucoma and cataracts, using only your camera and screen light. It's a research prototype, not a medical device.";
 
 export const PUBLIC_PAGES: { path: string; priority: number; changeFrequency: "weekly" | "monthly" | "yearly" }[] = [
   { path: "/", priority: 1, changeFrequency: "weekly" },
@@ -13,4 +13,4 @@ export const PUBLIC_PAGES: { path: string; priority: number; changeFrequency: "w
   { path: "/scan", priority: 0.4, changeFrequency: "monthly" },
 ];
 
-export const CONTENT_UPDATED = "2026-10-22";
+export const CONTENT_UPDATED = "2026-11-02";

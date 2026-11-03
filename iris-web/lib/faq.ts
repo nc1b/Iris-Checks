@@ -32,7 +32,7 @@ export const IRIS_FAQS: FAQItem[] = [
   {
     question: "Is eye scanning available yet?",
     answer:
-      "All three checks are coming soon. The website currently shows a concept preview with example data, not a live health assessment. We still need to test capture quality, repeatability, different phones and eye colors, and compare each check with appropriate clinical assessments. There isn't a confirmed launch date yet.",
+      "Yes, as a research prototype. After signing in, you can try an eye photo check and an experimental pupil test. It isn't a medical device, and no result can diagnose or rule out disease. We still need to test repeatability, more phones and eye colors, and compare each check with appropriate clinical assessments. There isn't a launch date for a finished app.",
   },
   {
     question: "Will I need extra equipment or a special phone?",
