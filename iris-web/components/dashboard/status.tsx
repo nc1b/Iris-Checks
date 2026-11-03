@@ -22,6 +22,38 @@ export function StatusBadge({ status, compact }: { status: CheckStatus; compact?
 
 export const statusLabel = (s: CheckStatus) => STATUS[s].label;
 
+export function statusMeaning(status: CheckStatus, nextStep: string) {
+  switch (status) {
+    case "typical":
+      return "Your numbers were inside the usual range. That doesn't rule anything out, so keep up regular eye exams.";
+    case "borderline":
+      return "One or more numbers were near the edge of the usual range. Lighting or movement often causes this, so scan again. If it stays borderline, mention it at your next eye exam.";
+    case "see_doctor":
+      return `Your numbers were outside the usual range. This is not a diagnosis, but it's worth booking ${nextStep.charAt(0).toLowerCase()}${nextStep.slice(1)}.`;
+    case "unclear":
+      return "The recording wasn't clear enough to judge, so Iris didn't guess. Scan again in soft, even light and hold the phone steady.";
+  }
+}
+
+export function overallSummary(statuses: CheckStatus[]) {
+  const unclear = statuses.filter((s) => s === "unclear").length;
+  if (statuses.includes("see_doctor"))
+    return { title: "Iris suggests an eye exam", body: "At least one check was outside the usual range. Iris can't diagnose anything, but an eye doctor can check properly." };
+  if (statuses.includes("borderline"))
+    return { title: "Worth a second look", body: "Nothing was clearly outside the usual range, but something was close. Scan again in soft, even light to confirm." };
+  if (unclear === statuses.length)
+    return { title: "Let's try that again", body: "Iris couldn't see your pupils clearly enough to judge any check. Scan again in soft light, close and steady." };
+  return {
+    title: "Nothing stood out",
+    body: `${unclear ? "The checks Iris could judge looked typical; scan again for the unclear ones. " : "All three checks looked typical. "}This doesn't rule anything out, so keep up regular eye exams.`,
+  };
+}
+
+export function usualRange(metric: CheckView["metric"]) {
+  const { min, max } = metric.typical;
+  return min !== undefined ? `Usual: ${min}${metric.unit} or more` : max !== undefined ? `Usual: under ${max}${metric.unit}` : "";
+}
+
 export type CheckView = Check & {
   statusOf: (scan: Scan) => CheckStatus;
   metric: { label: string; unit: string; value: (m: ScanMetrics) => number | undefined; typical: { min?: number; max?: number }; better: "higher" | "lower" };
