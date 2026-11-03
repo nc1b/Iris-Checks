@@ -70,7 +70,12 @@ export function ProfileCard({ profile, onSave }: { profile: Profile; onSave: (fo
       <div className="mt-5 space-y-5">
         <div>
           <p className="mb-2 text-sm font-medium">Age range</p>
-          <Chips label="Age range" value={form.age_range} options={AGE_RANGES} onChange={(v) => set({ age_range: v })} />
+          <Chips
+            label="Age range"
+            value={form.age_range}
+            options={AGE_RANGES}
+            onChange={(v) => set(v === "13-17" ? { age_range: v, research_consent: false } : { age_range: v })}
+          />
         </div>
         {questions.map((q) => (
           <div key={q.key}>
@@ -84,9 +89,15 @@ export function ProfileCard({ profile, onSave }: { profile: Profile; onSave: (fo
             <span className="block text-sm font-medium">Use my results for research</span>
             <span className="mt-0.5 block text-xs text-muted-foreground">
               Lets the team include your scan numbers (never images or your email) in the pilot study analysis.
+              {form.age_range === "13-17" && " If you're under 18, a parent or guardian has to give written consent first, so this stays off for now."}
             </span>
           </span>
-          <Switch checked={form.research_consent} onCheckedChange={(v) => set({ research_consent: v })} aria-label="Use my results for research" />
+          <Switch
+            checked={form.research_consent}
+            disabled={form.age_range === "13-17"}
+            onCheckedChange={(v) => set({ research_consent: v })}
+            aria-label="Use my results for research"
+          />
         </label>
       </div>
 
