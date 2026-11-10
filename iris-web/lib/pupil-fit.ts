@@ -431,5 +431,13 @@ function measureHazeFit(P: Planes, iris: Circle, pupil: Circle | null): number |
   const r = Math.min(c.r * 0.6, iris.r * 0.15);
   const middle = ringSamples(P, P.luma, c.x, c.y, 0, r, RAY_DIRS, 4);
   if (middle.length < 12) return null;
-  return Math.min(1, Math.max(0, quantile(middle, 0.3) / white));
+  const level = quantile(middle, 0.3);
+  const haze = Math.min(1, Math.max(0, level / white));
+  const tissue = quantile(ringSamples(P, P.luma, iris.x, iris.y, iris.r * 0.55, iris.r * 0.85, SIDE_DIRS), 0.5);
+  if (!Number.isFinite(tissue) || haze <= CLEAR_PUPIL) return haze;
+  const apart = Math.abs(level - tissue) >= Math.max(PUPIL_APART.levels, tissue * PUPIL_APART.fraction);
+  return apart ? haze : null;
 }
+
+const CLEAR_PUPIL = 0.1;
+const PUPIL_APART = { levels: 6, fraction: 0.15 };

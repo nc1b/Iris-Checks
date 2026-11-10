@@ -43,18 +43,14 @@ export function rateGlaucoma(m: ScanMetrics): CheckStatus {
 
 export function rateCataract(m: ScanMetrics): CheckStatus {
   const values = [m.hazeLeft, m.hazeRight].filter((v): v is number => v !== undefined && Number.isFinite(v));
-  const haze: CheckStatus | null = values.length
-    ? Math.max(...values) < HAZE.typical
-      ? "typical"
-      : Math.max(...values) < HAZE.borderline
-        ? "borderline"
-        : "see_doctor"
-    : null;
+  const worst = values.length ? Math.max(...values) : null;
+  const haze: CheckStatus | null =
+    worst === null ? null : worst >= HAZE.borderline ? "see_doctor" : worst >= HAZE.typical ? "borderline" : values.length < 2 ? "unclear" : "typical";
   const t = PHOTO_THRESHOLDS.cataract;
   const photo: CheckStatus | null =
     m.photoCataract === undefined || (m.photoCataract < t && m.photoCataract >= t * 0.6) ? null : m.photoCataract >= t ? "borderline" : "typical";
   if (!haze && !photo) return "unclear";
-  if (haze && photo && haze !== "typical" && photo === "borderline") return "see_doctor";
+  if ((haze === "borderline" || haze === "see_doctor") && photo === "borderline") return "see_doctor";
   return worse(haze ?? "typical", photo ?? "typical");
 }
 

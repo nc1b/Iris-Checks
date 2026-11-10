@@ -453,8 +453,8 @@ export function CameraScan() {
         else if (next.tracking === 0) pupilMmRef.current = null;
         const good = holdRef.current.update(ts / 1000, next);
         next.pupilUnseen = holdRef.current.pupilUnseen();
-        if (target && next.centered && next.distance === "ok" && next.open && (next.sharp || next.pupilUnseen) && next.steady) {
-          const score = next.sharp ? target.contrast * target.coverage : 1;
+        if (target && next.centered && next.distance === "ok" && next.open && next.sharp && next.steady) {
+          const score = target.contrast * target.coverage;
           const kept = eyePhotosRef.current[targetEye];
           if ((!kept || score > kept.score) && ts - (kept?.at ?? 0) > 200) {
             const canvas = captureEyePhoto(video, target.cx, target.cy, target.eyeWidth * 1.1);
