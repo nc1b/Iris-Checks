@@ -152,6 +152,27 @@ export class Steadiness {
   }
 }
 
+export const PUPIL_STABLE = { window: 0.6, minReadings: 5, maxSpread: 0.15 };
+
+export class PupilStability {
+  private history: { t: number; ratio: number }[] = [];
+
+  reset() {
+    this.history = [];
+  }
+
+  update(t: number, target: EyeReading | null) {
+    const h = this.history;
+    while (h.length && t - h[0].t > PUPIL_STABLE.window) h.shift();
+    if (!target || !Number.isFinite(target.pupilR) || !(target.irisR > 0)) return false;
+    const ratio = target.pupilR / target.irisR;
+    h.push({ t, ratio });
+    if (h.length < PUPIL_STABLE.minReadings) return false;
+    const mid = median(h.map((p) => p.ratio));
+    return mid !== null && Math.abs(ratio - mid) <= mid * PUPIL_STABLE.maxSpread;
+  }
+}
+
 export function recordedIrisPx(rec: EyeRecording, side: ImageSide) {
   return median(rec.samples.map((s) => s[side]?.irisPx ?? NaN));
 }

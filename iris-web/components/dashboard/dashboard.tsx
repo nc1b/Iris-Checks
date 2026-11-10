@@ -375,7 +375,7 @@ function StatTiles({ data }: { data: DashboardData }) {
       })(),
     },
     { label: "Last scan", value: latest ? relative(latest.created_at) : "–", sub: latest ? dateTime.format(new Date(latest.created_at)) : "No scans yet" },
-    { label: "Latest scan", value: typical === null ? "–" : `${typical} of 3`, sub: "checks look typical" },
+    { label: "Latest scan", value: typical === null ? "–" : `${typical} of 3`, sub: typical === null ? "No scans yet" : "checks look typical" },
     { label: "Research sharing", value: data.profile.research_consent ? "On" : "Off", sub: data.profile.research_consent ? "Numbers only, never images" : "You can turn it on below" },
   ];
   return (

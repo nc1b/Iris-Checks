@@ -6,7 +6,7 @@ import { SCAN_CROP_SPAN } from "@/lib/eye-tracker";
 import { findEyeCircles, findLimbus, toGrey, type Circle } from "@/lib/limbus";
 import { measureQuality } from "@/lib/photo-quality";
 import { CROP_SPAN, eyeAspectRatio, LANDMARKS, measurePupil } from "@/lib/pupil";
-import { fitEye } from "@/lib/pupil-fit";
+import { fitEye, irisEdges } from "@/lib/pupil-fit";
 import { IRIS_DIAMETER_MM } from "@/lib/reference";
 
 const MEDIAPIPE_VERSION = "1.1.1";
@@ -124,7 +124,22 @@ export function findEye(source: Source, opts: FindOptions = {}): EyeFound | null
   }
 
   const found = (near && around(near)) || findEyeCircles(g, { rMin: canvas.width * 0.05, rMax: canvas.width * 0.3 }).iris;
-  return found ? { method: "iris-search", iris: fromSmall(found), corners: null, openness: null } : null;
+  if (!found) return null;
+  const iris = fromSmall(found);
+  return looksLikeIris(source, iris) ? { method: "iris-search", iris, corners: null, openness: null } : null;
+}
+
+let irisCheck: HTMLCanvasElement | null = null;
+
+function looksLikeIris(source: Source, iris: IrisGuess) {
+  irisCheck ??= document.createElement("canvas");
+  irisCheck.width = irisCheck.height = PRECISION_CROP;
+  const ctx = irisCheck.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return true;
+  const half = iris.r * SCAN_CROP_SPAN;
+  ctx.drawImage(source, iris.x - half, iris.y - half, half * 2, half * 2, 0, 0, PRECISION_CROP, PRECISION_CROP);
+  const mid = PRECISION_CROP / 2;
+  return irisEdges(ctx.getImageData(0, 0, PRECISION_CROP, PRECISION_CROP), { x: mid, y: mid, r: mid / SCAN_CROP_SPAN });
 }
 
 export type EyeMeasure = EyeFound & {

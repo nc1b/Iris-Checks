@@ -22,6 +22,7 @@ import {
   nextScreenLight,
   OTHER_EYE,
   PRECISION_CROP,
+  PupilStability,
   recordedIrisPx,
   recordFrame,
   SCREEN_LIGHT,
@@ -108,6 +109,7 @@ export function CameraScan() {
   const [eye, setEye] = useState<PersonEye>("right");
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [waitingForCamera, setWaitingForCamera] = useState(false);
   const [align, setAlign] = useState<Align>(EMPTY_ALIGN);
   const [manualStart, setManualStart] = useState(false);
   const [countdown, setCountdown] = useState(3);
@@ -130,6 +132,7 @@ export function CameraScan() {
   const eyeRef = useRef<PersonEye>("right");
   const holdRef = useRef(new LineUpHold());
   const steadyRef = useRef(new Steadiness());
+  const stableRef = useRef(new PupilStability());
   const trackRef = useRef<boolean[]>([]);
   const pupilMmRef = useRef<number | null>(null);
   const trackerRef = useRef(new EyeTracker());
@@ -279,6 +282,7 @@ export function CameraScan() {
       clearTimers();
       holdRef.current.reset();
       steadyRef.current.reset();
+      stableRef.current.reset();
       trackerRef.current.reset();
       otherSeenRef.current = 0;
       trackRef.current = [];
@@ -391,6 +395,7 @@ export function CameraScan() {
           ? trackerRef.current.track(src, {
               model: has ? landmarkIris(lm, targetSide, vw, vh) : null,
               face: has ? faceEye(lm, targetSide, vw, vh) : null,
+              avoid: has ? landmarkIris(lm, IMAGE_SIDE[OTHER_EYE[targetEye]], vw, vh) : null,
               ring: ringSearch(vw, vh, overlayRef.current),
               ts,
               recording: current !== "align",
@@ -412,7 +417,7 @@ export function CameraScan() {
         const match = second ? (firstEyeRef.current?.irisR ?? null) : null;
         const checks = frameChecks(target, match);
         const steady = steadyRef.current.update(ts / 1000, target);
-        const { sharp } = checks;
+        const sharp = stableRef.current.update(ts / 1000, target) && checks.sharp;
         const otherVisible = !!other && other.ear >= 0.15 && Number.isFinite(other.pupilR) && other.contrast >= CLOSE_UP.minContrast && other.coverage >= CLOSE_UP.minCoverage;
         otherSeenRef.current = otherVisible ? otherSeenRef.current + 1 : 0;
         trackRef.current.push(sharp);
@@ -438,12 +443,14 @@ export function CameraScan() {
           sharp,
           covered: otherSeenRef.current < CLOSE_UP.uncoveredFrames,
           steady,
-          pupilMm: pupilMmRef.current,
+          pupilMm: null,
           tracking: trackRef.current.filter(Boolean).length / Math.max(1, trackRef.current.length),
           hold: 0,
           light: lightLevel === null ? null : lightLevel < LIGHT.dark ? "dark" : lightLevel > LIGHT.bright ? "bright" : "ok",
           screen: screenRef.current,
         };
+        if (next.tracking >= 0.5) next.pupilMm = pupilMmRef.current;
+        else if (next.tracking === 0) pupilMmRef.current = null;
         const good = holdRef.current.update(ts / 1000, next);
         next.pupilUnseen = holdRef.current.pupilUnseen();
         if (target && next.centered && next.distance === "ok" && next.open && (next.sharp || next.pupilUnseen) && next.steady) {
@@ -483,12 +490,21 @@ export function CameraScan() {
     setResult(null);
     setSaveError(null);
     let streamPromise: Promise<MediaStream> | null = null;
+    setWaitingForCamera(false);
+    const permissionHint = window.setTimeout(() => setWaitingForCamera(true), 2500);
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error("unsupported");
       streamPromise = navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user", width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } },
         audio: false,
       });
+      streamPromise.then(
+        () => {
+          window.clearTimeout(permissionHint);
+          setWaitingForCamera(false);
+        },
+        () => {},
+      );
       if (!landmarkerRef.current) {
         const vision = await import("@mediapipe/tasks-vision");
         const fileset = await vision.FilesetResolver.forVisionTasks(WASM_URL);
@@ -504,6 +520,8 @@ export function CameraScan() {
     } catch (e) {
       const name = e instanceof Error ? `${e.name} ${e.message}` : String(e);
       console.error("camera scan failed to start", e);
+      window.clearTimeout(permissionHint);
+      setWaitingForCamera(false);
       stopCamera();
       streamPromise?.then((s) => s.getTracks().forEach((t) => t.stop()), () => {});
       setPhase("intro");
@@ -573,7 +591,7 @@ export function CameraScan() {
   return (
     <div className="min-h-[100dvh] bg-background">
       {phase === "intro" || phase === "loading" ? (
-        <Intro consent={consent} onConsent={setConsent} onStart={openCamera} loading={phase === "loading"} error={error} />
+        <Intro consent={consent} onConsent={setConsent} onStart={openCamera} loading={phase === "loading"} waitingForCamera={waitingForCamera} error={error} />
       ) : null}
 
       {phase === "results" && result ? (
@@ -829,12 +847,14 @@ function Intro({
   onConsent,
   onStart,
   loading,
+  waitingForCamera,
   error,
 }: {
   consent: boolean;
   onConsent: (v: boolean) => void;
   onStart: () => void;
   loading: boolean;
+  waitingForCamera: boolean;
   error: string | null;
 }) {
   return (
@@ -898,8 +918,13 @@ function Intro({
         className="mt-6 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-foreground text-sm font-semibold text-background transition-opacity hover:opacity-90 disabled:opacity-40"
       >
         {loading ? <Loader2 className="size-4 animate-spin" /> : <Camera className="size-4" />}
-        {loading ? "Loading the eye tracker…" : "Open camera"}
+        {loading ? (waitingForCamera ? "Waiting for the camera…" : "Loading the eye tracker…") : "Open camera"}
       </button>
+      {loading && waitingForCamera && (
+        <p role="status" className="mt-3 text-center text-sm text-muted-foreground">
+          Your browser is asking to use the camera. Choose Allow to carry on.
+        </p>
+      )}
     </main>
   );
 }

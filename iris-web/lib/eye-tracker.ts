@@ -72,14 +72,18 @@ export function readEye(src: FrameSource, iris: IrisGuess, face: FaceEye | null,
 export const LOCK_MS = 1500;
 const ROUGH_LOCK_MS = 400;
 const RECORDING_SIZE_TOLERANCE = 0.12;
+const HOLD_LOST_MS = 600;
+const FACE_REACH = 5;
 
 type Lock = IrisFound & { at: number; fitted: boolean };
 
 export class EyeTracker {
   private lock: Lock | null = null;
+  private fittedAt = 0;
 
   reset() {
     this.lock = null;
+    this.fittedAt = 0;
   }
 
   track(
@@ -90,20 +94,31 @@ export class EyeTracker {
       ring,
       ts,
       recording,
+      avoid = null,
     }: {
       model: IrisGuess | null;
       face: FaceEye | null;
+      avoid?: IrisGuess | null;
       ring: { guess: IrisGuess; reach: number; radii: number[] };
       ts: number;
       recording: boolean;
     },
   ): EyeReading | null {
-    const lock = this.lock;
-    const fresh = lock && ts - lock.at < (lock.fitted ? LOCK_MS : ROUGH_LOCK_MS) ? lock : null;
+    const faceSeen = model && model.r >= 3 ? model : null;
+    const onFace = (c: IrisGuess) => {
+      if (!faceSeen) return true;
+      const d = Math.hypot(c.x - faceSeen.x, c.y - faceSeen.y);
+      if (d > Math.max(faceSeen.r * FACE_REACH, face?.eyeWidth ?? 0)) return false;
+      return !avoid || d <= Math.hypot(c.x - avoid.x, c.y - avoid.y);
+    };
+    const lock = this.lock && onFace(this.lock) ? this.lock : null;
+    const lost = recording && !!lock?.fitted && ts - this.fittedAt > HOLD_LOST_MS;
+    const fresh = lock && !lost && ts - lock.at < (lock.fitted ? LOCK_MS : ROUGH_LOCK_MS) ? lock : null;
     const faceFor = (c: IrisGuess) => (model && Math.hypot(model.x - c.x, model.y - c.y) < c.r * 0.8 ? face : null);
     const hold = recording && fresh ? fresh.r : null;
     const tolerance = hold ? RECORDING_SIZE_TOLERANCE : undefined;
     const keep = (reading: EyeReading, score: number) => {
+      this.fittedAt = ts;
       this.lock = { x: reading.cx, y: reading.cy, r: hold ? hold * 0.8 + reading.irisR * 0.2 : reading.irisR, score, at: ts, fitted: true };
       return reading;
     };
@@ -123,7 +138,7 @@ export class EyeTracker {
     if (grey) {
       for (const s of searches) {
         const f = findIris(grey, s.guess, s.reach, s.radii);
-        if (f && !candidates.some((c) => Math.hypot(c.x - f.x, c.y - f.y) < c.r * 0.3)) candidates.push(f);
+        if (f && onFace(f) && !candidates.some((c) => Math.hypot(c.x - f.x, c.y - f.y) < c.r * 0.3)) candidates.push(f);
       }
     }
     if (model && model.r >= 3 && !candidates.length) candidates.push({ ...model, score: 0 });

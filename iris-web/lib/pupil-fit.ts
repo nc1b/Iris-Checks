@@ -219,10 +219,20 @@ function fitLimbus(P: Planes, guess: Circle): Circle | null {
     return quantile(v, 0.5);
   };
   for (const side of [-1, 1]) {
-    const darker = Math.max(level(P.luma, side, 1.12, 1.3) - level(P.luma, side, 0.6, 0.85), level(P.white, side, 1.12, 1.3) - level(P.white, side, 0.6, 0.85));
-    if (!(darker >= 15)) return null;
+    const whiter = level(P.white, side, 1.12, 1.3) - level(P.white, side, 0.6, 0.85);
+    const darker = Math.max(level(P.luma, side, 1.12, 1.3) - level(P.luma, side, 0.6, 0.85), whiter);
+    if (!(darker >= 15) || !(whiter > 0)) return null;
   }
   return { x: c.x, y: c.y, r: c.r };
+}
+
+export function irisEdges(img: ImageData, guess: Circle, sizeTolerance = 0.35) {
+  const P = planes(img);
+  const tissue = quantile(ringSamples(P, P.luma, guess.x, guess.y, guess.r * 0.55, guess.r * 0.85, SIDE_DIRS), 0.5);
+  if (!Number.isFinite(tissue)) return false;
+  if (tissue < 200) markGlare(P, Math.min(240, tissue + Math.max(35, 0.4 * (255 - tissue))), { x: guess.x, y: guess.y, r: guess.r * 1.05 });
+  const fitted = fitLimbus(P, guess);
+  return !!fitted && Math.abs(fitted.r / guess.r - 1) <= sizeTolerance;
 }
 
 export function fitEye(img: ImageData, guess: Circle, sizeTolerance = 0.35): EyeFit {

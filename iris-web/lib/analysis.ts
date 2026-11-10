@@ -74,6 +74,7 @@ export type Analysis = {
 const FPS = 30;
 const MIN_REST_CONTRAST = 18;
 const MIN_FPS = 8;
+const MAX_REST_SPREAD = 0.1;
 
 function median(values: number[]) {
   const s = values.filter(Number.isFinite).sort((a, b) => a - b);
@@ -221,11 +222,17 @@ export function analyse(samples: Sample[], protocol: Protocol): Analysis {
   const between = (t: number) => !protocol.stimuli.some((st) => t >= st.onset && t < st.offset + 0.5);
   const restContrast = median(samples.filter((s) => between(s.t)).flatMap((s) => [s.left?.contrast ?? NaN, s.right?.contrast ?? NaN]));
 
+  const firstStim = protocol.stimuli[0]?.onset ?? 0;
   const reasons: string[] = [];
   if (validFraction < 0.5) reasons.push("The pupil was only tracked in part of the recording (blinks, movement, or poor lighting).");
   if (fps < MIN_FPS) reasons.push("This phone processed too few frames to time the reflex. Close other apps and try again.");
   if (!(restContrast >= MIN_REST_CONTRAST))
     reasons.push("The pupil was hard to see against the iris (common with dark eyes). Turn your screen brightness all the way up, use a brighter room (but not sunlight), and hold the phone closer.");
+  const restPoints = raw.filter((p) => p.t >= firstStim - 1.5 && p.t < firstStim).map((p) => p.r);
+  const restMid = median(restPoints);
+  const restSpread = median(restPoints.map((r) => Math.abs(r - restMid))) * 1.4826;
+  if (restPoints.length >= 5 && restSpread > restMid * MAX_REST_SPREAD)
+    reasons.push("The pupil reading jumped around before the flash, so it can't be trusted. This happens when the pupil is hard to tell apart from a dark iris.");
   if (!main) reasons.push("No clear response to the flash was recorded.");
   const ok = reasons.length === 0;
 

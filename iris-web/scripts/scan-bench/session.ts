@@ -9,6 +9,7 @@ import {
   nextScreenLight,
   recordFrame,
   Steadiness,
+  PupilStability,
   recordedIrisPx,
   type EyeRecording,
   type PersonEye,
@@ -193,6 +194,7 @@ export function runScan(seed: number, opts: { person?: Person; truth?: Truth; co
     let frame = seed * 100000 + (eye === "right" ? 0 : 50000);
     const hold = new LineUpHold();
     const steadiness = new Steadiness();
+    const stability = new PupilStability();
     let locked: number | null = null;
     const alignBlinks = Array.from({ length: 3 }, () => uniform(rng, 0.5, ALIGN_MAX));
     const fails = { found: 0, centered: 0, distance: 0, open: 0, sharp: 0, steady: 0 };
@@ -208,6 +210,7 @@ export function runScan(seed: number, opts: { person?: Person; truth?: Truth; co
       opts.hook?.({ eye, phase: "align", t, cam, reading });
       const second = eye !== EYE_ORDER[0];
       const checks = { ...frameChecks(reading, second ? firstIris : null), steady: steadiness.update(t, reading) };
+      checks.sharp = stability.update(t, reading) && checks.sharp;
       screen = nextScreenLight(screen, reading?.light ?? null, second);
       const dir = checks.distance === "far" || checks.distance === "close" ? checks.distance : null;
       if (dir !== toldDir) {
