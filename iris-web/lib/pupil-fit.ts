@@ -235,6 +235,37 @@ export function irisEdges(img: ImageData, guess: Circle, sizeTolerance = 0.35) {
   return !!fitted && Math.abs(fitted.r / guess.r - 1) <= sizeTolerance;
 }
 
+export const WHITE_BOUND = { near: [1.12, 1.3], far: [2.0, 2.6], margin: 0.08 };
+
+export function whiteIsBounded(img: ImageData, c: Circle): boolean | null {
+  const { width: w, height: h, data } = img;
+  const sat = (k0: number, k1: number, side: number) => {
+    const v: number[] = [];
+    for (let i = 0; i < 4; i++) {
+      const k = k0 + ((k1 - k0) * i) / 3;
+      for (let a = -25; a <= 25; a += 5) {
+        const x = Math.round(c.x + side * c.r * k * Math.cos((a * Math.PI) / 180));
+        const y = Math.round(c.y + c.r * k * Math.sin((a * Math.PI) / 180));
+        if (x < 0 || y < 0 || x >= w || y >= h) continue;
+        const o = (y * w + x) * 4;
+        const luma = 0.299 * data[o] + 0.587 * data[o + 1] + 0.114 * data[o + 2];
+        if (luma < 8 || luma > 250) continue;
+        v.push(1 - Math.min(data[o], data[o + 1], data[o + 2]) / luma);
+      }
+    }
+    return v.length >= 12 ? quantile(v, 0.5) : null;
+  };
+  let known = false;
+  for (const side of [-1, 1]) {
+    const near = sat(WHITE_BOUND.near[0], WHITE_BOUND.near[1], side);
+    const far = sat(WHITE_BOUND.far[0], WHITE_BOUND.far[1], side);
+    if (near === null || far === null) continue;
+    known = true;
+    if (far - near >= WHITE_BOUND.margin) return true;
+  }
+  return known ? false : null;
+}
+
 export function fitEye(img: ImageData, guess: Circle, sizeTolerance = 0.35): EyeFit {
   const P = planes(img);
   const n = P.w * P.h;

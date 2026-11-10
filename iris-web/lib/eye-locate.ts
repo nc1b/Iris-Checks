@@ -6,7 +6,7 @@ import { SCAN_CROP_SPAN } from "@/lib/eye-tracker";
 import { findEyeCircles, findLimbus, toGrey, type Circle } from "@/lib/limbus";
 import { measureQuality } from "@/lib/photo-quality";
 import { CROP_SPAN, eyeAspectRatio, LANDMARKS, measurePupil } from "@/lib/pupil";
-import { fitEye, irisEdges } from "@/lib/pupil-fit";
+import { fitEye, irisEdges, whiteIsBounded } from "@/lib/pupil-fit";
 import { IRIS_DIAMETER_MM } from "@/lib/reference";
 
 const MEDIAPIPE_VERSION = "1.1.1";
@@ -139,8 +139,23 @@ function looksLikeIris(source: Source, iris: IrisGuess) {
   const half = iris.r * SCAN_CROP_SPAN;
   ctx.drawImage(source, iris.x - half, iris.y - half, half * 2, half * 2, 0, 0, PRECISION_CROP, PRECISION_CROP);
   const mid = PRECISION_CROP / 2;
-  return irisEdges(ctx.getImageData(0, 0, PRECISION_CROP, PRECISION_CROP), { x: mid, y: mid, r: mid / SCAN_CROP_SPAN });
+  if (!irisEdges(ctx.getImageData(0, 0, PRECISION_CROP, PRECISION_CROP), { x: mid, y: mid, r: mid / SCAN_CROP_SPAN })) return false;
+  const { w, h } = sizeOf(source);
+  const wide = iris.r * WIDE_SPAN;
+  const x0 = Math.max(0, iris.x - wide);
+  const y0 = Math.max(0, iris.y - wide);
+  const x1 = Math.min(w, iris.x + wide);
+  const y1 = Math.min(h, iris.y + wide);
+  if (x1 - x0 < 2 || y1 - y0 < 2) return true;
+  const k = PRECISION_CROP / (2 * wide);
+  irisCheck.width = Math.max(1, Math.round((x1 - x0) * k));
+  irisCheck.height = Math.max(1, Math.round((y1 - y0) * k));
+  ctx.drawImage(source, x0, y0, x1 - x0, y1 - y0, 0, 0, irisCheck.width, irisCheck.height);
+  const bounded = whiteIsBounded(ctx.getImageData(0, 0, irisCheck.width, irisCheck.height), { x: (iris.x - x0) * k, y: (iris.y - y0) * k, r: iris.r * k });
+  return bounded !== false;
 }
+
+const WIDE_SPAN = 2.8;
 
 export type EyeMeasure = EyeFound & {
   pupilR: number | null;
